@@ -1,0 +1,240 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. Build both browser targets ────────────────────────────────────────────
+  build:
+    name: Build (Chrome + Firefox)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Chrome
+        run: npm run build:chrome
+
+      - name: Build Firefox
+        run: npm run build:firefox
+
+      - name: Upload Chrome dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-chrome
+          path: dist/chrome/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Firefox dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-firefox
+          path: dist/firefox/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ── 2. Unit tests (no browser required) ──────────────────────────────────────
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  # ── 3. E2E tests (Playwright + real Chromium extension) ──────────────────────
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Chrome build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-chrome
+          path: dist/chrome/
+
+      - name: Cache Playwright / Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers + system dependencies
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 30
+
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: tests/screenshots/
+          retention-days: 14
+
+  # ── 4. Package distributable zips (push events only) ─────────────────────────
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs: [unit, e2e]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Chrome build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-chrome
+          path: dist/chrome/
+
+      - name: Download Firefox build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-firefox
+          path: dist/firefox/
+
+      - name: Create distribution zips
+        run: npm run zip
+
+      - name: Rename zips with browser suffix
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mv artifacts/chrome/*.zip "artifacts/chrome/financial-finger-${VERSION}-chrome.zip"
+          mv artifacts/firefox/*.zip "artifacts/firefox/financial-finger-${VERSION}-firefox.zip"
+
+      - name: Upload Chrome zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-finger-chrome
+          path: artifacts/chrome/*.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload Firefox zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-finger-firefox
+          path: artifacts/firefox/*.zip
+          if-no-files-found: error
+          retention-days: 90
+
+  # ── 5. SLSA build-provenance attestation (tags only) ─────────────────────────
+  attest:
+    name: Attest build provenance
+    runs-on: ubuntu-latest
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      id-token: write     # required to mint the OIDC token for Sigstore signing
+      attestations: write # required to publish the attestation to the GitHub API
+      contents: read
+    steps:
+      - name: Download Chrome zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-chrome
+          path: release/chrome/
+
+      - name: Download Firefox zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-firefox
+          path: release/firefox/
+
+      - name: Attest Chrome build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/chrome/*.zip
+
+      - name: Attest Firefox build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/firefox/*.zip
+
+  # ── 6. GitHub Release (tags only, after attestation) ─────────────────────────
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: attest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Chrome zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-chrome
+          path: release/
+
+      - name: Download Firefox zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-firefox
+          path: release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
