@@ -1,0 +1,72 @@
+@import '@/app/styles/variables.css';
+
+.unlock-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.unlock-header {
+  text-align: center;
+}
+
+.unlock-header h1 {
+  font-size: var(--text-2xl);
+  color: var(--ff-navy);
+  margin-bottom: var(--space-2);
+}
+
+.unlock-header p {
+  color: var(--color-text-muted);
+}
+
+.unlock-mascot {
+  display: flex;
+  justify-content: center;
+}
+
+.unlock-mascot svg {
+  width: 80px;
+  height: 96px;
+}
+
+.unlock-fingerprint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  word-break: break-all;
+}
+
+.file-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.file-name-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unlock-or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.unlock-or::before,
+.unlock-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}

@@ -1,0 +1,384 @@
+@import '@/app/styles/variables.css';
+
+.expenses-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+.expenses-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.expenses-total {
+  text-align: right;
+}
+
+.expenses-total-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.expenses-total-value {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  color: var(--ff-rust);
+}
+
+/* ── Category chips ─────────────────────────────────────────────────────── */
+
+.category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: opacity var(--ease-default), box-shadow var(--ease-default);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.category-chip .chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-chip.active {
+  border-color: currentColor;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08);
+}
+
+.category-chip-all {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background var(--ease-default), color var(--ease-default);
+}
+
+.category-chip-all.active {
+  background: var(--ff-navy);
+  color: var(--ff-cream);
+  border-color: var(--ff-navy);
+}
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+
+.filter-bar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.filter-btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--ease-default), color var(--ease-default), border-color var(--ease-default);
+}
+
+.filter-btn.active {
+  background: var(--ff-navy);
+  color: var(--ff-cream);
+  border-color: var(--ff-navy);
+}
+
+.filter-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+}
+
+/* ── Category management ────────────────────────────────────────────────── */
+
+.category-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.category-pill-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  border: 1.5px solid var(--color-border);
+}
+
+.category-pill-manage .chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.category-pill-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  padding: 0;
+  line-height: 1;
+  transition: color var(--ease-default);
+}
+
+.category-pill-remove:hover { color: var(--color-danger); }
+
+/* ── Color swatch picker ────────────────────────────────────────────────── */
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform var(--ease-default), border-color var(--ease-default);
+}
+
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: var(--color-text); }
+
+/* ── Expense list ───────────────────────────────────────────────────────── */
+
+.expense-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.expense-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.expense-group-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.expense-group-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  flex: 1;
+}
+
+.expense-group-total {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--ff-rust);
+}
+
+.expense-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: box-shadow var(--ease-default);
+}
+
+.expense-row:hover { box-shadow: var(--shadow-sm); }
+
+.expense-row-desc {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.expense-row-date {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.expense-row-recur {
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(45,90,39,0.12);
+  color: var(--ff-green);
+  border: 1px solid rgba(45,90,39,0.2);
+  white-space: nowrap;
+}
+
+.expense-row-amount {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--ff-rust);
+  white-space: nowrap;
+}
+
+.expense-row-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* ── Expense form ───────────────────────────────────────────────────────── */
+
+.expense-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.expense-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.recur-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-sunken);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+/* ── Bill status badges ──────────────────────────────────────────────────── */
+
+.expense-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.expense-badge--paid {
+  background: rgba(45, 90, 39, 0.12);
+  color: var(--ff-green);
+  border: 1px solid rgba(45, 90, 39, 0.3);
+}
+
+.expense-badge--past-due {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--color-danger);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  animation: bill-pulse-danger 2s ease-in-out infinite;
+}
+
+.expense-badge--due-soon {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+@keyframes bill-pulse-danger {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+/* ── Bill row status wrappers ────────────────────────────────────────────── */
+
+.expense-bill-wrap {
+  border-radius: var(--radius-md);
+}
+
+.expense-bill-wrap--past-due {
+  box-shadow: inset 4px 0 0 var(--color-danger);
+}
+
+.expense-bill-wrap--due-soon {
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+
+.expense-bill-wrap--paid {
+  box-shadow: inset 4px 0 0 var(--ff-green);
+}
+
+/* ── Threshold badge ─────────────────────────────────────────────────────── */
+
+.expense-threshold-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--ff-gold-dark);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  white-space: nowrap;
+  margin-left: var(--space-1);
+  vertical-align: middle;
+}
+
+/* ── Mark Paid button ────────────────────────────────────────────────────── */
+
+.mark-paid-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-full);
+  border: 1.5px solid rgba(45, 90, 39, 0.4);
+  background: rgba(45, 90, 39, 0.08);
+  color: var(--ff-green);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ease-default), border-color var(--ease-default);
+}
+
+.mark-paid-btn:hover {
+  background: rgba(45, 90, 39, 0.18);
+  border-color: var(--ff-green);
+}

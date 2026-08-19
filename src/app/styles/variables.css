@@ -1,0 +1,115 @@
+:root {
+  /* Brand palette — late 1890s Southern farm meets gold rush */
+  --ff-gold:        #C9A84C;
+  --ff-gold-dark:   #8B6914;
+  --ff-gold-light:  #F0D898;
+  --ff-navy:        #1B2A4A;
+  --ff-navy-mid:    #2E4170;
+  --ff-green:       #2D5A27;
+  --ff-green-light: #4A7C43;
+  --ff-rust:        #B45309;
+  --ff-sage:        #6B7F5E;
+
+  /* Surfaces */
+  --ff-cream:       #FAF4E8;
+  --ff-cream-dark:  #F0E8D4;
+  --ff-white:       #FFFFFF;
+  --ff-charcoal:    #2C2416;
+  --ff-muted:       #7A6A52;
+
+  /* Semantic */
+  --color-bg:          var(--ff-cream);
+  --color-bg-elevated: var(--ff-white);
+  --color-bg-sunken:   var(--ff-cream-dark);
+  --color-text:        var(--ff-charcoal);
+  --color-text-muted:  var(--ff-muted);
+  --color-primary:     var(--ff-gold);
+  --color-primary-fg:  var(--ff-charcoal);
+  --color-accent:      var(--ff-navy);
+  --color-accent-fg:   var(--ff-white);
+  --color-danger:      #DC2626;
+  --color-success:     var(--ff-green);
+  --color-warning:     var(--ff-rust);
+  --color-border:      #DDD0B8;
+
+  /* Typography */
+  --font-body:    'Georgia', 'Times New Roman', serif;
+  --font-ui:      system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'Courier New', 'Courier', monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+
+  --weight-normal:    400;
+  --weight-medium:    500;
+  --weight-semibold:  600;
+  --weight-bold:      700;
+
+  /* Spacing */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Layout */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(44, 36, 22, 0.08);
+  --shadow-md: 0 4px 12px rgba(44, 36, 22, 0.12);
+  --shadow-lg: 0 8px 24px rgba(44, 36, 22, 0.16);
+
+  /* Transitions */
+  --ease-default: 200ms ease;
+  --ease-slow:    400ms ease;
+  --ease-spring:  300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* System dark mode (when theme = 'auto' or unset) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg:          #1A1510;
+    --color-bg-elevated: #241D14;
+    --color-bg-sunken:   #110E09;
+    --color-text:        #F0E8D4;
+    --color-text-muted:  #A89878;
+    --color-border:      #3A2E1E;
+  }
+}
+
+/* Manual dark override */
+:root[data-theme="dark"] {
+  --color-bg:          #1A1510;
+  --color-bg-elevated: #241D14;
+  --color-bg-sunken:   #110E09;
+  --color-text:        #F0E8D4;
+  --color-text-muted:  #A89878;
+  --color-border:      #3A2E1E;
+}
+
+/* Manual light override (beats system dark) */
+:root[data-theme="light"] {
+  --color-bg:          #FAF4E8;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-sunken:   #F0E8D4;
+  --color-text:        #2C2416;
+  --color-text-muted:  #7A6A52;
+  --color-border:      #DDD0B8;
+}

@@ -1,0 +1,45 @@
+{
+  "name": "financial-finger",
+  "version": "0.1.0",
+  "description": "Figurin' out your finances — offline, encrypted, and yours.",
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "dev": "vite",
+    "dev:firefox": "vite --mode firefox",
+    "prebuild:chrome": "node scripts/generate-icons.js",
+    "build:chrome": "vite build --mode chrome",
+    "build:firefox": "vite build --mode firefox",
+    "build": "npm run build:chrome && npm run build:firefox",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "zip:chrome": "web-ext build -s dist/chrome -a artifacts/chrome",
+    "zip:firefox": "web-ext build -s dist/firefox -a artifacts/firefox",
+    "zip": "npm run zip:chrome && npm run zip:firefox",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report tests/playwright-report"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.4",
+    "idb": "^8.0.0",
+    "openpgp": "^6.1.0",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/webextension-polyfill": "^0.12.5",
+    "sharp": "^0.35.3",
+    "typescript": "^5.5.4",
+    "vite": "^8.2.1",
+    "vite-plugin-web-extension": "^4.5.1",
+    "vitest": "^4.1.10",
+    "web-ext": "^10.6.0"
+  },
+  "overrides": {
+    "adm-zip": ">=0.6.0",
+    "image-size": ">=1.1.1",
+    "shell-quote": ">=1.8.5",
+    "tmp": ">=0.2.6"
+  }
+}

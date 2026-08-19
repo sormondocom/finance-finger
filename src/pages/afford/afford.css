@@ -1,0 +1,475 @@
+@import '@/app/styles/variables.css';
+
+.afford-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.afford-intro {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  max-width: 660px;
+  margin-top: var(--space-1);
+}
+
+/* ── Baseline panel ─────────────────────────────────────────────────── */
+
+.reality-panel {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.reality-panel-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.reality-stats {
+  display: flex;
+  gap: var(--space-10);
+  flex-wrap: wrap;
+}
+
+.reality-stat-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.reality-stat-value {
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+/* ── Projection (overlay) panel ─────────────────────────────────────── */
+
+.projection-panel {
+  border: 2px dashed var(--ff-gold);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-6);
+  background: rgba(201, 168, 76, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.projection-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ff-gold-dark);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.projection-stats {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.projection-stat-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.projection-stat-value {
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  display: block;
+}
+
+.projection-delta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 3px;
+  display: block;
+}
+
+/* Verdict banner */
+.afford-verdict {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.afford-verdict.can-afford {
+  background: rgba(45, 90, 39, 0.08);
+  border-left-color: var(--ff-green);
+  color: var(--ff-green);
+}
+
+.afford-verdict.tight {
+  background: rgba(201, 168, 76, 0.1);
+  border-left-color: var(--ff-gold-dark);
+  color: var(--ff-gold-dark);
+}
+
+.afford-verdict.cannot-afford {
+  background: rgba(220, 38, 38, 0.07);
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.afford-verdict-sub {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  opacity: 0.8;
+}
+
+/* ── Scenario shelf ─────────────────────────────────────────────────── */
+
+.shelf-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.shelf-title {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--ff-navy);
+}
+
+.shelf-subtitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 3px;
+}
+
+.scenario-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* ── Individual scenario card ───────────────────────────────────────── */
+
+.scenario-card {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-elevated);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.scenario-card[data-active="true"] {
+  border-color: var(--scenario-color, var(--ff-gold));
+  box-shadow: 0 0 0 1px var(--scenario-color, var(--ff-gold));
+}
+
+.scenario-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+  user-select: none;
+}
+
+.scenario-color-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.scenario-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.scenario-card-name {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scenario-card-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  display: block;
+}
+
+/* CSS toggle switch */
+.scenario-toggle {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.scenario-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-sunken);
+  border: 1.5px solid var(--color-border);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.scenario-toggle input:checked + .toggle-track {
+  background: var(--scenario-color, var(--ff-gold));
+  border-color: var(--scenario-color, var(--ff-gold));
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.scenario-toggle input:checked ~ .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.scenario-chevron {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.scenario-card[data-expanded="true"] .scenario-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Expanded body ──────────────────────────────────────────────────── */
+
+.scenario-body {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.items-empty {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.scenario-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scenario-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  background: var(--color-bg-sunken);
+}
+
+.item-type-tag {
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.item-type-tag.income  { background: rgba(45, 90, 39, 0.14); color: var(--ff-green); }
+.item-type-tag.expense { background: rgba(180, 83,  9, 0.14); color: var(--ff-rust);  }
+.item-type-tag.onetime { background: rgba(27,  42, 74, 0.12); color: var(--ff-navy);  }
+
+.scenario-item-desc {
+  flex: 1;
+  font-weight: var(--weight-semibold);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-item-freq {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.scenario-item-amount {
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+  min-width: 70px;
+  text-align: right;
+}
+
+.item-remove-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  font-size: var(--text-sm);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.item-remove-btn:hover { opacity: 1; }
+
+/* Net effect row */
+.scenario-net-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-3);
+}
+
+.scenario-net-row.positive { background: rgba(45, 90, 39, 0.07); color: var(--ff-green); }
+.scenario-net-row.negative { background: rgba(180, 83, 9, 0.07);  color: var(--ff-rust);  }
+.scenario-net-row.neutral  { background: var(--color-bg-sunken);   color: var(--color-text-muted); }
+
+.scenario-net-value {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  margin-left: auto;
+}
+
+/* Card footer */
+.scenario-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.scenario-add-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.scenario-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ── Inline add-item form ────────────────────────────────────────────── */
+
+.add-item-form {
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--color-bg-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.add-item-form-title {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.add-item-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.add-item-fields label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.add-item-desc-row { grid-column: 1 / -1; }
+
+.add-item-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+
+.afford-empty {
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  color: var(--color-text-muted);
+  margin-top: var(--space-4);
+}
+
+.afford-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+  display: block;
+}
