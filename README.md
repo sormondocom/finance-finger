@@ -341,22 +341,29 @@ npm run test:watch # watch mode
 
 ### Pipeline overview
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `main`, on every pull request, and on version tags (`v*.*.*`). It has six jobs:
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `main`, on every pull request, and on version tags (`v*.*.*`). It has eight jobs with a deliberate dependency chain: **the Firefox build never starts until Chrome E2E tests pass**.
 
 ```
-build ─────────────────┬─────────────── e2e ──┐
-                       │                      ├── package ── attest ── release
-unit (no browser) ─────┘                      │    (push)   (tags)    (tags)
+unit ─────────────────────────────────────────────────────────────────────────┐
+build-chrome → e2e-chrome → build-firefox → e2e-firefox ──────────────────────┤
+                                                                              ↓
+                                                                           package (push)
+                                                                              ↓
+                                                                           attest (tags)
+                                                                              ↓
+                                                                           release (tags)
 ```
 
-| Job | Trigger | What it does |
+| Job | Needs | What it does |
 |---|---|---|
-| **build** | always | `npm run build:chrome` + `npm run build:firefox`; uploads `dist-chrome` and `dist-firefox` artifacts |
-| **unit** | always | `npm test` (Vitest); passes when no unit test files exist yet |
-| **e2e** | always (needs build) | Downloads `dist-chrome`, installs Playwright + Chromium, runs `npm run test:e2e` with `CI=true` |
-| **package** | push to `main` or tag | Downloads both dist artifacts, runs `npm run zip`, renames zips to `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
-| **attest** | tags only (needs package) | Creates SLSA Build Level 2 provenance attestations via `actions/attest-build-provenance@v2` for both zips |
-| **release** | tags only (needs attest) | Creates a GitHub Release with the attested zips as downloadable assets; marks pre-release if the tag contains a hyphen (e.g. `v1.0.0-beta.1`) |
+| **unit** | — | `npm test` (Vitest); runs in parallel with everything |
+| **build-chrome** | — | `npm run build:chrome`; uploads `dist-chrome` artifact |
+| **e2e-chrome** | build-chrome | Downloads `dist-chrome`, installs Playwright Chromium, runs `npm run test:e2e` with `CI=true` |
+| **build-firefox** | e2e-chrome | `npm run build:firefox`; only starts if Chrome E2E passes; uploads `dist-firefox` artifact |
+| **e2e-firefox** | build-firefox | Downloads `dist-firefox`, installs Playwright Firefox, runs `npm run test:e2e` with `CI=true BROWSER=firefox` |
+| **package** | unit + e2e-firefox | Downloads both dist artifacts, zips them, names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
+| **attest** | package (tags only) | SLSA Build Level 2 provenance via `actions/attest-build-provenance@v2` for both zips |
+| **release** | attest (tags only) | Creates a GitHub Release; marks pre-release if tag contains a hyphen (e.g. `v1.0.0-beta.1`) |
 
 ### Creating a release
 
@@ -380,11 +387,25 @@ The attestation records the exact workflow run, the Git commit SHA, and the buil
 
 ### Test artifacts on failure
 
-When E2E tests fail, the workflow uploads:
-- **`playwright-report`** — full HTML report with timeline, errors, and steps (retained 30 days)
-- **`playwright-screenshots`** — screenshots from every test step (retained 14 days)
+When E2E tests fail, the workflow uploads browser-specific artifacts:
+- **`playwright-report-chrome`** / **`playwright-report-firefox`** — full HTML report with timeline, errors, and steps (retained 30 days)
+- **`playwright-screenshots-chrome`** / **`playwright-screenshots-firefox`** — screenshots from every test step (retained 14 days)
 
-Download these from the **Artifacts** section of the failed workflow run to diagnose the failure.
+Download these from the **Artifacts** section of the failed workflow run to diagnose the failure. Each browser's report is independent, so a Firefox failure doesn't overwrite the Chrome report.
+
+### Running Firefox E2E tests locally
+
+On macOS/Linux:
+```bash
+BROWSER=firefox npm run test:e2e
+```
+
+On Windows (PowerShell):
+```powershell
+$env:BROWSER='firefox'; npm run test:e2e
+```
+
+> **Note:** `npm run build:firefox` must be run first — the Firefox tests load from `dist/firefox/`.
 
 ---
 

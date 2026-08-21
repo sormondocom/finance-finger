@@ -1,7 +1,7 @@
 /**
  * Builds Financial Finger for Chrome and Firefox in one step, then runs
- * end-to-end tests against the Chrome build.  The build is considered
- * broken if any E2E tests fail.
+ * end-to-end tests against both builds.  The build is considered broken if
+ * any E2E tests fail — Chrome first, then Firefox.
  *
  * Run once after `npm install`:  node scripts/setup.js
  * Re-run any time source files change to refresh the dist folders.
@@ -23,9 +23,13 @@ const playwright = resolve(ROOT, 'node_modules', '@playwright', 'test', 'cli.js'
 const skipTests =
   process.argv.includes('--skip-tests') || process.env['SKIP_TESTS'] === '1';
 
-function run(bin, args) {
+function run(bin, args, env = {}) {
   return new Promise((done, fail) => {
-    const proc = spawn(bin, args, { stdio: 'inherit', cwd: ROOT });
+    const proc = spawn(bin, args, {
+      stdio: 'inherit',
+      cwd: ROOT,
+      env: { ...process.env, ...env },
+    });
     proc.on('close', code => {
       if (code === 0) done();
       else fail(new Error(`${[bin, ...args].join(' ')} exited with code ${code}`));
@@ -43,13 +47,25 @@ async function main() {
   if (skipTests) {
     console.log('\n⚠️  E2E tests skipped (--skip-tests / SKIP_TESTS=1).  Use sparingly.');
   } else {
-    console.log('\nRunning end-to-end tests…');
+    console.log('\nInstalling Playwright Chromium…');
+    await run(node, [playwright, 'install', 'chromium']);
+
+    console.log('\nRunning Chrome end-to-end tests…');
     await run(node, [playwright, 'test']);
-    console.log('\n✓ All E2E tests passed.');
+    console.log('\n✓ Chrome E2E tests passed.');
   }
 
   console.log('\nBuilding Firefox distribution…');
   await run(node, [vite, 'build', '--mode', 'firefox']);
+
+  if (!skipTests) {
+    console.log('\nInstalling Playwright Firefox…');
+    await run(node, [playwright, 'install', 'firefox']);
+
+    console.log('\nRunning Firefox end-to-end tests…');
+    await run(node, [playwright, 'test'], { BROWSER: 'firefox' });
+    console.log('\n✓ Firefox E2E tests passed.');
+  }
 
   console.log(`
 Build complete! Load each browser from its dist folder:

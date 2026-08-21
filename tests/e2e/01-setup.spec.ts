@@ -72,8 +72,11 @@ test('generates a key pair', async () => {
 });
 
 test('copies private key to clipboard', async () => {
-  // Grants clipboard-read so we can verify the copy
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Firefox extension pages already have clipboard access after a user gesture;
+  // grantPermissions does not accept clipboard-read/write on Firefox.
+  if (context.browser()?.browserType().name() !== 'firefox') {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  }
   await page.click('[data-testid="copy-private-key"]');
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain('-----BEGIN PGP PRIVATE KEY BLOCK-----');

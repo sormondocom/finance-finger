@@ -17,6 +17,9 @@
     "zip:firefox": "web-ext build -s dist/firefox -a artifacts/firefox",
     "zip": "npm run zip:chrome && npm run zip:firefox",
     "test:e2e": "playwright test",
+    "test:e2e:firefox": "cross-env BROWSER=firefox playwright test",
+    "test:e2e:headed": "cross-env HEADED=1 playwright test",
+    "test:e2e:headed:firefox": "cross-env HEADED=1 BROWSER=firefox playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report tests/playwright-report"
   },
@@ -29,6 +32,8 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@types/webextension-polyfill": "^0.12.5",
+    "cross-env": "^10.1.0",
+    "playwright-webextext": "^0.0.5",
     "sharp": "^0.35.3",
     "typescript": "^5.5.4",
     "vite": "^8.2.1",

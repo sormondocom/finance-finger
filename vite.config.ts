@@ -14,16 +14,16 @@ export default defineConfig(({ mode }) => {
   function buildManifest() {
     const base = JSON.parse(readFileSync(resolve(__dirname, 'manifest.json'), 'utf-8'));
     if (isFirefox) {
-      // Firefox MV3 requires background.scripts alongside service_worker.
-      // scripts must reference the compiled .js output; service_worker can stay as .ts
-      // because the plugin handles the .ts → .js transformation on that field.
+      // Firefox MV3 uses background.scripts (event page), not service_worker.
+      // Including service_worker alongside scripts causes Firefox 128+ to attempt
+      // SW registration which fails in headless/Juggler contexts and rejects the extension.
       const swSource = base.background.service_worker as string;
       const swOutput = swSource.replace(/\.ts$/, '.js');
       base.background = {
         scripts: [swOutput],
-        service_worker: swSource,
         type: 'module',
       };
+      delete base.background.service_worker;
     } else {
       delete base.browser_specific_settings;
       // Chrome Web Store requires PNG icons; SVG is unsupported for submission.
