@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Financial Finger",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Figurin' out your finances — offline, encrypted, and yours.",
   "icons": {
     "48": "icons/icon.svg",
