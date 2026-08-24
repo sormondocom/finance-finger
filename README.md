@@ -273,6 +273,461 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 
 ---
 
+## Using Financial Finger
+
+Step-by-step instructions for every page in the app.
+
+### Dashboard
+
+The dashboard is your daily command center. It opens automatically after setup and every time you unlock the vault.
+
+**Date navigation**
+
+Use the **‹ / ›** arrows at the top right to step through months. The current month is the default; stepping forward past the current month is disabled. Click **Custom Range** to switch to a date-range view. Enter start and end dates, click **Apply**. Click **Clear** to return to single-month mode.
+
+**Summary cards**
+
+| Card | What it shows |
+|---|---|
+| **Income** | Recurring monthly income (prorated for partial months in custom-range mode) plus any one-time income logged in the period |
+| **Expenses** | Recurring monthly expenses (prorated) plus one-time expenses in the period |
+| **Net Cash Flow** | Income minus expenses; green when positive, red when negative |
+| **Total Debt** | Point-in-time balance across all debt accounts (not date-sensitive) |
+
+**Financial health chips**
+
+These appear when you have both income and at least one debt account entered:
+
+- **Debt-to-Income** — total monthly minimum payments ÷ monthly income. Under 36% is healthy; 43%+ is high. Hover the chip for the definition.
+- **Credit Utilization** — total card balances ÷ total credit limits. Under 30% is good for your credit score.
+
+**Payment reminders card**
+
+Appears when any debt account or tracked bill is past due or due within 7 days. Each row shows the account name, due date, and minimum payment. Click **View debt →** or **View bills →** to jump directly to the relevant page.
+
+**Monthly activity widget**
+
+The bottom section lets you log one-time income and expenses directly on the dashboard:
+
+- Click **+ Log** under **One-time Income** to record a bonus, tax refund, side-gig payment, or any non-recurring income.
+- Click **+ Log** under **One-time Expenses** to record a surprise cost (vet bill, car repair, etc.).
+
+In custom-range mode the widget becomes a **Period Report**: a month-by-month table of income, expenses, and net cash flow. Click **▸** on any month row to expand it and see the individual one-time items logged that month.
+
+**Tip widget**
+
+Click the gold tip card at the bottom to have Buck or Penny deliver today's financial tip in full detail.
+
+---
+
+### Income
+
+**Adding household members**
+
+1. Type a name into the **Add member** field at the top of the Income page and click **Add Member** (or press Enter).
+2. The member appears as a chip. Repeat for every person in your household who has income.
+
+**Adding income sources**
+
+1. Click **+ Add Source** on a member's panel.
+2. In the modal, enter a name (e.g. "Paycheck"), the gross amount, and the frequency — hourly, weekly, biweekly, semi-monthly, monthly, annual, or once.
+3. Click **Save**. The source contributes immediately to all income calculations and the Budget page.
+
+**Editing and deactivating**
+
+- Click the pencil icon on a source to edit its name, amount, or frequency.
+- Toggle **Active** to exclude a source from calculations without deleting it — useful for seasonal income or a job that has temporarily paused.
+
+**One-time income**
+
+Sources with frequency **once** appear in the Monthly Activity widget on the Dashboard for the month matching their date. You can also log them directly from the Dashboard without going to the Income page.
+
+---
+
+### Expenses
+
+**Creating categories**
+
+1. Click **+ Add Category** at the top of the Expenses page.
+2. Give it a name (e.g. Housing, Food, Utilities) and choose a color. That color flows through every chart in the app that references expenses.
+3. Click **Save**. Categories appear as a colored chip row above the expense list.
+
+**Filtering by category**
+
+Click any category chip to filter the list to that category. Click it again to clear the filter.
+
+**Adding an expense**
+
+1. Click **+ Add Expense**.
+2. Fill in a description, amount, category, and date.
+3. Check **Recurring** to make it a recurring bill. This reveals:
+   - **Frequency** — hourly through annual.
+   - **Due day** (1–28) — turns the expense into a tracked bill monitored each month.
+   - **Monthly threshold** — the maximum you expect the bill to cost. If an actual payment exceeds this, the app warns you.
+4. Click **Save**.
+
+**Marking a bill paid**
+
+1. Find a bill showing the ⏰ (due soon) or ⚠ (past due) badge and click **Mark Paid**.
+2. The dialog pre-fills the bill's usual amount. Change it to what you actually paid — important for variable bills like electricity or gas.
+3. If the amount exceeds your threshold, an inline warning shows the overage immediately before you confirm.
+4. Click **Mark as Paid**. The badge updates to ✓ Paid and the notifier refreshes automatically.
+
+---
+
+### Calendar
+
+The Calendar page shows all tracked bills (recurring expenses with a due day set) laid out on a monthly grid.
+
+**Navigating months**
+
+Use the **‹ / ›** arrows at the top to browse past or future months. Today's date is highlighted in the grid. Bills with due days on days 29–31 clamp to the last day of shorter months.
+
+**Reading the grid**
+
+Each bill appears as a chip on its due-day cell. The summary bar above the grid shows a count of each status:
+
+| Status | Color | Meaning |
+|---|---|---|
+| Past Due | Red | Payment window has passed this month |
+| Due Soon | Rust/amber | Due within 7 days |
+| Paid | Green | Marked paid this calendar month |
+| Upcoming | Sage | Due later in the month |
+
+**Marking a bill paid from the Calendar**
+
+Click **✓ Mark Paid** below any unpaid bill chip. The same amount dialog as the Expenses page opens — enter the actual amount paid and confirm. The chip updates immediately.
+
+---
+
+### Budget
+
+The Budget page shows a real-time visual breakdown of your monthly spending.
+
+**Summary bar**
+
+The top bar shows total monthly income, total recurring expenses, and the surplus or deficit. These numbers match the Income and Expenses summary cards on the Dashboard.
+
+**Donut chart**
+
+Each slice represents a category. Click a slice to filter the category breakdown below it to that category only. Click the center or the same slice again to clear the filter.
+
+**Category breakdown**
+
+Horizontal bars showing each category's monthly total as a proportion of total spending, colored with each category's assigned color.
+
+**Cash flow bar**
+
+A single bar that compares total income to total spending at a glance.
+
+If total spending exceeds income, your mascot slides in automatically with a heads-up about the deficit.
+
+---
+
+### Debt & Cards
+
+**Adding a debt account**
+
+1. Click **+ Add Account**.
+2. Choose the account type: **Credit Card**, **Mortgage**, **Medical**, or **Personal Loan**.
+3. Enter: name, current balance, APR, credit limit (for cards), original principal and term (for mortgages and loans).
+4. Set the minimum payment: **fixed dollar amount** or **percentage of balance** (the app enforces a $25 floor on percentage minimums).
+5. Choose a payment cycle (weekly, biweekly, semi-monthly, monthly) and an optional due day.
+6. Optionally enter a 0% introductory APR end date for promotional-rate cards.
+7. Click **Save**.
+
+**Amortization schedule**
+
+Expand any debt card to see the full date-stamped payment schedule: period number, payment amount, principal applied, interest charged, and remaining balance. The footer shows the total amount paid and total interest over the payoff period.
+
+**Payoff strategies**
+
+Switch tabs above the card list to change the payoff order:
+
+- **Avalanche** — targets the highest-APR balance first. Saves the most money overall.
+- **Snowball** — targets the smallest balance first. Produces quick psychological wins.
+- **Custom** — drag cards into any order you prefer.
+
+When the current focus card reaches zero, its entire payment rolls over to the next card automatically — no money leaves your budget.
+
+**What-if grid**
+
+Enter an extra monthly payment in the grid field. The table instantly shows how many months sooner each card pays off and how much interest you avoid — compared to paying minimums only.
+
+**Recording a payment**
+
+1. Click **Record Payment** on a debt card.
+2. Enter the payment amount and date. Check **Extra payment** if this is beyond the minimum.
+3. Click **Save**. The balance and amortization schedule update, and the notifier refreshes.
+
+**Logging a card charge**
+
+1. Click **+ Charge** on a credit card.
+2. Enter the merchant name, amount, and date.
+3. Charges appear in the **Top Merchants** chart on the Reports page.
+
+**Debt payoff celebration**
+
+When you record a payment that brings a card balance to zero, a full-screen overlay plays with dancing mascots and confetti. Both Buck and Penny dance if your household has multiple members.
+
+---
+
+### Reports
+
+**Setting the date range**
+
+Use the preset buttons — **This Month**, **Last 3 Mo.**, **Last 6 Mo.**, **This Year**, **All Time** — or click **Custom** and enter start and end dates.
+
+**Report cards at a glance**
+
+| Card | Use it to |
+|---|---|
+| KPI chips | Get one-glance totals: spending, income, net cash flow, savings rate |
+| Spending Over Time | See which months were expensive and which categories drove it |
+| By Category | Find where your money actually went |
+| Top Merchants | Identify your biggest card-charge destinations |
+| Income vs Spending | Compare income and expenses side by side, month by month |
+| Spending by Day | Find which day of the week costs you the most |
+| Biggest Transactions | See your 12 largest individual expenses and charges |
+| Card Balance Trend | Check whether your card balances are rising or falling |
+| Spending by Week of Month | See if your paycheck timing is shaping your spending |
+| Recurring vs One-time | See how predictable your monthly spending is |
+| Common Overage Offenders | Audit bills that regularly exceed their monthly threshold |
+
+**Common Overage Offenders**
+
+This card is always all-time data regardless of the date range, because seasonal patterns need multiple months of history to be meaningful. Each bill shows a grid of colored month cells: green ✓ when under threshold, red with the overage amount when over. Bills with 3 or more overages get a 🔥 marker. If 2 or more overages cluster in the same season (summer, winter, spring, or fall), a callout appears: "☀️ tends to spike in summer — plan ahead."
+
+---
+
+### What If? (Scenario Films)
+
+The What If? page lets you model hypothetical changes — a new job, a car payment, a cross-country move — and see the budget impact without touching your real data.
+
+**Creating a scenario film**
+
+1. Click **+ New Film**.
+2. Give it a descriptive name (e.g. "Buy a house" or "Freelance side income") and an optional note. Choose a color to identify it.
+3. Click **Create**. The film opens in expanded view.
+
+**Adding items to a film**
+
+Inside an expanded film card:
+
+- Click **+ Income** to add a hypothetical income change. Enter a description, amount, and frequency (or one-time lump sum).
+- Click **+ Expense** to add a hypothetical recurring or one-time expense.
+- A **Net monthly effect** summary updates as you add items. One-time items are tracked separately.
+- Click ✕ on any item row to remove it.
+
+**Activating a film**
+
+Toggle the switch on a film card to overlay it on your real budget. The **projection panel** appears at the top of the page showing:
+
+- Adjusted income and expenses (with deltas vs. your baseline).
+- Adjusted surplus.
+- A verdict: **✅ Yes** (surplus ≥ $200/mo), **⚠️ Tight** ($0–$200 left), or **❌ This would put you in the red**.
+
+**Layering multiple films**
+
+Toggle several films active at once. The projection panel combines all active films and shows the aggregate effect. Each film's name and color appear in the panel header.
+
+**Managing films**
+
+- Click a card header to expand or collapse a film.
+- Click **Rename** to change the film name.
+- Click **Delete film** to remove it permanently. Your real data is never modified by films.
+
+---
+
+### Learn (Financial Education)
+
+The Learn page provides plain-language financial education with interactive calculators that pull from your real budget data where available.
+
+**Debt Basics tab**
+
+- **What is APR?** — explains Annual Percentage Rate and how compounding works against you, with fixed examples ($1k and $5k at 22% APR).
+- **The Minimum Payment Trap** — interactive calculator: enter any balance, APR, minimum payment percentage, and optional extra monthly payment. Instantly see payoff time and total interest, plus savings from the extra payment.
+- **Avalanche vs. Snowball** — side-by-side comparison of both strategies, with a link to run your real numbers on the Debt page.
+
+**Budgeting tab**
+
+- **50/30/20 Rule** — explains the guideline (50% needs, 30% wants, 20% savings/debt). If you have income and expenses entered, a stacked bar shows your actual percentages alongside the guideline.
+- **Emergency Fund** — explains the 3–6 month target. Interactive: choose the number of months and see the target dollar amount (pre-filled with your actual monthly expenses if available).
+- **Zero-Based Budgeting** — explains the "give every dollar a job" approach.
+
+**Credit tab**
+
+- **Credit Utilization** — interactive: enter a balance and limit to see your utilization percentage and what it would take to reach 30% or 10%.
+- **What Makes a Credit Score?** — FICO factor breakdown with percentage bars for each factor.
+- **Balance Transfers** — explains 0% promo offers, transfer fees, go-to rates, and the balance-transfer trap.
+
+**Saving & Investing tab**
+
+- **Compound Interest** — a dual-line chart showing $5,000 growing at 8% (investment) vs. festering at 22% APR (unpaid debt). Drag the years slider (1–30) to see the divergence over time.
+- **Why Your Savings Rate Matters More Than Returns** — explains why the amount you save each month has more leverage than chasing return percentages.
+- **The Opportunity Cost of Debt** — explains why paying off high-interest debt is the best guaranteed return available.
+
+---
+
+### Settings
+
+| Setting | How to use it |
+|---|---|
+| **Mascot** | Click Buck or Penny to switch; type in the name field to rename your mascot. Changes apply immediately. |
+| **Household name** | Edit the field and save. Updates the title on the Dashboard. |
+| **Members** | Click **+ Add Member** to add a household member. Click the trash icon to remove one — a confirmation dialog warns you that all assigned income sources will also be removed. |
+| **Theme** | Choose Light, Dark, or Auto (follows your OS preference). Applies immediately without a reload. |
+| **Security** | View your PGP fingerprint. Click **Export public key** to copy the armored public key to clipboard. |
+| **Sharing keys** | Paste another person's PGP public key to store it. This is preparation for future encrypted data-sharing features. |
+| **Export** | Downloads an encrypted JSON backup of your vault. The file is encrypted to your PGP public key — only your private key can decrypt it. |
+| **Import** | Restores vault data from a previously exported backup file. Existing data is replaced. |
+| **Danger zone** | Wipes the vault completely. All data, settings, and the vault key are deleted. The extension returns to the first-run setup wizard. This is permanent and irreversible. |
+
+---
+
+## Common Scenarios
+
+### Starting from scratch
+
+> *"I've just installed the extension and don't know where to begin."*
+
+1. Complete the six-step setup wizard. Generate a PGP key pair, save the private key to a password manager or print it, name your household, and pick a mascot.
+2. Go to **Income** — add each person in your household, then add their income sources with the exact frequency they're paid (biweekly if that's reality, not monthly).
+3. Go to **Expenses** — create categories (Housing, Food, Utilities, Transportation), then add every recurring bill with a due day so the extension can track payment status.
+4. Go to **Debt & Cards** — add every credit card, loan, and mortgage with current balance, APR, and minimum payment.
+5. Open **Budget** — the donut and summary bar now reflect your full financial picture. If the surplus is negative, look for recurring expenses to cut or reclassify.
+6. Come back to the Dashboard throughout the month to log one-time income and expenses as they happen.
+
+---
+
+### Tracking a new credit card
+
+> *"I just opened a new credit card (or transferred a balance onto one)."*
+
+1. Go to **Debt & Cards → + Add Account → Credit Card**.
+2. Enter the current balance, APR, credit limit, minimum payment type, and due day.
+3. Open the **Avalanche** or **Snowball** tab and review the payoff schedule.
+4. Try the **What-if grid**: enter $50 extra per month. See how many months and how many dollars you save.
+5. Return to the Dashboard — the credit utilization chip updates to reflect the new card.
+6. Head to **Learn → Debt Basics → What is APR?** to see the exact math working against you if you carry the balance.
+
+---
+
+### Planning a big purchase
+
+> *"I want to buy a car / take a vacation / renovate the kitchen — can I actually afford it?"*
+
+1. Go to **What If? → + New Film**. Name it after the purchase (e.g. "New car").
+2. Add the new recurring expense (monthly car payment) under **+ Expense**. Add any associated income change (e.g. selling the old car) under **+ Income** as a one-time amount.
+3. Toggle the film **active**. The projection panel tells you immediately: surplus comfortable, tight, or in the red.
+4. Create a second film — a "stretch" scenario — to model the same purchase plus a modest raise or a cut to another expense category. Layer both films active to see the combined effect.
+5. When you've made the decision, delete the films. Your real budget data is never touched.
+
+---
+
+### Monthly bill review
+
+> *"I want to make sure I haven't missed any payments this month."*
+
+1. Open the **Calendar** page. Today is highlighted; any overdue bills show in red on the grid.
+2. Check the summary bar chips at the top — address Past Due items first.
+3. Click **Mark Paid** on each bill as you take care of it. Enter the actual amount paid for variable bills.
+4. Return to the **Dashboard** — the Payment Reminders card disappears (or shrinks) as you mark things paid.
+5. At the end of the month, open **Reports → Common Overage Offenders** to see which bills regularly cost more than planned.
+
+---
+
+### Paying down debt aggressively
+
+> *"I have multiple credit cards and I want a coordinated payoff plan."*
+
+1. Confirm all cards are entered in **Debt & Cards** with accurate balances, APRs, and minimums.
+2. Switch to the **Avalanche** tab for the cheapest path, or **Snowball** for the fastest psychological wins.
+3. Use the **What-if grid** — try $100, $200, and $300 in extra monthly payments to find the highest amount your budget can support.
+4. Cross-check that amount against your **Budget** page surplus to confirm you actually have it available.
+5. Open **What If?** to model "what if I cancel two streaming subscriptions and redirect $30/month to debt?" Add those expense cuts as a film and layer it onto your budget to see the compounded payoff acceleration.
+6. Record each payment on the Debt page. When a card hits zero, enjoy the celebration — then watch the rolled-over payment start chewing through the next one.
+
+---
+
+## Month in the Life
+
+A complete walkthrough using every feature of Financial Finger across a typical month.
+
+### One time: first-run setup
+
+1. Open the extension for the first time. The six-step setup wizard launches automatically.
+2. **Welcome** — read the privacy overview: all data is encrypted at rest with your own PGP key; nothing leaves your device unencrypted.
+3. **Mascot** — choose Buck (cowboy pig) or Penny (sunflower-hat pig). Optionally rename them.
+4. **Keys** — click **Generate** to create an ECC curve25519 PGP key pair. Enter a name, email, and passphrase.
+5. **Save your key** — copy the private key to your password manager and/or print it. It is shown exactly once and never stored by the extension.
+6. **Profile** — enter your household name (this appears as the Dashboard title).
+7. **Done** — the vault is created. You land on the Dashboard.
+
+### First week: build your baseline
+
+**Income**
+Go to **Income** and add each household member. For each person, add their income sources at the frequency they actually get paid — biweekly if that's reality, not monthly. Toggle off any source that is currently inactive (seasonal job, parental leave).
+
+**Expenses**
+Go to **Expenses** and create your expense categories. Add every recurring bill with its due day. Set a monthly threshold on any bill that varies (electricity, water, gas) so the extension can warn you when an actual payment runs high.
+
+**Debt**
+Go to **Debt & Cards** and add every credit card, personal loan, and mortgage. Enter the current balance, APR, minimum payment, and due day. Add your credit limit for cards so the utilization chip on the Dashboard works correctly.
+
+**Budget check**
+Open the **Budget** page. Review the summary bar surplus. If it's negative, identify the category or expense driving it in the donut chart. Decide whether to cut something or accept the shortfall this month.
+
+**Settings**
+Go to **Settings** and set your preferred theme. Confirm the mascot name. Export an initial encrypted vault backup and save it somewhere safe.
+
+### Every day: quick check
+
+1. Click the extension toolbar icon. If the badge shows **!**, open the Dashboard.
+2. Read the **Payment Reminders card** — red rows are past due, amber rows are due soon. Click any row to jump to the debt or bill that needs attention.
+3. If Buck or Penny mosey in with a **briefing**, read through the itemized alert list. Click any item to navigate directly to that page while the mascot stays visible.
+4. Log any one-time expenses or windfall income in the **Monthly Activity** widget at the bottom of the Dashboard before you forget.
+5. Click the gold **tip widget** at the bottom of the Dashboard to get today's financial tip from your mascot.
+
+### When a bill is due
+
+1. Find the bill on the **Calendar** or **Expenses** page — ⏰ due soon or ⚠ past due.
+2. Click **Mark Paid**. Enter the actual amount paid.
+3. If the amount is over your threshold, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern and suggest adjusting the threshold.
+4. The chip on the Calendar updates to ✓ Paid. The notifier refreshes. If that was the last open alert, the mascot dismisses itself automatically.
+
+### When you make a debt payment
+
+1. Go to **Debt & Cards** and click **Record Payment** on the target account.
+2. Enter the amount and date. Mark it as an extra payment if it's above the minimum.
+3. Watch the amortization schedule update. Open the **Dashboard** — the credit utilization chip and DTI chip update to reflect the new balance.
+4. Open **Reports → Card Balance Trend** to see your payoff trajectory.
+
+### Start of month (1st–5th)
+
+1. Open the **Calendar** to see which bills land early in the month.
+2. Go to **Income** and confirm all sources are still accurate. Toggle off any that paused; add any new ones.
+3. Check **What If?** — deactivate scenario films that no longer apply. Create a new film for any expected change this month (a planned purchase, a new subscription).
+
+### End of month: review and plan
+
+1. Open **Reports** and set the range to **This Month**.
+2. Check the **KPI chips** — actual savings rate, total spending, net cash flow.
+3. Look at **By Category** — which category ran high? Did anything surprise you?
+4. Check **Common Overage Offenders** — any bills with a trend worth adjusting the threshold for?
+5. Open **Insights → Budgeting → 50/30/20** — the bar chart now reflects your actual spending split. How close are you to the guideline?
+6. Open **Debt → What-if grid** and add $25 to last month's extra payment target. See how much sooner the payoff date moves.
+7. Go to **Settings → Export** and download an encrypted backup of this month's vault. Store it somewhere safe.
+
+### Quarterly: big-picture planning
+
+1. Open **What If?** and create films for any major changes in the next quarter — a raise, a planned vacation, a new recurring expense.
+2. Layer all the relevant films active at once. Confirm the combined verdict is ✅ or ⚠️ (not ❌) before committing.
+3. Open **Insights → Saving & Investing → Compound Interest** and drag the slider to 10 years. Look at the gap between what your debt is costing you and what the same money would earn invested. Use the visual as motivation to accelerate payoff.
+4. Open **Reports → All Time** and look at the **Card Balance Trend**. If the slope is flat or rising, revisit the payoff strategy on the **Debt** page.
+
+---
+
 ## Testing
 
 ### Approach

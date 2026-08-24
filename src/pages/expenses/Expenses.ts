@@ -176,6 +176,15 @@ export class ExpensesPage {
         <label class="form-label">Color</label>
         <div class="color-swatches">${swatchesHtml}</div>
       </div>
+      <div class="form-group">
+        <label class="form-label" for="cat-budget">
+          Monthly budget
+          <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>
+        </label>
+        <input id="cat-budget" type="number" min="0" step="0.01"
+          value="${existing?.monthlyBudget ?? ''}" placeholder="e.g. 500.00" />
+        <span class="form-hint">Sets this category's spending bucket on the Budget page.</span>
+      </div>
       <div id="cat-error" class="form-error" style="display:none"></div>
     `;
     // Set existing name via .value to avoid embedding user data in HTML attribute
@@ -200,9 +209,16 @@ export class ExpensesPage {
         const errEl = body.querySelector<HTMLElement>('#cat-error')!;
         if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
 
-        const cat = existing
+        const budgetRaw = parseFloat(body.querySelector<HTMLInputElement>('#cat-budget')!.value);
+        const hasBudget = !isNaN(budgetRaw) && budgetRaw > 0;
+
+        const base = existing
           ? { ...existing, name, color: selectedColor }
           : createCategory(name, selectedColor);
+        const cat: ExpenseCategory = hasBudget
+          ? { ...base, monthlyBudget: budgetRaw }
+          : { ...base };
+        if (!hasBudget) delete cat.monthlyBudget;
         await saveCategory(cat);
         close();
         await this.load();

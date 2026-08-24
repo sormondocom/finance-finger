@@ -123,6 +123,10 @@ export class Dashboard {
     // ── Summary cards (date-sensitive) ──────────────────────────────────────
     this.el.appendChild(this.buildSummarySection(this.currentBuckets()));
 
+    // ── Financial health metrics (DTI + credit utilization) ──────────────────
+    const healthRow = this.buildFinancialHealthRow(cards, sources);
+    if (healthRow) this.el.appendChild(healthRow);
+
     // ── Income + Debt panels (static) ───────────────────────────────────────
     const panels = document.createElement('div');
     panels.className = 'dashboard-panels';
@@ -415,6 +419,71 @@ export class Dashboard {
     }
 
     return wrap;
+  }
+
+  // ── Financial health row (DTI + credit utilization) ─────────────────────────
+
+  private buildFinancialHealthRow(
+    cards: Awaited<ReturnType<typeof getDebtAccounts>>,
+    sources: IncomeSource[],
+  ): HTMLElement | null {
+    const monthlyIncome = sources
+      .filter((s) => s.active && s.frequency !== 'once')
+      .reduce((sum, s) => sum + sourceMonthly(s), 0);
+
+    const monthlyMinPayments = cards
+      .filter((c) => c.balance > 0)
+      .reduce((sum, c) => sum + (computeMinPayment(c) ?? 0), 0);
+
+    const cardAccounts = cards.filter((c) => c.type === 'card' && (c.creditLimit ?? 0) > 0 && c.balance > 0);
+    const totalCardBalance = cardAccounts.reduce((s, c) => s + c.balance, 0);
+    const totalCardLimit = cardAccounts.reduce((s, c) => s + (c.creditLimit ?? 0), 0);
+
+    const hasDTI = monthlyIncome > 0 && monthlyMinPayments > 0;
+    const hasUtil = totalCardLimit > 0;
+    if (!hasDTI && !hasUtil) return null;
+
+    const dti = hasDTI ? (monthlyMinPayments / monthlyIncome) * 100 : null;
+    const util = hasUtil ? (totalCardBalance / totalCardLimit) * 100 : null;
+
+    const dtiColor = dti == null ? '' : dti < 36 ? 'var(--ff-green)' : dti < 43 ? 'var(--ff-rust)' : 'var(--color-danger)';
+    const dtiLabel = dti == null ? '' : dti < 36 ? 'Healthy' : dti < 43 ? 'Elevated' : 'High';
+    const utilColor = util == null ? '' : util < 30 ? 'var(--ff-green)' : util < 50 ? 'var(--ff-rust)' : 'var(--color-danger)';
+    const utilLabel = util == null ? '' : util < 30 ? 'Good' : util < 50 ? 'Fair' : 'High';
+
+    const row = document.createElement('div');
+    row.className = 'dashboard-health-row';
+    row.setAttribute('data-testid', 'financial-health-row');
+
+    if (hasDTI && dti != null) {
+      const chip = document.createElement('div');
+      chip.className = 'health-chip';
+      chip.setAttribute('data-testid', 'dti-chip');
+      chip.setAttribute('title', 'Debt-to-Income Ratio: monthly minimum debt payments ÷ monthly income. Under 36% is healthy; above 43% is high.');
+      chip.innerHTML = `
+        <span class="health-chip-label">Debt-to-Income</span>
+        <span class="health-chip-value" style="color:${dtiColor}" data-testid="dti-value">${dti.toFixed(0)}%</span>
+        <span class="health-chip-tag" style="background:${dtiColor}20;color:${dtiColor}">${dtiLabel}</span>
+      `;
+      row.appendChild(chip);
+    }
+
+    if (hasUtil && util != null) {
+      const utilHealth = util < 30 ? 'good' : util < 50 ? 'amber' : 'high';
+      const chip = document.createElement('div');
+      chip.className = 'health-chip';
+      chip.setAttribute('data-testid', 'util-chip');
+      chip.setAttribute('data-health', utilHealth);
+      chip.setAttribute('title', 'Credit Utilization: total card balance ÷ total credit limit. Under 30% is good for your credit score.');
+      chip.innerHTML = `
+        <span class="health-chip-label">Credit Utilization</span>
+        <span class="health-chip-value" style="color:${utilColor}" data-testid="util-value">${util.toFixed(0)}%</span>
+        <span class="health-chip-tag" style="background:${utilColor}20;color:${utilColor}">${utilLabel}</span>
+      `;
+      row.appendChild(chip);
+    }
+
+    return row;
   }
 
   // ── Summary section ───────────────────────────────────────────────────────────
@@ -1076,6 +1145,9 @@ export class Dashboard {
     ): void => {
       const row = document.createElement('div');
       row.className = `payment-reminder-row payment-reminder-row--${severity}`;
+      row.setAttribute('data-testid', 'payment-reminder-row');
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => navigate('/debt'));
 
       const minPay = computeMinPayment(account);
       const dueDateStr = status.dueDayThisMonth
@@ -1109,6 +1181,9 @@ export class Dashboard {
     ): void => {
       const row = document.createElement('div');
       row.className = `payment-reminder-row payment-reminder-row--${severity}`;
+      row.setAttribute('data-testid', 'payment-reminder-row');
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => navigate('/expenses'));
 
       const dueDateStr = status.dueDayThisMonth
         ? status.dueDayThisMonth.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -1132,10 +1207,28 @@ export class Dashboard {
       list.appendChild(row);
     };
 
-    pastDue.forEach(({ account, status }) => renderDebtRow(account, status, 'past-due'));
-    billsPastDue.forEach(({ expense, status }) => renderBillRow(expense, status, 'past-due'));
-    dueSoon.forEach(({ account, status }) => renderDebtRow(account, status, 'due-soon'));
-    billsDueSoon.forEach(({ expense, status }) => renderBillRow(expense, status, 'due-soon'));
+    // Unified list: combine all items and sort by due date ascending.
+    // Past-due items have earlier dates than due-soon, so they naturally sort first;
+    // within each group items sort by how overdue/soon they are (most urgent first).
+    type ReminderItem =
+      | { kind: 'debt'; account: import('@/types').DebtAccount; status: AccountPaymentStatus; severity: 'past-due' | 'due-soon' }
+      | { kind: 'bill'; expense: import('@/types').Expense; status: BillPaymentStatus; severity: 'past-due' | 'due-soon' };
+
+    const allItems: ReminderItem[] = [
+      ...pastDue.map(({ account, status }) => ({ kind: 'debt' as const, account, status, severity: 'past-due' as const })),
+      ...billsPastDue.map(({ expense, status }) => ({ kind: 'bill' as const, expense, status, severity: 'past-due' as const })),
+      ...dueSoon.map(({ account, status }) => ({ kind: 'debt' as const, account, status, severity: 'due-soon' as const })),
+      ...billsDueSoon.map(({ expense, status }) => ({ kind: 'bill' as const, expense, status, severity: 'due-soon' as const })),
+    ];
+    allItems.sort((a, b) => {
+      const da = a.status.dueDayThisMonth?.getTime() ?? Infinity;
+      const db = b.status.dueDayThisMonth?.getTime() ?? Infinity;
+      return da - db;
+    });
+    allItems.forEach((item) => {
+      if (item.kind === 'debt') renderDebtRow(item.account, item.status, item.severity);
+      else renderBillRow(item.expense, item.status, item.severity);
+    });
 
     card.appendChild(list);
     return card;

@@ -4,6 +4,7 @@ export type Route =
   | '/dashboard'
   | '/income'
   | '/expenses'
+  | '/calendar'
   | '/budget'
   | '/debt'
   | '/reports'

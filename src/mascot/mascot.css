@@ -390,3 +390,70 @@
   min-width: 220px;
   font-size: var(--text-base);
 }
+
+/* ── Grand "all debt free" variant ──────────────────────────────────────── */
+
+.celebration-overlay--grand {
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.96) 100%);
+}
+
+.celebration-panel--grand {
+  border: 2px solid var(--ff-gold);
+  box-shadow: 0 0 60px rgba(201,168,76,0.35), var(--shadow-xl);
+}
+
+.celebration-banner--grand {
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  background: linear-gradient(135deg, #FFD700 0%, #C9A84C 50%, #FFD700 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: celebration-banner-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes celebration-banner-pulse {
+  from { filter: brightness(1);   transform: scale(1); }
+  to   { filter: brightness(1.2); transform: scale(1.04); }
+}
+
+.celebration-mascots--grand {
+  gap: var(--space-10);
+}
+
+.celebration-mascot--dance {
+  animation: mascot-dance-grand 0.6s ease-in-out infinite alternate;
+}
+
+.celebration-mascot--dance.celebration-mascot--offset {
+  animation-direction: alternate-reverse;
+  animation-delay: 0.15s;
+}
+
+@keyframes mascot-dance-grand {
+  0%   { transform: translateY(0) rotate(-6deg) scale(1.0); }
+  50%  { transform: translateY(-12px) rotate(0deg)  scale(1.05); }
+  100% { transform: translateY(-4px) rotate(6deg)  scale(1.02); }
+}
+
+.celebration-kids--grand {
+  gap: var(--space-3);
+}
+
+.celebration-kids--grand .celebration-kid {
+  font-size: 1.8rem;
+  animation-duration: 0.45s;
+}
+
+.celebration-btn--grand {
+  min-width: 280px;
+  font-size: var(--text-base);
+  background: linear-gradient(135deg, #C9A84C 0%, #B45309 100%);
+  border-color: transparent;
+  box-shadow: 0 4px 18px rgba(201,168,76,0.4);
+  transition: box-shadow var(--ease-default), transform var(--ease-default);
+}
+
+.celebration-btn--grand:hover {
+  box-shadow: 0 6px 24px rgba(201,168,76,0.55);
+  transform: translateY(-1px);
+}

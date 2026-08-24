@@ -143,6 +143,52 @@
   max-width: 320px;
 }
 
+/* ── Financial health row ──────────────────────────────────────────────── */
+
+.dashboard-health-row {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.health-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-bg-elevated);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: help;
+  transition: box-shadow var(--ease-default);
+}
+
+.health-chip:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.health-chip-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.health-chip-value {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.health-chip-tag {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
 /* ── Dashboard panels ──────────────────────────────────────────────────── */
 
 .dashboard-panels {
@@ -468,6 +514,12 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.payment-reminder-row:hover {
+  filter: brightness(0.95);
+  transform: translateX(2px);
 }
 
 .payment-reminder-row--past-due {

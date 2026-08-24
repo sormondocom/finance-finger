@@ -6,9 +6,10 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { getIncomeSources, getExpenses, getCategories } from '@/db';
-import { toMonthly, sourceMonthly, fmt } from '@/utils/finance';
+import { getIncomeSources, getExpenses, getCategories, saveCategory } from '@/db';
+import { toMonthly, sourceMonthly, fmt, fmtCents } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
+import { openFormModal } from '@/components/Modal';
 import type { ExpenseCategory, Expense, IncomeSource } from '@/types';
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
@@ -19,15 +20,18 @@ interface CategoryTotals {
 }
 
 export class BudgetPage {
+  private container!: HTMLElement;
+
   render(): HTMLElement {
-    const el = document.createElement('div');
-    el.className = 'budget-page';
-    el.innerHTML = '<p class="text-muted">Loading...</p>';
-    this.populate(el);
-    return el;
+    this.container = document.createElement('div');
+    this.container.className = 'budget-page';
+    this.container.innerHTML = '<p class="text-muted">Loading...</p>';
+    this.populate();
+    return this.container;
   }
 
-  private async populate(el: HTMLElement): Promise<void> {
+  private async populate(): Promise<void> {
+    const el = this.container;
     const [sources, expenses, categories] = await Promise.all([
       getIncomeSources(),
       getExpenses(),
@@ -61,6 +65,10 @@ export class BudgetPage {
       <p class="text-muted text-sm">${now.toLocaleString('default', { month: 'long', year: 'numeric' })} · Recurring expenses only</p>
     `;
     el.appendChild(title);
+
+    // ── Buckets (envelope budgeting) ─────────────────────────────────────
+    const bucketsSection = this.renderBuckets(categories, recurringExpenses, monthlyIncome);
+    if (bucketsSection) el.appendChild(bucketsSection);
 
     // ── Summary stats ────────────────────────────────────────────────────
     el.appendChild(this.renderSummary(monthlyIncome, monthlyExpenses, surplus));
@@ -115,6 +123,194 @@ export class BudgetPage {
         1500,
       );
     }
+  }
+
+  // ── Bucket SVG generator ───────────────────────────────────────────────
+
+  private buildBucketSVG(color: string, fillPct: number, isOver: boolean): string {
+    const clamped = Math.min(fillPct, 1);
+    const fillColor = isOver ? '#DC2626' : fillPct >= 0.7 ? '#B45309' : '#2D5A27';
+    const id = `bclip-${Math.random().toString(36).slice(2, 9)}`;
+
+    // Bucket polygon: wider at top (y=22), narrower at bottom (y=102)
+    // Top-left=6,22  Top-right=74,22  Bot-right=80,102  Bot-left=0,102
+    const bucketH = 80; // 102 - 22
+    const fillY = 22 + bucketH * (1 - clamped);
+    const fillH = bucketH * clamped;
+
+    const overLabel = isOver
+      ? `<text x="40" y="68" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="system-ui">OVER</text>`
+      : '';
+
+    return `<svg viewBox="0 0 80 112" xmlns="http://www.w3.org/2000/svg" fill="none" class="bucket-svg" aria-hidden="true">
+      <path d="M20 22 Q40 6 60 22" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <defs><clipPath id="${id}"><polygon points="6,22 74,22 80,102 0,102"/></clipPath></defs>
+      <polygon points="6,22 74,22 80,102 0,102" fill="var(--color-bg-sunken)"/>
+      ${fillPct > 0 ? `<rect x="0" y="${fillY.toFixed(1)}" width="80" height="${Math.max(fillH, 0.1).toFixed(1)}" fill="${fillColor}" opacity="0.75" clip-path="url(#${id})"/>` : ''}
+      <polygon points="6,22 74,22 80,102 0,102" stroke="${color}" stroke-width="2" fill="none"/>
+      ${overLabel}
+    </svg>`;
+  }
+
+  // ── Buckets section ────────────────────────────────────────────────────
+
+  private renderBuckets(
+    categories: ExpenseCategory[],
+    recurringExpenses: Expense[],
+    monthlyIncome: number,
+  ): HTMLElement | null {
+    if (categories.length === 0) return null;
+
+    const budgeted = categories.filter((c) => c.monthlyBudget != null && c.monthlyBudget > 0);
+    const unbudgeted = categories.filter((c) => !c.monthlyBudget);
+
+    if (budgeted.length === 0 && unbudgeted.length === 0) return null;
+
+    // Compute monthly spend per category
+    const spendByCat = new Map<string, number>();
+    recurringExpenses.forEach((e) => {
+      const key = e.categoryId || '__none__';
+      spendByCat.set(key, (spendByCat.get(key) ?? 0) + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'));
+    });
+
+    const totalBudgeted = budgeted.reduce((s, c) => s + (c.monthlyBudget ?? 0), 0);
+    const unassigned = monthlyIncome - totalBudgeted;
+
+    const section = document.createElement('div');
+    section.className = 'card buckets-section';
+    section.setAttribute('data-testid', 'buckets-section');
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'buckets-header';
+
+    const titleEl = document.createElement('div');
+    titleEl.innerHTML = `
+      <h2 class="font-serif" style="font-size:var(--text-xl)">Spending Buckets</h2>
+      <p class="text-muted text-sm" style="margin-top:var(--space-1)">
+        Set a monthly budget on each category to fill your pails.
+      </p>
+    `;
+    header.appendChild(titleEl);
+
+    if (monthlyIncome > 0 && budgeted.length > 0) {
+      const assignColor = unassigned > 0 ? '--positive' : unassigned < 0 ? '--negative' : '--zero';
+      const counter = document.createElement('div');
+      counter.className = 'buckets-assign-counter';
+      counter.setAttribute('data-testid', 'buckets-unassigned');
+      counter.innerHTML = `
+        <span class="buckets-assign-label">To Assign</span>
+        <span class="buckets-assign-value buckets-assign-value${assignColor}" data-testid="buckets-unassigned-value">
+          ${unassigned >= 0 ? '' : '-'}${fmt.format(Math.abs(unassigned))}
+        </span>
+      `;
+      header.appendChild(counter);
+    }
+    section.appendChild(header);
+
+    // Bucket grid
+    if (budgeted.length > 0) {
+      const grid = document.createElement('div');
+      grid.className = 'buckets-grid';
+      grid.setAttribute('data-testid', 'buckets-grid');
+
+      budgeted.forEach((cat) => {
+        const spent = spendByCat.get(cat.id) ?? 0;
+        const budget = cat.monthlyBudget!;
+        const pct = budget > 0 ? spent / budget : 0;
+        const isOver = pct > 1;
+        const pctClass = isOver ? 'bucket-pct--over' : pct >= 0.7 ? 'bucket-pct--warning' : 'bucket-pct--ok';
+
+        const item = document.createElement('div');
+        item.className = 'bucket-item';
+        item.setAttribute('data-testid', 'bucket-item');
+        item.setAttribute('data-category-id', cat.id);
+        item.setAttribute('title', `${cat.name}: ${fmtCents.format(spent)} / ${fmtCents.format(budget)} · Click to edit budget`);
+
+        item.innerHTML = `
+          ${this.buildBucketSVG(cat.color, pct, isOver)}
+          <div class="bucket-info">
+            <div class="bucket-name">${cat.name}</div>
+            <div class="bucket-amounts">${fmt.format(spent)} / ${fmt.format(budget)}</div>
+            <div class="bucket-pct ${pctClass}">${Math.round(pct * 100)}%</div>
+          </div>
+        `;
+
+        item.addEventListener('click', () => this.openBudgetEditor(cat));
+
+        grid.appendChild(item);
+      });
+
+      section.appendChild(grid);
+    }
+
+    // Unbudgeted categories
+    if (unbudgeted.length > 0) {
+      const unbudgetedWrap = document.createElement('div');
+      unbudgetedWrap.className = 'buckets-unbudgeted';
+      const label = document.createElement('div');
+      label.className = 'unbudgeted-label';
+      label.textContent = 'No budget set';
+      unbudgetedWrap.appendChild(label);
+
+      const list = document.createElement('div');
+      list.className = 'unbudgeted-list';
+
+      unbudgeted.forEach((cat) => {
+        const pill = document.createElement('button');
+        pill.className = 'unbudgeted-pill';
+        pill.setAttribute('data-testid', 'unbudgeted-pill');
+        pill.setAttribute('data-category-id', cat.id);
+        pill.innerHTML = `
+          <span class="unbudgeted-pill-dot" style="background:${cat.color}"></span>
+          <span>${cat.name}</span>
+          <span class="unbudgeted-pill-add">+ Set budget</span>
+        `;
+        pill.addEventListener('click', () => this.openBudgetEditor(cat));
+        list.appendChild(pill);
+      });
+
+      unbudgetedWrap.appendChild(list);
+      section.appendChild(unbudgetedWrap);
+    }
+
+    return section;
+  }
+
+  // ── Budget editor modal ────────────────────────────────────────────────
+
+  private openBudgetEditor(cat: ExpenseCategory): void {
+    const body = document.createElement('div');
+    body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
+    body.innerHTML = `
+      <p class="text-sm text-muted">
+        Set how many dollars you want to pour into the <strong>${cat.name}</strong> bucket each month.
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="be-budget">Monthly budget</label>
+        <input id="be-budget" type="number" min="0" step="0.01"
+          value="${cat.monthlyBudget ?? ''}" placeholder="0.00" />
+        <span class="form-hint">Leave empty to remove this bucket's cap.</span>
+      </div>
+    `;
+
+    openFormModal({
+      title: `Set Budget — ${cat.name}`,
+      body,
+      submitLabel: 'Save',
+      onSubmit: async (close) => {
+        const raw = parseFloat(body.querySelector<HTMLInputElement>('#be-budget')!.value);
+        const updated: ExpenseCategory = { ...cat };
+        if (!isNaN(raw) && raw > 0) {
+          updated.monthlyBudget = raw;
+        } else {
+          delete updated.monthlyBudget;
+        }
+        await saveCategory(updated);
+        close();
+        this.populate();
+      },
+    });
   }
 
   // ── Summary stats row ──────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import './styles/nav.css';
 import browser from 'webextension-polyfill';
 import { register, navigate, navigateReplace, currentRoute, initRouter, onRouteChange } from './router';
 import { isVaultOpen } from '@/crypto/vault';
+import { setCurrency } from '@/utils/finance';
 import type { VaultConfig } from '@/types';
 
 async function getVaultConfig(): Promise<VaultConfig | null> {
@@ -21,6 +22,7 @@ function buildNav(): HTMLElement {
       <a href="#/dashboard" class="nav-link" data-route="/dashboard" data-testid="nav-dashboard">Dashboard</a>
       <a href="#/income"    class="nav-link" data-route="/income"    data-testid="nav-income">Income</a>
       <a href="#/expenses"  class="nav-link" data-route="/expenses"  data-testid="nav-expenses">Expenses</a>
+      <a href="#/calendar"  class="nav-link" data-route="/calendar"  data-testid="nav-calendar">Calendar</a>
       <a href="#/budget"    class="nav-link" data-route="/budget"    data-testid="nav-budget">Budget</a>
       <a href="#/debt"      class="nav-link" data-route="/debt"      data-testid="nav-debt">Debt</a>
       <a href="#/reports"   class="nav-link" data-route="/reports"   data-testid="nav-reports">Reports</a>
@@ -57,6 +59,12 @@ async function applyTheme(): Promise<void> {
   }
 }
 
+async function applyCurrency(): Promise<void> {
+  const result = await browser.storage.local.get('currency');
+  const currency = result['currency'] as string | undefined;
+  if (currency) setCurrency(currency);
+}
+
 // Transitions the page into the full app without a reload, preserving the
 // in-memory vault session key.  Called as a callback from setup and unlock.
 function launchApp(): void {
@@ -74,6 +82,10 @@ function launchApp(): void {
   register('/expenses', async () => {
     const { ExpensesPage } = await import('@/pages/expenses/Expenses');
     return new ExpensesPage().render();
+  });
+  register('/calendar', async () => {
+    const { CalendarPage } = await import('@/pages/calendar/Calendar');
+    return new CalendarPage().render();
   });
   register('/budget', async () => {
     const { BudgetPage } = await import('@/pages/budget/Budget');
@@ -107,7 +119,7 @@ function launchApp(): void {
 }
 
 async function boot(): Promise<void> {
-  await applyTheme();
+  await Promise.all([applyTheme(), applyCurrency()]);
   const config = await getVaultConfig();
 
   if (!config?.setupComplete) {

@@ -10,6 +10,7 @@ export interface NotifierItem {
   text: string;
   route: Extract<Route, '/debt' | '/expenses'>;
   severity: 'critical' | 'warning';
+  dueDate?: Date | null;
 }
 
 type AlertsCallback = (items: NotifierItem[]) => void;
@@ -52,11 +53,11 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
     .filter((c) => c.balance > 0 && computeMinPayment(c) != null)
     .forEach((c) => {
       const payments = allPayments.filter((p) => p.accountId === c.id);
-      const { currentMonth } = computePaymentStatus(c, payments);
+      const { currentMonth, dueDayThisMonth } = computePaymentStatus(c, payments);
       if (currentMonth === 'past-due') {
-        items.push({ text: `💳 ${c.name} — PAST DUE`, route: '/debt', severity: 'critical' });
+        items.push({ text: `💳 ${c.name} — PAST DUE`, route: '/debt', severity: 'critical', dueDate: dueDayThisMonth });
       } else if (currentMonth === 'due-soon') {
-        items.push({ text: `💳 ${c.name} — DUE SOON`, route: '/debt', severity: 'warning' });
+        items.push({ text: `💳 ${c.name} — DUE SOON`, route: '/debt', severity: 'warning', dueDate: dueDayThisMonth });
       }
     });
 
@@ -64,11 +65,11 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
   expenses
     .filter((e) => e.recurring && !!e.dueDay)
     .forEach((e) => {
-      const { status } = computeBillStatus(e);
+      const { status, dueDayThisMonth } = computeBillStatus(e);
       if (status === 'past-due') {
-        items.push({ text: `🧾 ${e.description} — PAST DUE`, route: '/expenses', severity: 'critical' });
+        items.push({ text: `🧾 ${e.description} — PAST DUE`, route: '/expenses', severity: 'critical', dueDate: dueDayThisMonth });
       } else if (status === 'due-soon') {
-        items.push({ text: `🧾 ${e.description} — DUE SOON`, route: '/expenses', severity: 'warning' });
+        items.push({ text: `🧾 ${e.description} — DUE SOON`, route: '/expenses', severity: 'warning', dueDate: dueDayThisMonth });
       }
     });
 
@@ -93,10 +94,10 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
       }
     });
 
-  // Critical first, then warnings
+  // Critical first, then warnings; within each severity sort by due date ascending (most overdue first)
   return items.sort((a, b) => {
-    if (a.severity === b.severity) return 0;
-    return a.severity === 'critical' ? -1 : 1;
+    if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
+    return (a.dueDate?.getTime() ?? Infinity) - (b.dueDate?.getTime() ?? Infinity);
   });
 }
 

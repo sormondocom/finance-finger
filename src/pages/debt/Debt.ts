@@ -21,10 +21,11 @@ import { openFormModal } from '@/components/Modal';
 import { fmt, fmtCents } from '@/utils/finance';
 import {
   amortizeSingleCard,
+  amortizeMultiCard,
   comparePayoffScenarios,
   detectMinimumPaymentTrap,
 } from '@/engine/amortize';
-import { showMascot, showDebtPayoffCelebration } from '@/mascot/Mascot';
+import { showMascot, showDebtPayoffCelebration, showAllDebtFreeCelebration } from '@/mascot/Mascot';
 import { computeMinPayment, computePaymentStatus } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
 import type { CardCharge, DebtAccount, DebtAccountType, DebtPayment, DebtStrategy, ExpenseCategory, PaymentCycle } from '@/types';
@@ -163,6 +164,10 @@ export class DebtPage {
 
     // ── Per-account schedule ─────────────────────────────────────────────
     this.container.appendChild(this.buildSchedulePanel());
+
+    // ── Payoff milestone timeline ─────────────────────────────────────────
+    const milestones = this.buildMilestoneCard();
+    if (milestones) this.container.appendChild(milestones);
 
     if (trapAccounts.length > 0) {
       setTimeout(() => showMascot('minimum-payment-trap'), 1200);
@@ -496,7 +501,12 @@ export class DebtPage {
         refreshNotifier();
 
         if (wasPaidOff) {
-          setTimeout(() => showDebtPayoffCelebration(a.name), 450);
+          const allFree = this.accounts.every((acc) => acc.balance <= 0);
+          if (allFree) {
+            setTimeout(() => showAllDebtFreeCelebration(), 450);
+          } else {
+            setTimeout(() => showDebtPayoffCelebration(a.name), 450);
+          }
         }
       },
     });
@@ -1705,9 +1715,134 @@ export class DebtPage {
         await this.load();
 
         if (wasPaidOff) {
-          setTimeout(() => showDebtPayoffCelebration(account.name), 450);
+          const allFree = this.accounts.every((acc) => acc.balance <= 0);
+          if (allFree) {
+            setTimeout(() => showAllDebtFreeCelebration(), 450);
+          } else {
+            setTimeout(() => showDebtPayoffCelebration(account.name), 450);
+          }
         }
       },
     });
+  }
+
+  // ── Payoff milestone timeline ────────────────────────────────────────────
+
+  private buildMilestoneCard(): HTMLElement | null {
+    const active = this.accounts.filter((a) => a.balance > 0);
+    if (active.length === 0) return null;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.setAttribute('data-testid', 'milestone-card');
+
+    const h3 = document.createElement('h3');
+    h3.className = 'font-serif';
+    h3.style.cssText = 'font-size:var(--text-xl);margin-bottom:var(--space-2)';
+    h3.textContent = '🏆 Payoff Milestones';
+    card.appendChild(h3);
+
+    const strategyNote = document.createElement('p');
+    strategyNote.className = 'text-xs text-muted';
+    strategyNote.style.marginBottom = 'var(--space-5)';
+    const extraNote = this.extraPayment > 0
+      ? ` · +${fmt.format(this.extraPayment)}/mo extra`
+      : ' · minimum payments only';
+    strategyNote.textContent =
+      `${this.strategy.charAt(0).toUpperCase() + this.strategy.slice(1)} strategy${extraNote}`;
+    card.appendChild(strategyNote);
+
+    // Per-account payoff via single-card amortization (split extra evenly)
+    const perAccountResults = active
+      .map((a) => ({ account: a, result: amortizeSingleCard(a, this.extraPayment / active.length) }))
+      .sort((a, b) => a.result.debtFreeDate.getTime() - b.result.debtFreeDate.getTime());
+
+    const totalPaidPerAccount = new Map<string, number>();
+    this.payments.forEach((p) => {
+      totalPaidPerAccount.set(p.accountId, (totalPaidPerAccount.get(p.accountId) ?? 0) + p.amount);
+    });
+
+    const timeline = document.createElement('div');
+    timeline.className = 'milestone-timeline';
+    timeline.setAttribute('data-testid', 'milestone-timeline');
+
+    perAccountResults.forEach(({ account, result }, idx) => {
+      const paidSoFar = totalPaidPerAccount.get(account.id) ?? 0;
+      const estimatedOriginal = account.balance + paidSoFar;
+      const pctPaid = estimatedOriginal > 0 ? paidSoFar / estimatedOriginal : 0;
+      const barColor = idx === 0 ? 'var(--ff-gold)' : 'var(--ff-green)';
+      const icon = DEBT_TYPE_ICONS[account.type];
+      const dateStr = result.debtFreeDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      const row = document.createElement('div');
+      row.className = 'milestone-row';
+      row.setAttribute('data-testid', 'milestone-row');
+      row.setAttribute('data-account-id', account.id);
+      row.innerHTML = `
+        <div class="milestone-rank">${idx + 1}</div>
+        <div class="milestone-info">
+          <div class="milestone-name">${icon} ${account.name}</div>
+          <div class="milestone-progress-wrap">
+            <div class="milestone-progress-bar" style="width:${Math.round(pctPaid * 100)}%;background:${barColor}"></div>
+          </div>
+          <div class="milestone-meta">
+            ${fmtCents.format(account.balance)} remaining
+            · ${Math.round(pctPaid * 100)}% paid
+            · <strong>${fmtCents.format(result.totalInterest)}</strong> est. interest
+          </div>
+        </div>
+        <div class="milestone-date" data-testid="milestone-date">
+          <span class="milestone-date-label">Paid off</span>
+          <span class="milestone-date-value">${dateStr}</span>
+        </div>
+      `;
+      timeline.appendChild(row);
+    });
+
+    card.appendChild(timeline);
+
+    // Overall freedom date via multi-card amortization
+    const multiResult = amortizeMultiCard(active, this.strategy, this.extraPayment);
+    const freedomDate = multiResult.debtFreeDate
+      ? multiResult.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      : '—';
+
+    const freedomBanner = document.createElement('div');
+    freedomBanner.className = 'milestone-freedom-banner';
+    freedomBanner.setAttribute('data-testid', 'milestone-freedom-banner');
+    freedomBanner.innerHTML = `
+      <span class="milestone-freedom-icon">🎯</span>
+      <div>
+        <div class="milestone-freedom-label">Complete debt freedom</div>
+        <div class="milestone-freedom-date" data-testid="milestone-freedom-date">${freedomDate}</div>
+      </div>
+      <div class="milestone-freedom-stats">
+        <div class="milestone-freedom-stat">
+          <span class="text-muted text-xs">Total interest at current pace</span>
+          <span class="milestone-freedom-stat-val">${fmtCents.format(multiResult.totalInterest)}</span>
+        </div>
+      </div>
+    `;
+    card.appendChild(freedomBanner);
+
+    // What-if nudge when no extra payment is set
+    if (this.extraPayment === 0) {
+      const nudge = amortizeMultiCard(active, this.strategy, 50);
+      const monthsSaved = multiResult.monthly.length - nudge.monthly.length;
+      const interestSaved = multiResult.totalInterest - nudge.totalInterest;
+      if (monthsSaved > 0) {
+        const tip = document.createElement('p');
+        tip.className = 'milestone-whatif-tip';
+        tip.setAttribute('data-testid', 'milestone-whatif-tip');
+        tip.innerHTML = `
+          💡 Add just <strong>$50/month</strong> and you'd be debt-free
+          <strong>${monthsSaved} month${monthsSaved !== 1 ? 's' : ''} sooner</strong>,
+          saving <strong>${fmtCents.format(interestSaved)}</strong> in interest.
+        `;
+        card.appendChild(tip);
+      }
+    }
+
+    return card;
   }
 }

@@ -7,6 +7,7 @@ import { isVaultOpen } from '@/crypto/vault';
 import { buildExportBundle, encryptExport, decryptImport, applyImport } from '@/crypto/export';
 import { openFormModal } from '@/components/Modal';
 import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, deleteIncomeSource, getSetting, saveSetting } from '@/db';
+import { setCurrency, getCurrentCurrency, SUPPORTED_CURRENCIES } from '@/utils/finance';
 import type { VaultConfig, MascotGender, HouseholdMember, AvatarType, SharingKey } from '@/types';
 
 function triggerDownload(content: string, filename: string): void {
@@ -389,12 +390,12 @@ export class SettingsPage {
       return attr ?? 'auto';
     };
 
-    const row = document.createElement('div');
-    row.className = 'setting-row';
+    const themeRow = document.createElement('div');
+    themeRow.className = 'setting-row';
 
-    const info = document.createElement('div');
-    info.className = 'setting-row-info';
-    info.innerHTML = `
+    const themeInfo = document.createElement('div');
+    themeInfo.className = 'setting-row-info';
+    themeInfo.innerHTML = `
       <span class="setting-row-label">Color theme</span>
       <span class="setting-row-desc">Auto follows your system preference. Light and Dark override it.</span>
     `;
@@ -428,9 +429,57 @@ export class SettingsPage {
       toggle.appendChild(btn);
     });
 
-    row.appendChild(info);
-    row.appendChild(toggle);
-    wrap.appendChild(row);
+    themeRow.appendChild(themeInfo);
+    themeRow.appendChild(toggle);
+    wrap.appendChild(themeRow);
+
+    // ── Currency ──
+    const currencyRow = document.createElement('div');
+    currencyRow.className = 'setting-row';
+    currencyRow.setAttribute('data-testid', 'currency-row');
+
+    const currencyInfo = document.createElement('div');
+    currencyInfo.className = 'setting-row-info';
+    currencyInfo.innerHTML = `
+      <span class="setting-row-label">Currency</span>
+      <span class="setting-row-desc">Sets the symbol and decimal style used throughout the app. Number formatting follows your system language.</span>
+    `;
+
+    const currencyControl = document.createElement('div');
+    currencyControl.className = 'setting-row-control';
+    currencyControl.style.cssText = 'display:flex;gap:var(--space-3);align-items:center';
+
+    const select = document.createElement('select');
+    select.setAttribute('data-testid', 'currency-select');
+    select.style.cssText = 'min-width:160px';
+
+    const currentCode = getCurrentCurrency();
+    SUPPORTED_CURRENCIES.forEach(({ code, name }) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${code} — ${name}`;
+      opt.selected = code === currentCode;
+      select.appendChild(opt);
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.setAttribute('data-testid', 'currency-save');
+    saveBtn.textContent = 'Save';
+
+    saveBtn.addEventListener('click', async () => {
+      const code = select.value;
+      setCurrency(code);
+      await browser.storage.local.set({ currency: code });
+      this.showToast(`Currency set to ${code}`);
+    });
+
+    currencyControl.appendChild(select);
+    currencyControl.appendChild(saveBtn);
+    currencyRow.appendChild(currencyInfo);
+    currencyRow.appendChild(currencyControl);
+    wrap.appendChild(currencyRow);
+
     return wrap;
   }
 

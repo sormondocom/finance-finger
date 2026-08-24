@@ -1,0 +1,278 @@
+/* ── Bill Calendar ──────────────────────────────────────────────────────── */
+
+.calendar-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Calendar header ────────────────────────────────────────────────────── */
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.calendar-month-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.calendar-nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xl);
+  background: var(--color-bg-elevated);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  transition: background var(--ease-default), border-color var(--ease-default);
+}
+
+.calendar-nav-btn:hover {
+  background: var(--color-bg-sunken);
+  border-color: var(--ff-gold);
+}
+
+.calendar-month-label {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  min-width: 220px;
+  text-align: center;
+}
+
+/* ── Legend ─────────────────────────────────────────────────────────────── */
+
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Calendar grid ───────────────────────────────────────────────────────── */
+
+.calendar-grid-wrap {
+  overflow-x: auto;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-elevated);
+  min-width: 560px;
+}
+
+.calendar-weekday {
+  padding: var(--space-3) var(--space-2);
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  background: var(--color-bg-sunken);
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.calendar-cell {
+  min-height: 100px;
+  padding: var(--space-2);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  transition: background var(--ease-default);
+}
+
+.calendar-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.calendar-cell--empty {
+  background: var(--color-bg-sunken);
+  opacity: 0.5;
+}
+
+.calendar-cell--today {
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.calendar-day-number {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  line-height: 1;
+}
+
+.calendar-cell--today .calendar-day-number {
+  color: var(--ff-gold-dark);
+  font-weight: var(--weight-bold);
+}
+
+/* ── Bill chips ──────────────────────────────────────────────────────────── */
+
+.calendar-bills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.calendar-bill-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  border-left: 3px solid;
+  cursor: default;
+  transition: opacity var(--ease-default);
+}
+
+.calendar-bill-chip--paid {
+  background: rgba(45, 90, 39, 0.08);
+  border-color: var(--ff-green);
+  color: var(--ff-green);
+}
+
+.calendar-bill-chip--past-due {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.calendar-bill-chip--due-soon {
+  background: rgba(180, 83, 9, 0.08);
+  border-color: var(--ff-rust);
+  color: var(--ff-rust);
+}
+
+.calendar-bill-chip--ok {
+  background: rgba(107, 127, 94, 0.08);
+  border-color: var(--ff-sage);
+  color: var(--color-text-muted);
+}
+
+.calendar-bill-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-medium);
+}
+
+.calendar-bill-amount {
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.calendar-bill-status {
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+/* ── Mark paid button (on chip) ─────────────────────────────────────────── */
+
+.calendar-mark-paid-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: 0.65rem;
+  font-weight: var(--weight-semibold);
+  background: rgba(45, 90, 39, 0.12);
+  border: 1px solid rgba(45, 90, 39, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--ff-green);
+  cursor: pointer;
+  transition: background var(--ease-default);
+}
+
+.calendar-mark-paid-btn:hover {
+  background: rgba(45, 90, 39, 0.22);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.calendar-empty {
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+  color: var(--color-text-muted);
+}
+
+.calendar-empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+/* ── Summary bar ─────────────────────────────────────────────────────────── */
+
+.calendar-summary {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.calendar-summary-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.calendar-summary-chip--past-due {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--color-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.calendar-summary-chip--due-soon {
+  background: rgba(180, 83, 9, 0.1);
+  color: var(--ff-rust);
+  border: 1px solid rgba(180, 83, 9, 0.25);
+}
+
+.calendar-summary-chip--paid {
+  background: rgba(45, 90, 39, 0.1);
+  color: var(--ff-green);
+  border: 1px solid rgba(45, 90, 39, 0.25);
+}
+
+.calendar-summary-chip--ok {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}

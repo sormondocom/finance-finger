@@ -42,18 +42,59 @@ export function sourceMonthly(source: { amount: number; amount2?: number; freque
   return toMonthly(source.amount, source.frequency);
 }
 
-export const fmt = new Intl.NumberFormat('en-US', {
+export const SUPPORTED_CURRENCIES: Array<{ code: string; name: string }> = [
+  { code: 'USD', name: 'US Dollar' },
+  { code: 'EUR', name: 'Euro' },
+  { code: 'GBP', name: 'British Pound' },
+  { code: 'CAD', name: 'Canadian Dollar' },
+  { code: 'AUD', name: 'Australian Dollar' },
+  { code: 'NZD', name: 'New Zealand Dollar' },
+  { code: 'CHF', name: 'Swiss Franc' },
+  { code: 'JPY', name: 'Japanese Yen' },
+  { code: 'CNY', name: 'Chinese Yuan' },
+  { code: 'INR', name: 'Indian Rupee' },
+  { code: 'MXN', name: 'Mexican Peso' },
+  { code: 'BRL', name: 'Brazilian Real' },
+  { code: 'ZAR', name: 'South African Rand' },
+  { code: 'SEK', name: 'Swedish Krona' },
+  { code: 'NOK', name: 'Norwegian Krone' },
+  { code: 'DKK', name: 'Danish Krone' },
+  { code: 'SGD', name: 'Singapore Dollar' },
+  { code: 'HKD', name: 'Hong Kong Dollar' },
+  { code: 'KRW', name: 'South Korean Won' },
+];
+
+// ── Currency formatters ───────────────────────────────────────────────────────
+// These are wrapper objects so all import sites stay unchanged (they only call
+// .format()). The underlying Intl.NumberFormat instances are swapped out by
+// setCurrency() without touching any consumer.
+
+let _currency = 'USD';
+let _locale   = navigator.language || 'en-US';
+
+let _fmt = new Intl.NumberFormat(_locale, {
   style: 'currency',
-  currency: 'USD',
+  currency: _currency,
   maximumFractionDigits: 0,
 });
 
-export const fmtCents = new Intl.NumberFormat('en-US', {
+let _fmtCents = new Intl.NumberFormat(_locale, {
   style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  currency: _currency,
+  // No fractional-digit overrides — the currency's natural precision is used
+  // (2 for USD/EUR/GBP, 0 for JPY/KRW, etc.).
 });
+
+export const fmt      = { format: (n: number): string => _fmt.format(n) };
+export const fmtCents = { format: (n: number): string => _fmtCents.format(n) };
+
+export function setCurrency(code: string): void {
+  _currency  = code;
+  _fmt       = new Intl.NumberFormat(_locale, { style: 'currency', currency: code, maximumFractionDigits: 0 });
+  _fmtCents  = new Intl.NumberFormat(_locale, { style: 'currency', currency: code });
+}
+
+export function getCurrentCurrency(): string { return _currency; }
 
 export const CATEGORY_COLORS = [
   '#2D5A27', // farm green

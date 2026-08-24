@@ -74,6 +74,7 @@ export interface ExpenseCategory {
   name: string;
   color: string;
   parentId: string | null;
+  monthlyBudget?: number; // envelope budgeting cap — undefined = no cap set
   createdAt: number;
 }
 

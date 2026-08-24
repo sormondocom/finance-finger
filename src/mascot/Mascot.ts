@@ -178,6 +178,159 @@ export async function showDebtPayoffCelebration(cardName: string): Promise<void>
   });
 }
 
+// ── All-Debt-Free Celebration ─────────────────────────────────────────────────
+
+const FREEDOM_LINES: Record<MascotGender, { solo: string[]; couple: string[]; family: string[] }> = {
+  buck: {
+    solo: [
+      "COMPLETELY DEBT FREE! {name} is riding off into the clearest sunset this ranch has EVER seen!",
+      "Hot dog and hallelujah — {name} just wrangled the LAST debt into the ground! ZERO ACROSS THE BOARD!",
+      "Every single balance: ZERO! {name} is king of this range tonight, partner. You earned it!",
+    ],
+    couple: [
+      "Y'all did it TOGETHER! Every last debt lassoed, every balance zeroed — this couple is UNSTOPPABLE!",
+      "The barn dance of a LIFETIME! This family just crossed the finish line on ALL their debt. ZERO!",
+    ],
+    family: [
+      "The whole herd — {name}, the missus, and every little piglet — completely, absolutely, TOTALLY debt free!",
+      "Greatest day on the ranch! From the biggest bill to the last lil' loan — ALL gone! Family FOREVER free!",
+    ],
+  },
+  penny: {
+    solo: [
+      "OH MY STARS! Every single debt — GONE! {name} is twirling her way into a completely debt-free life!",
+      "Total debt freedom, sugar! {name} paid off every last one. This is your MOMENT — treasure it forever!",
+      "Bless your heart and every hard-earned dollar — COMPLETELY DEBT FREE! {name} is absolutely glowing!",
+    ],
+    couple: [
+      "Together you wiped the slate COMPLETELY clean! Every account, every balance — ZERO! Pure Southern magic!",
+      "This family crossed the ultimate finish line — together, hand in hand, COMPLETELY debt free. Gorgeous!",
+    ],
+    family: [
+      "The whole family — {name}, her beau, and every precious little piglet — 100% debt free! Simply miraculous!",
+      "From the biggest debt to the tiniest bill — ALL gone! This household is free, fabulous, and unstoppable!",
+    ],
+  },
+};
+
+function buildHeavyConfetti(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'confetti-wrap';
+  const colors = ['#C9A84C','#FFD700','#2D5A27','#B45309','#7C3AED','#BE185D','#0891B2','#F59E0B','#EF4444','#10B981','#38BDF8','#FCD34D','#F472B6','#A78BFA'];
+  for (let i = 0; i < 72; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const size = 8 + Math.random() * 14;
+    p.style.cssText = [
+      `left:${(Math.random() * 100).toFixed(1)}%`,
+      `width:${size.toFixed(1)}px`,
+      `height:${(size * (Math.random() > 0.5 ? 1 : 0.45)).toFixed(1)}px`,
+      `background:${colors[Math.floor(Math.random() * colors.length)]}`,
+      `animation-delay:${(Math.random() * 3).toFixed(2)}s`,
+      `animation-duration:${(1.4 + Math.random() * 2.5).toFixed(2)}s`,
+      `border-radius:${Math.random() > 0.4 ? '50%' : '2px'}`,
+      `transform:rotate(${Math.floor(Math.random() * 360)}deg)`,
+    ].join(';');
+    wrap.appendChild(p);
+  }
+  return wrap;
+}
+
+export async function showAllDebtFreeCelebration(): Promise<void> {
+  document.getElementById('debt-celebration')?.remove();
+  document.getElementById('all-debt-celebration')?.remove();
+
+  await loadConfig();
+  const gender: MascotGender = activeConfig?.mascotGender ?? 'buck';
+  const name = activeConfig?.mascotName ?? (gender === 'buck' ? 'Buck' : 'Penny');
+
+  const { getMembers } = await import('@/db');
+  const members = await getMembers();
+  const hasPartner = members.some((m) =>
+    (gender === 'buck' && m.avatarType === 'female') ||
+    (gender === 'penny' && m.avatarType === 'male'),
+  );
+  const kidTypes = new Set(['child', 'baby-male', 'baby-female', 'child-male', 'child-female', 'teen-male', 'teen-female']);
+  const kidCount = members.filter((m) => kidTypes.has(m.avatarType ?? '')).length;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'celebration-overlay celebration-overlay--grand';
+  overlay.id = 'all-debt-celebration';
+
+  overlay.appendChild(buildHeavyConfetti());
+
+  const panel = document.createElement('div');
+  panel.className = 'celebration-panel celebration-panel--grand';
+
+  const banner = document.createElement('div');
+  banner.className = 'celebration-banner celebration-banner--grand';
+  banner.innerHTML = '🏆 COMPLETELY DEBT FREE! 🏆';
+  panel.appendChild(banner);
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'celebration-card-name';
+  subtitle.style.cssText = 'font-size:var(--text-lg);margin-bottom:var(--space-2)';
+  subtitle.textContent = 'Every. Last. Balance. ZERO! 🎊';
+  panel.appendChild(subtitle);
+
+  // Dancing mascots — always show both if partner exists, offset for party feel
+  const mascotRow = document.createElement('div');
+  mascotRow.className = 'celebration-mascots celebration-mascots--grand';
+
+  const primary = document.createElement('div');
+  primary.className = 'celebration-mascot celebration-mascot--dance';
+  primary.setAttribute('aria-hidden', 'true');
+  primary.innerHTML = gender === 'buck' ? BUCK_SVG : PENNY_SVG;
+  mascotRow.appendChild(primary);
+
+  // Always show both mascots for the grand finale
+  const partner = document.createElement('div');
+  partner.className = 'celebration-mascot celebration-mascot--offset celebration-mascot--dance';
+  partner.setAttribute('aria-hidden', 'true');
+  partner.innerHTML = gender === 'buck' ? PENNY_SVG : BUCK_SVG;
+  mascotRow.appendChild(partner);
+
+  panel.appendChild(mascotRow);
+
+  // All the kids
+  const showKids = kidCount > 0 || !hasPartner;
+  const kidsEl = document.createElement('div');
+  kidsEl.className = 'celebration-kids celebration-kids--grand';
+  const kidEmojis = ['🐷', '🐽', '🐷', '🐽'];
+  for (let i = 0; i < Math.min(Math.max(kidCount, 2), 6); i++) {
+    const k = document.createElement('span');
+    k.className = 'celebration-kid';
+    k.style.animationDelay = `${(i * 0.1).toFixed(2)}s`;
+    k.textContent = kidEmojis[i % kidEmojis.length]!;
+    kidsEl.appendChild(k);
+  }
+  panel.appendChild(kidsEl);
+
+  const msgEl = document.createElement('p');
+  msgEl.className = 'celebration-msg';
+  const set = FREEDOM_LINES[gender];
+  const pool = kidCount > 0 ? set.family : hasPartner ? set.couple : set.solo;
+  const line = pool[Math.floor(Math.random() * pool.length)]!.replace(/\{name\}/g, name);
+  msgEl.textContent = line;
+  panel.appendChild(msgEl);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-primary celebration-btn celebration-btn--grand';
+  closeBtn.textContent = gender === 'buck'
+    ? '🤠 Ride off into the sunset, debt-free! 🌅'
+    : '🌻 Live debt-free and fabulous! 🎊';
+  closeBtn.addEventListener('click', () => { clearTimeout(timer); dismissCelebration(overlay); });
+  panel.appendChild(closeBtn);
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  const timer = setTimeout(() => dismissCelebration(overlay), 14000);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { clearTimeout(timer); dismissCelebration(overlay); }
+  });
+}
+
 let activeConfig: Pick<VaultConfig, 'mascotGender' | 'mascotName'> | null = null;
 let dismissTimer: ReturnType<typeof setTimeout> | null = null;
 let isBusy = false;

@@ -167,6 +167,164 @@
   white-space: nowrap;
 }
 
+/* ── Bucket / Envelope section ──────────────────────────────────────────── */
+
+.buckets-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.buckets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.buckets-assign-counter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  font-size: var(--text-sm);
+}
+
+.buckets-assign-label {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+}
+
+.buckets-assign-value {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.buckets-assign-value--positive { color: var(--ff-green); }
+.buckets-assign-value--negative { color: var(--color-danger); }
+.buckets-assign-value--zero     { color: var(--ff-gold-dark); }
+
+.buckets-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+/* ── Individual bucket ──────────────────────────────────────────────────── */
+
+.bucket-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition: transform var(--ease-default);
+}
+
+.bucket-item:hover {
+  transform: translateY(-3px);
+}
+
+.bucket-item:hover .bucket-svg {
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.18));
+}
+
+.bucket-svg {
+  width: 80px;
+  height: auto;
+  transition: filter var(--ease-default);
+}
+
+.bucket-info {
+  text-align: center;
+}
+
+.bucket-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-amounts {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.bucket-pct {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  margin-top: 2px;
+}
+
+.bucket-pct--ok      { color: var(--ff-green); }
+.bucket-pct--warning { color: var(--ff-rust); }
+.bucket-pct--over    { color: var(--color-danger); }
+
+/* ── No-budget categories ───────────────────────────────────────────────── */
+
+.buckets-unbudgeted {
+  margin-top: var(--space-2);
+}
+
+.unbudgeted-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.unbudgeted-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.unbudgeted-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1.5px dashed var(--color-border);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color var(--ease-default), color var(--ease-default);
+}
+
+.unbudgeted-pill:hover {
+  border-color: var(--ff-gold);
+  color: var(--ff-gold-dark);
+}
+
+.unbudgeted-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.unbudgeted-pill-add {
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
 /* ── Empty state ────────────────────────────────────────────────────────── */
 
 .budget-empty {
