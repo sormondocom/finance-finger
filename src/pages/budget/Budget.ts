@@ -108,20 +108,9 @@ export class BudgetPage {
       el.appendChild(this.renderCashFlow(monthlyIncome, monthlyExpenses, surplus));
     }
 
-    // Mascot: tip if they're paying minimum only or if surplus is very high
+    // Mascot: warn when spending outpaces income
     if (surplus < 0) {
       setTimeout(() => showMascot('negative-cashflow'), 1000);
-    } else if (monthlyIncome > 0 && surplus / monthlyIncome > 0.5) {
-      setTimeout(
-        () =>
-          showMascot('debt-free-improvement', {
-            amount: fmt.format(surplus * 0.2),
-            date: 'sooner than you think',
-            interest: fmt.format(surplus * 0.1),
-            months: '6',
-          }),
-        1500,
-      );
     }
   }
 

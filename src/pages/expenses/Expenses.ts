@@ -823,10 +823,6 @@ export class ExpensesPage {
         close();
         await this.load();
 
-        // Trigger minimum-payment-trap mascot if this is a high recurring expense
-        if (recurring && amount >= 500) {
-          setTimeout(() => showMascot('budget-milestone', { category: categoryId ? (this.categories.find(c => c.id === categoryId)?.name ?? 'this') : 'this' }), 800);
-        }
       },
     });
   }
