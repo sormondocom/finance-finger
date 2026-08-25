@@ -301,6 +301,10 @@ These appear when you have both income and at least one debt account entered:
 - **Debt-to-Income** — total monthly minimum payments ÷ monthly income. Under 36% is healthy; 43%+ is high. Hover the chip for the definition.
 - **Credit Utilization** — total card balances ÷ total credit limits. Under 30% is good for your credit score.
 
+**Income Sources card**
+
+Below the summary cards, a panel lists each active income source with its name, member, frequency, and monthly amount. One-time income sources that fall within the currently-viewed month also appear here — so a bonus or freelance payment logged on the Income page shows up alongside your recurring paychecks for that month.
+
 **Payment reminders card**
 
 Appears when any debt account or tracked bill is past due or due within 7 days. Each row shows the account name, due date, and minimum payment. Click **View debt →** or **View bills →** to jump directly to the relevant page.
@@ -355,6 +359,10 @@ Sources with frequency **once** appear in the Monthly Activity widget on the Das
 **Filtering by category**
 
 Click any category chip to filter the list to that category. Click it again to clear the filter.
+
+**Editing a category**
+
+Click any category pill in the management row to open the Edit Category modal. You can rename the category, choose a new color from the 32-color palette, or update its monthly budget. The pill, filter chip, and every chart referencing that category update immediately after saving.
 
 **Adding an expense**
 
@@ -757,6 +765,16 @@ Every meaningful step takes a **screenshot**, stored in `tests/screenshots/`. Sc
 | `07-settings.spec.ts` | Household name update, member add/remove with confirm dialog |
 | `08-budget.spec.ts` | Empty state, income stat, expense stat, surplus math, chart cards |
 | `09-expense-thresholds.spec.ts` | Threshold field visibility, threshold badge on row, threshold persists through edit, Mark Paid modal flow, inline overage warning, mascot expense-trend alert after repeated overages |
+| `10-bill-calendar.spec.ts` | Calendar page: bill chips on correct day, status colors, Mark Paid updates chip, month navigation, summary bar counts |
+| `10b-calendar-paydays.spec.ts` | Income source payday reference date, gold 💰 payday chips rendered at correct frequency intervals on the Calendar |
+| `11-budget-buckets.spec.ts` | Budget bucket grid: fill percentage, to-assign counter, unbudgeted category pills, clicking a bucket opens the budget editor |
+| `12-debt-milestones.spec.ts` | Milestone timeline card, per-account payoff dates, debt-freedom banner, Dashboard DTI and credit utilization chips |
+| `13-settings-currency.spec.ts` | Currency picker in Settings, symbol persists across navigation, new symbol appears in rendered money values |
+| `14-dashboard-reminders.spec.ts` | Reminder row sort order (most overdue first), row-click navigation to Debt or Expenses, active nav link update |
+| `15-reports.spec.ts` | Reports page structure, Leaky Bucket chart: scrubber, prev/next step buttons, day label, expense and payday chips |
+| `16-form-validation.spec.ts` | Enter key submits on last field, no-submit on non-last field, multi-field error list on blank submission |
+| `17-expense-card-link.spec.ts` | Expense-to-card-charge linking: auto-charge creation, Auto badge, edit/card-swap/unlink/delete sync across both records |
+| `18-category-edit.spec.ts` | Category edit modal: pre-fill, rename, color change, budget change, clear budget, duplicate name validation (case-insensitive), keyboard Enter |
 
 ### Running the tests
 
