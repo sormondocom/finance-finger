@@ -1,4 +1,5 @@
 import './reports.css';
+import browser from 'webextension-polyfill';
 import {
   Chart,
   BarController, BarElement,
@@ -13,8 +14,11 @@ import {
   getDebtAccounts, getDebtPayments, getExpensePaidRecords,
 } from '@/db';
 import { fmtCents, sourceMonthly } from '@/utils/finance';
+import { buildLeakyBucketCard } from './LeakyBucket';
+import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import type {
   Expense, ExpenseCategory, CardCharge, IncomeSource, DebtAccount, DebtPayment, ExpensePaidRecord,
+  MascotGender,
 } from '@/types';
 
 Chart.register(
@@ -120,6 +124,7 @@ export class ReportsPage {
   private accounts: DebtAccount[] = [];
   private payments: DebtPayment[] = [];
   private paidRecords: ExpensePaidRecord[] = [];
+  private mascotGender: MascotGender = 'buck';
 
   constructor() {
     const r = presetRange('this-month');
@@ -136,10 +141,16 @@ export class ReportsPage {
   }
 
   private async load(): Promise<void> {
-    [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords] = await Promise.all([
+    const [configResult, ...rest] = await Promise.all([
+      browser.storage.local.get('vaultConfig'),
       getExpenses(), getCategories(), getCardCharges(),
       getIncomeSources(), getDebtAccounts(), getDebtPayments(), getExpensePaidRecords(),
     ]);
+    const cfg = (configResult as Record<string, unknown>)['vaultConfig'] as { mascotGender?: MascotGender } | undefined;
+    this.mascotGender = cfg?.mascotGender ?? 'buck';
+    [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords] = rest as [
+      Expense[], ExpenseCategory[], CardCharge[], IncomeSource[], DebtAccount[], DebtPayment[], ExpensePaidRecord[]
+    ];
     this.paint();
   }
 
@@ -156,6 +167,16 @@ export class ReportsPage {
 
     this.container.appendChild(this.buildRangePicker());
     this.container.appendChild(this.buildKpis(expenses, charges, startTs, endTs));
+
+    // Full-width: Leaky Bucket animation
+    const mascotSvg = this.mascotGender === 'buck' ? BUCK_SVG : PENNY_SVG;
+    this.container.appendChild(buildLeakyBucketCard({
+      expenses:      this.expenses,
+      charges:       this.charges,
+      incomeSources: this.incomeSources,
+      paidRecords:   this.paidRecords,
+      mascotSvg,
+    }));
 
     // Full-width: Spending Over Time
     this.container.appendChild(this.buildSpendingOverTime(expenses, charges));

@@ -74,7 +74,7 @@ export class UnlockPage {
       })
       .catch(() => {});
 
-    el.querySelector('#unlock-btn')!.addEventListener('click', async () => {
+    const doUnlock = async () => {
       const btn = el.querySelector<HTMLButtonElement>('#unlock-btn')!;
       const errEl = el.querySelector<HTMLElement>('#unlock-error')!;
       const keyText = el.querySelector<HTMLTextAreaElement>('#unlock-key')!.value.trim();
@@ -101,6 +101,11 @@ export class UnlockPage {
         btn.disabled = false;
         btn.textContent = 'Unlock vault →';
       }
+    };
+
+    el.querySelector<HTMLButtonElement>('#unlock-btn')!.addEventListener('click', doUnlock);
+    el.querySelector<HTMLInputElement>('#unlock-pass')!.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doUnlock();
     });
 
     return el;

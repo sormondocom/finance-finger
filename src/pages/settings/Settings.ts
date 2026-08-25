@@ -3,7 +3,7 @@ import browser from 'webextension-polyfill';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { invalidateConfig } from '@/mascot/Mascot';
 import { readKeyInfo } from '@/crypto/pgp';
-import { isVaultOpen } from '@/crypto/vault';
+import { isVaultOpen, closeVault } from '@/crypto/vault';
 import { buildExportBundle, encryptExport, decryptImport, applyImport } from '@/crypto/export';
 import { openFormModal } from '@/components/Modal';
 import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, deleteIncomeSource, getSetting, saveSetting } from '@/db';
@@ -557,12 +557,25 @@ export class SettingsPage {
         <span class="setting-row-label">Vault status</span>
         <span class="setting-row-desc">The vault stays open for the full browser session. Closing all tabs locks it automatically.</span>
       </div>
-      <div class="setting-row-control">
+      <div class="setting-row-control" style="display:flex;align-items:center;gap:var(--space-3)">
         <span style="font-size:var(--text-sm);font-weight:700;color:${open ? 'var(--ff-green)' : 'var(--color-danger)'}">
           ${open ? '🔓 Unlocked' : '🔒 Locked'}
         </span>
       </div>
     `;
+
+    if (open) {
+      const lockBtn = document.createElement('button');
+      lockBtn.className = 'btn btn-secondary';
+      lockBtn.style.cssText = 'color:var(--color-danger);border-color:rgba(239,68,68,0.4);font-size:var(--text-xs)';
+      lockBtn.textContent = '🔒 Lock Vault';
+      lockBtn.addEventListener('click', () => {
+        closeVault();
+        location.reload();
+      });
+      vaultRow.querySelector<HTMLDivElement>('.setting-row-control')!.appendChild(lockBtn);
+    }
+
     wrap.appendChild(vaultRow);
 
     return wrap;
@@ -660,6 +673,34 @@ export class SettingsPage {
         this.showToast(`${newKey.label} added to sharing keys!`);
       });
     });
+
+    // Downloads location info note
+    const downloadsNote = document.createElement('div');
+    downloadsNote.className = 'settings-info-note';
+    downloadsNote.innerHTML = `
+      <span class="settings-info-note-icon">📁</span>
+      <div class="settings-info-note-body">
+        <span class="settings-info-note-title">Where do exported files go?</span>
+        <span>
+          Exported <code>.ffx</code> files are saved to your browser's
+          <strong>default Downloads folder</strong>. When importing, browse to that same
+          folder to find your file. Common locations by operating system:
+        </span>
+        <div class="settings-info-note-paths">
+          <span class="settings-info-note-os">Windows</span>
+          <code class="settings-info-note-path">C:\\Users\\YourName\\Downloads</code>
+          <span class="settings-info-note-os">macOS</span>
+          <code class="settings-info-note-path">/Users/YourName/Downloads</code>
+          <span class="settings-info-note-os">Linux</span>
+          <code class="settings-info-note-path">/home/YourName/Downloads</code>
+        </div>
+        <span class="settings-info-note-footer">
+          Tip: you can change your download folder in your browser's settings, or configure
+          your browser to ask where to save each file.
+        </span>
+      </div>
+    `;
+    wrap.appendChild(downloadsNote);
 
     // Export row
     const exportRow = document.createElement('div');
@@ -999,9 +1040,15 @@ export class SettingsPage {
           const exporterName = this.config?.profileName ?? 'Financial Finger';
           const bundle = await buildExportBundle(exporterName);
           const armored = await encryptExport(bundle, pubkey);
-          triggerDownload(armored, `ff-export-${Date.now()}.ffx`);
+          const now = new Date();
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+          const filename = `ff-export-${ts}.ffx`;
+          triggerDownload(armored, filename);
           close();
-          this.showToast('Database exported — download started!');
+          // Resolve the absolute save path then show it; falls back to filename if unavailable
+          const savedPath = await this.resolveDownloadPath(filename);
+          this.showToast(`Saved to: ${savedPath}`, 6000);
         } catch (e) {
           errMsg.textContent = `Export failed: ${(e as Error).message}`;
           errMsg.style.display = '';
@@ -1058,12 +1105,42 @@ export class SettingsPage {
     pkLabel.textContent = 'Your private key';
     body.appendChild(pkLabel);
 
+    const pkFileRow = document.createElement('div');
+    pkFileRow.style.cssText = 'display:flex;align-items:center;gap:var(--space-2)';
+    const pkChooseBtn = document.createElement('button');
+    pkChooseBtn.className = 'btn btn-secondary';
+    pkChooseBtn.style.fontSize = 'var(--text-xs)';
+    pkChooseBtn.textContent = 'Choose file…';
+    const pkFileHint = document.createElement('span');
+    pkFileHint.style.cssText = 'font-size:var(--text-xs);color:var(--color-text-muted)';
+    pkFileHint.textContent = 'or paste below';
+    pkFileRow.appendChild(pkChooseBtn);
+    pkFileRow.appendChild(pkFileHint);
+    body.appendChild(pkFileRow);
+
     const pkArea = document.createElement('textarea');
     pkArea.id = 'im-private-key';
     pkArea.className = 'export-import-textarea';
     pkArea.rows = 4;
     pkArea.placeholder = '-----BEGIN PGP PRIVATE KEY BLOCK-----\n…\n-----END PGP PRIVATE KEY BLOCK-----';
     body.appendChild(pkArea);
+
+    pkChooseBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.asc,.txt,.key';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          pkArea.value = reader.result as string;
+          pkFileHint.textContent = file.name;
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    });
 
     const ppLabel = document.createElement('label');
     ppLabel.className = 'export-import-label';
@@ -1145,7 +1222,8 @@ export class SettingsPage {
           const result = await applyImport(bundle, mode);
           const total = Object.values(result).reduce((s, n) => s + n, 0);
           close();
-          this.showImportSuccessToast(total);
+          this.showToast(`Imported ${total} record${total !== 1 ? 's' : ''} — reloading…`);
+          setTimeout(() => location.reload(), 1800);
         } catch (e) {
           const raw = (e as Error).message ?? '';
           if (raw.includes('Unsupported export version')) {
@@ -1163,35 +1241,6 @@ export class SettingsPage {
         }
       },
     });
-  }
-
-  private showImportSuccessToast(totalRecords: number): void {
-    const t = document.createElement('div');
-    t.style.cssText = `
-      position:fixed;bottom:var(--space-6);right:var(--space-6);
-      padding:var(--space-3) var(--space-5);
-      background:var(--ff-navy);color:#fff;
-      border-radius:var(--radius-lg);
-      font-size:var(--text-sm);font-weight:700;
-      box-shadow:var(--shadow-lg);
-      z-index:9999;
-      display:flex;align-items:center;gap:var(--space-4);
-      animation:fade-in 0.2s ease;
-    `;
-    const msg = document.createElement('span');
-    msg.textContent = `Imported ${totalRecords} record${totalRecords !== 1 ? 's' : ''}`;
-    const reloadBtn = document.createElement('button');
-    reloadBtn.style.cssText = `
-      background:rgba(255,255,255,0.2);border:none;color:#fff;
-      padding:var(--space-1) var(--space-3);border-radius:var(--radius-sm);
-      font-size:var(--text-xs);font-weight:700;cursor:pointer;
-    `;
-    reloadBtn.textContent = 'Reload';
-    reloadBtn.addEventListener('click', () => location.reload());
-    t.appendChild(msg);
-    t.appendChild(reloadBtn);
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 8000);
   }
 
   // ── Danger zone ───────────────────────────────────────────────────────
@@ -1245,7 +1294,7 @@ export class SettingsPage {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
-  private showToast(msg: string): void {
+  private showToast(msg: string, durationMs = 2500): void {
     const t = document.createElement('div');
     t.style.cssText = `
       position:fixed;bottom:var(--space-6);right:var(--space-6);
@@ -1255,10 +1304,26 @@ export class SettingsPage {
       font-size:var(--text-sm);font-weight:700;
       box-shadow:var(--shadow-lg);
       z-index:9999;
+      max-width:480px;word-break:break-all;
       animation:fade-in 0.2s ease;
     `;
     t.textContent = msg;
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
+    setTimeout(() => t.remove(), durationMs);
+  }
+
+  /** Polls browser.downloads to resolve the absolute path for a just-triggered download. */
+  private async resolveDownloadPath(filename: string): Promise<string> {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await new Promise<void>((r) => setTimeout(r, 250));
+      try {
+        const items = await browser.downloads.search({ limit: 10, orderBy: ['-startTime'] });
+        const match = items.find((d) => d.filename.endsWith(filename));
+        if (match?.filename) return match.filename;
+      } catch {
+        break;
+      }
+    }
+    return filename;
   }
 }

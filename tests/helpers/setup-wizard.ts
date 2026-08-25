@@ -28,10 +28,11 @@ export async function completeSetupWizard(page: Page): Promise<SetupResult> {
   await page.fill('#key-pass', TEST_PASSPHRASE);
   // Key generation takes a few seconds — give it time
   await page.click('[data-testid="setup-next"]');
-  await expect(page.locator('[data-testid="copy-private-key"]')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-testid="save-private-key"]')).toBeVisible({ timeout: 30_000 });
 
-  // Step: Save key — capture the private key text then continue
+  // Step: Save key — capture key text, download to enable continue, then proceed
   const privateKey = await page.locator('#key-display').innerText();
+  await page.click('[data-testid="save-private-key"]');
   await page.click('[data-testid="setup-next"]');
 
   // Step: Profile
@@ -51,7 +52,7 @@ export async function completeSetupWizard(page: Page): Promise<SetupResult> {
 /** Navigates to a page by clicking the sidebar nav link. */
 export async function navigateTo(
   page: Page,
-  route: 'dashboard' | 'income' | 'expenses' | 'calendar' | 'budget' | 'debt' | 'settings',
+  route: 'dashboard' | 'income' | 'expenses' | 'calendar' | 'budget' | 'debt' | 'reports' | 'afford' | 'insights' | 'settings',
 ): Promise<void> {
   await page.click(`[data-testid="nav-${route}"]`);
 }

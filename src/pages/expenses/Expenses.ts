@@ -8,7 +8,7 @@ import {
 import { openFormModal } from '@/components/Modal';
 import { toMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS, CATEGORY_COLORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
-import { computeBillStatus } from '@/utils/billStatus';
+import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
 import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember } from '@/types';
 
@@ -45,6 +45,13 @@ export class ExpensesPage {
       getExpenses(),
       getMembers(),
     ]);
+    const kidTypes = new Set(['child', 'baby-male', 'baby-female', 'child-male', 'child-female', 'teen-male', 'teen-female']);
+    this.members.sort((a, b) => {
+      const aChild = kidTypes.has(a.avatarType ?? '') ? 1 : 0;
+      const bChild = kidTypes.has(b.avatarType ?? '') ? 1 : 0;
+      if (aChild !== bChild) return aChild - bChild;
+      return a.createdAt - b.createdAt;
+    });
     this.paint();
   }
 
@@ -528,6 +535,16 @@ export class ExpensesPage {
       ? new Date(existing.date).toISOString().split('T')[0]
       : today;
 
+    // Compute the next due date for the date picker: if editing, advance one period from last paid;
+    // if new, leave blank so the user must deliberately choose.
+    const defaultDueDate = (() => {
+      if (!existing?.dueDay) return '';
+      const lastPaid = new Date(existing.date);
+      const interval = existing.recurringFrequency === 'quarterly' ? 3 : 1;
+      const next = computeNextDue(lastPaid, existing.dueDay, interval);
+      return next.toISOString().split('T')[0];
+    })();
+
     const catOptions = [
       `<option value="" ${!existing?.categoryId ? 'selected' : ''}>— No category —</option>`,
       ...this.categories.map(
@@ -586,10 +603,9 @@ export class ExpensesPage {
             <select id="ef-freq">${freqOptions}</select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="ef-dueday">Due day <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-            <input id="ef-dueday" type="number" min="1" max="28" step="1"
-              value="${existing?.dueDay ?? ''}" placeholder="e.g. 15" />
-            <span class="form-hint">Day of month this bill is due (1–28)</span>
+            <label class="form-label" for="ef-duedate">First due date <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+            <input id="ef-duedate" type="date" value="${defaultDueDate}" />
+            <span class="form-hint">Pick the date this bill is first (or next) due — sets the recurring billing day automatically</span>
           </div>
         </div>
         <div class="form-group">
@@ -622,9 +638,9 @@ export class ExpensesPage {
         const recurringFrequency = recurring
           ? (body.querySelector<HTMLSelectElement>('#ef-freq')!.value as IncomeFrequency)
           : null;
-        const dueDayRaw = parseInt(body.querySelector<HTMLInputElement>('#ef-dueday')?.value ?? '');
-        const dueDay = recurring && !isNaN(dueDayRaw) && dueDayRaw >= 1 && dueDayRaw <= 28
-          ? dueDayRaw : undefined;
+        const dueDateStr = recurring
+          ? (body.querySelector<HTMLInputElement>('#ef-duedate')?.value ?? '')
+          : '';
         const thresholdRaw = parseFloat(body.querySelector<HTMLInputElement>('#ef-threshold')?.value ?? '');
         const threshold = recurring && !isNaN(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : undefined;
         const errEl = body.querySelector<HTMLElement>('#ef-error')!;
@@ -633,7 +649,24 @@ export class ExpensesPage {
         if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
         if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
 
-        const date = new Date(dateStr).getTime();
+        // Extract dueDay from the date picker; compute expense.date as one period before
+        // the first/next due date so the status system sees the correct upcoming cycle.
+        // When editing without changing the due date, preserve #ef-date so callers can
+        // reset expense.date directly (e.g., tests that re-open the mark-paid window).
+        let dueDay: number | undefined = undefined;
+        let date = new Date(dateStr + 'T00:00:00').getTime();
+        if (recurring && dueDateStr) {
+          const firstDue = new Date(dueDateStr + 'T00:00:00');
+          dueDay = firstDue.getDate();
+          if (!existing || dueDateStr !== defaultDueDate) {
+            const interval = recurringFrequency === 'quarterly' ? 3 : 1;
+            const prevPeriod = new Date(firstDue);
+            prevPeriod.setMonth(prevPeriod.getMonth() - interval);
+            const maxDay = new Date(prevPeriod.getFullYear(), prevPeriod.getMonth() + 1, 0).getDate();
+            prevPeriod.setDate(Math.min(dueDay, maxDay));
+            date = prevPeriod.getTime();
+          }
+        }
 
         const expense: Expense = existing
           ? { ...existing, description, amount, date, categoryId, memberId, recurring, recurringFrequency }

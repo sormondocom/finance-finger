@@ -369,6 +369,67 @@
   color: var(--color-text);
 }
 
+/* ── Downloads info note ────────────────────────────────────────────────── */
+
+.settings-info-note {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.settings-info-note-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.settings-info-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.settings-info-note-title {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  color: rgb(37, 99, 235);
+}
+
+.settings-info-note-paths {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.settings-info-note-os {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.settings-info-note-path {
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: var(--color-text);
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  word-break: break-all;
+}
+
+.settings-info-note-footer {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 /* ── Danger zone ────────────────────────────────────────────────────────── */
 
 .settings-danger {

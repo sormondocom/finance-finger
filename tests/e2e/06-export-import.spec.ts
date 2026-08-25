@@ -183,11 +183,8 @@ test('import succeeds with matching private key and passphrase', async () => {
 });
 
 test('imported member appears in Context B after page reload', async () => {
-  // Click the Reload button inside the success toast (toast stays 8s — still present)
-  await expect(pageB.locator('button:has-text("Reload")')).toBeVisible({ timeout: 5_000 });
-  await pageB.click('button:has-text("Reload")');
-
-  // location.reload() clears the in-memory vault key → app lands on /unlock, not /dashboard
+  // Import auto-reloads after ~1.8 s — location.reload() clears the in-memory vault key
+  // so the app lands on /unlock, not /dashboard
   await expect(pageB.locator('#unlock-key')).toBeVisible({ timeout: 15_000 });
   await pageB.fill('#unlock-key', ctxBPrivateKey);
   await pageB.fill('#unlock-pass', TEST_PASSPHRASE);

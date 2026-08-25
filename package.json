@@ -1,6 +1,6 @@
 {
   "name": "financial-finger",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Figurin' out your finances — offline, encrypted, and yours.",
   "type": "module",
   "scripts": {

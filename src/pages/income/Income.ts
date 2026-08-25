@@ -290,6 +290,11 @@ export class IncomePage {
         <input id="sf-active" type="checkbox" style="width:auto" ${!isEdit || existing?.active ? 'checked' : ''} />
         <label for="sf-active" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)">Active (included in totals)</label>
       </div>
+      <div id="sf-payday-row" class="form-group" style="display:none">
+        <label class="form-label" for="sf-payday">Payday <span style="font-weight:400;opacity:0.65">(optional)</span></label>
+        <input id="sf-payday" type="date" value="${existing?.paydayRef ? new Date(existing.paydayRef).toISOString().split('T')[0] : ''}" />
+        <span class="form-hint">Enter any upcoming payday to show it on your calendar.</span>
+      </div>
       <div id="sf-error" class="form-error" style="display:none"></div>
     `;
 
@@ -342,11 +347,14 @@ export class IncomePage {
       amountLabel.textContent = unequal ? '1st paycheck' : 'Amount';
     };
 
+    const paydayRow = body.querySelector<HTMLElement>('#sf-payday-row')!;
+
     const syncFreqUI = (freq: string) => {
       const once = freq === 'once';
       const semi = freq === 'semimonthly';
       dateRow.style.display = once ? '' : 'none';
       activeRow.style.display = once ? 'none' : '';
+      paydayRow.style.display = once ? 'none' : '';
       unequalRow.style.display = semi ? '' : 'none';
       if (!semi) {
         unequalCheck.checked = false;
@@ -401,6 +409,13 @@ export class IncomePage {
           source.date = new Date(dateStr).getTime();
         } else {
           delete source.date;
+        }
+
+        const paydayStr = body.querySelector<HTMLInputElement>('#sf-payday')!.value;
+        if (frequency !== 'once' && paydayStr) {
+          source.paydayRef = new Date(paydayStr + 'T00:00:00').getTime();
+        } else {
+          delete source.paydayRef;
         }
 
         if (isUnequal && amount2 != null) {

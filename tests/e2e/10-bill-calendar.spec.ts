@@ -19,6 +19,8 @@ let cleanup: () => Promise<void>;
 
 const today      = new Date();
 const dayOfMonth = today.getDate();
+const thisYear   = today.getFullYear();
+const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due: 5 days before today (min day 1)
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
@@ -29,13 +31,11 @@ const DUE_SOON_DAY = Math.min(27, dayOfMonth + 4);
 // Late in month (dayOfMonth > 18), no valid "ok" day exists within 1–28, so null.
 const OK_DAY: number | null = dayOfMonth + 10 <= 28 ? dayOfMonth + 10 : null;
 
-// Previous-month date so newly-added bills aren't auto-considered "paid"
-const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
-const PREV_MONTH_DATE = [
-  prevMonth.getFullYear(),
-  String(prevMonth.getMonth() + 1).padStart(2, '0'),
-  '15',
-].join('-');
+// Build a YYYY-MM-DD string for the given day in the current month.
+// The expense form's date picker extracts dueDay and auto-sets expense.date
+// to one period prior, so no separate prev-month date seed is needed.
+const thisMonthDate = (day: number): string =>
+  `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
 // ── Suite setup ───────────────────────────────────────────────────────────────
 
@@ -70,8 +70,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '120');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(PAST_DUE_DAY));
-  await page.fill('#ef-date', PREV_MONTH_DATE);
+  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' })).toBeVisible();
 });
@@ -83,8 +82,7 @@ test('adds a due-soon recurring bill', async () => {
   await page.fill('#ef-amount', '75');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(DUE_SOON_DAY));
-  await page.fill('#ef-date', PREV_MONTH_DATE);
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Internet' })).toBeVisible();
 });
@@ -97,8 +95,7 @@ test('adds an ok (not-yet-due) recurring bill', async () => {
   await page.fill('#ef-amount', '18');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(OK_DAY));
-  await page.fill('#ef-date', PREV_MONTH_DATE);
+  await page.fill('#ef-duedate', thisMonthDate(OK_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Streaming' })).toBeVisible();
 });

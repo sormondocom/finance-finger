@@ -6,6 +6,7 @@ export const MONTHLY_FACTORS: Record<IncomeFrequency, number> = {
   biweekly:    2.167,
   semimonthly: 2,
   monthly:     1,
+  quarterly:   1 / 3,
   annual:      1 / 12,
   once:        0, // one-time events excluded from recurring monthly totals
 };
@@ -16,6 +17,7 @@ export const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
   biweekly:    'every 2 weeks',
   semimonthly: 'twice monthly',
   monthly:     'per month',
+  quarterly:   'every quarter',
   annual:      'per year',
   once:        'one-time',
 };
@@ -26,6 +28,7 @@ export const FREQUENCY_OPTIONS: { value: IncomeFrequency; label: string }[] = [
   { value: 'biweekly',   label: 'Every 2 weeks' },
   { value: 'semimonthly', label: 'Twice monthly' },
   { value: 'monthly',    label: 'Monthly' },
+  { value: 'quarterly',  label: 'Quarterly' },
   { value: 'annual',     label: 'Annually' },
   { value: 'once',       label: 'One-time' },
 ];

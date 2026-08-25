@@ -2,7 +2,7 @@ import './styles/base.css';
 import './styles/nav.css';
 import browser from 'webextension-polyfill';
 import { register, navigate, navigateReplace, currentRoute, initRouter, onRouteChange } from './router';
-import { isVaultOpen } from '@/crypto/vault';
+import { isVaultOpen, closeVault } from '@/crypto/vault';
 import { setCurrency } from '@/utils/finance';
 import type { VaultConfig } from '@/types';
 
@@ -31,6 +31,7 @@ function buildNav(): HTMLElement {
     </nav>
     <div class="nav-footer">
       <a href="#/settings" class="nav-link" data-route="/settings" data-testid="nav-settings">Settings</a>
+      <button class="nav-lock-btn" id="nav-lock-btn" data-testid="nav-lock-btn">🔒 Lock Vault</button>
       <a href="https://buymeacoffee.com/sormondocom" target="_blank" rel="noopener noreferrer" class="nav-coffee">☕ buy me a coffee</a>
     </div>
   `;
@@ -40,6 +41,11 @@ function buildNav(): HTMLElement {
       e.preventDefault();
       navigate(a.dataset['route'] as Parameters<typeof navigate>[0]);
     });
+  });
+
+  nav.querySelector<HTMLButtonElement>('#nav-lock-btn')!.addEventListener('click', () => {
+    closeVault();
+    location.reload();
   });
 
   return nav;

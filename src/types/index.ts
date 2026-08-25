@@ -6,6 +6,7 @@ export type IncomeFrequency =
   | 'biweekly'
   | 'semimonthly'
   | 'monthly'
+  | 'quarterly'
   | 'annual'
   | 'once';
 
@@ -64,7 +65,8 @@ export interface IncomeSource {
   amount2?: number; // second paycheck when frequency === 'semimonthly' and paychecks differ
   frequency: IncomeFrequency;
   active: boolean;
-  date?: number; // used only when frequency === 'once'
+  date?: number;      // used only when frequency === 'once'
+  paydayRef?: number; // a known payday timestamp; used to place payday chips on the calendar
   createdAt: number;
   updatedAt: number;
 }

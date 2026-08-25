@@ -17,6 +17,8 @@ let cleanup: () => Promise<void>;
 
 const today = new Date();
 const dayOfMonth = today.getDate();
+const thisYear = today.getFullYear();
+const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due bill: 6 days ago (min day 1)
 const PAST_DUE_BILL_DAY = Math.max(1, dayOfMonth - 6);
@@ -28,12 +30,8 @@ const PAST_DUE_CARD_DAY = Math.max(1, dayOfMonth - 4);
 // Due-soon card: 5 days from now (max day 28)
 const DUE_SOON_CARD_DAY = Math.min(28, dayOfMonth + 5);
 
-const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
-const PREV_MONTH_DATE = [
-  prevMonth.getFullYear(),
-  String(prevMonth.getMonth() + 1).padStart(2, '0'),
-  '15',
-].join('-');
+const thisMonthDate = (day: number): string =>
+  `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
@@ -78,8 +76,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '55');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(PAST_DUE_BILL_DAY));
-  await page.fill('#ef-date', PREV_MONTH_DATE);
+  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_BILL_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' })).toBeVisible();
 });
@@ -91,8 +88,7 @@ test('adds a due-soon recurring bill', async () => {
   await page.fill('#ef-amount', '80');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(DUE_SOON_BILL_DAY));
-  await page.fill('#ef-date', PREV_MONTH_DATE);
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_BILL_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Phone Bill' })).toBeVisible();
 });

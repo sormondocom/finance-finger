@@ -66,8 +66,8 @@ test('generates a key pair', async () => {
   await page.fill('#key-pass', TEST_PASSPHRASE);
   await page.click('[data-testid="setup-next"]');
 
-  // Key generation — allow up to 30 s
-  await expect(page.locator('[data-testid="copy-private-key"]')).toBeVisible({ timeout: 30_000 });
+  // Key generation — allow up to 30 s; save button appears when done
+  await expect(page.locator('[data-testid="save-private-key"]')).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: 'tests/screenshots/04-save-key.png' });
 });
 
@@ -83,6 +83,8 @@ test('copies private key to clipboard', async () => {
 });
 
 test('advances past save-key step', async () => {
+  // Download the private key first — this enables the continue button
+  await page.click('[data-testid="save-private-key"]');
   await page.click('[data-testid="setup-next"]');
   await expect(page.locator('#profile-name')).toBeVisible();
 });

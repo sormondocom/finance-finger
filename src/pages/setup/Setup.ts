@@ -382,47 +382,92 @@ export class SetupWizard {
 
   private renderSaveKey(): HTMLElement {
     const isGenerated = this.state.keyMode === 'generate';
-    const privKey = isGenerated
-      ? this.state.generatedPrivateKey
-      : this.state.importedPrivateKey;
+    const privKey = isGenerated ? this.state.generatedPrivateKey : this.state.importedPrivateKey;
+    const pubKey  = isGenerated ? this.state.generatedPublicKey  : this.state.importedPublicKey;
 
     const el = document.createElement('div');
     el.innerHTML = `
       <div class="setup-header">
         <h1>Save your private key</h1>
-        <p>This is the only copy. Store it somewhere safe.</p>
+        <p>${isGenerated
+          ? 'Download both key files before continuing — they are your only access to this vault.'
+          : "You imported your own key — make sure it's already backed up."
+        }</p>
       </div>
       <div class="key-warning">
         <span class="key-warning-icon">⚠️</span>
         <div>
           <strong>If you lose this key, your data cannot be recovered.</strong><br>
-          Print it out, store it in a password manager, save it to a USB drive —
-          wherever works for you. We don't store it and can't help you get it back.
+          Save it to a USB drive, a password manager, or another secure location.
+          We don't store it and can't help you get it back.
         </div>
       </div>
-      ${isGenerated ? `<div class="key-display" id="key-display">${privKey}</div>` : '<p class="text-muted text-sm">You imported your own key — make sure it\'s already backed up.</p>'}
+      ${isGenerated ? `<div class="key-display" id="key-display">${privKey}</div>` : '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">You imported your own key — make sure it\'s already backed up.</p>'}
     `;
 
+    const nav = this.renderNav({
+      onBack: () => this.go('keys'),
+      nextLabel: "I've saved my key →",
+      onNext: () => this.go('profile'),
+    });
+
     if (isGenerated) {
+      const nextBtn = nav.querySelector<HTMLButtonElement>('.btn-primary')!;
+      nextBtn.disabled = true;
+      nextBtn.title = 'Download your private key first';
+
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'save-key-actions';
+
+      const triggerKeyDownload = (content: string, filename: string): void => {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const savePrivBtn = document.createElement('button');
+      savePrivBtn.className = 'btn btn-primary';
+      savePrivBtn.setAttribute('data-testid', 'save-private-key');
+      savePrivBtn.textContent = '💾 Save Private Key';
+      savePrivBtn.addEventListener('click', () => {
+        triggerKeyDownload(privKey, 'ff-private-key.asc');
+        savePrivBtn.textContent = '✓ Private Key Downloaded';
+        savePrivBtn.className = 'btn btn-secondary';
+        nextBtn.disabled = false;
+        nextBtn.title = '';
+      });
+
+      const savePubBtn = document.createElement('button');
+      savePubBtn.className = 'btn btn-secondary';
+      savePubBtn.setAttribute('data-testid', 'save-public-key');
+      savePubBtn.textContent = '💾 Save Public Key';
+      savePubBtn.addEventListener('click', () => {
+        triggerKeyDownload(pubKey, 'ff-public-key.asc');
+        savePubBtn.textContent = '✓ Public Key Downloaded';
+        savePubBtn.disabled = true;
+      });
+
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'btn btn-secondary';
+      copyBtn.className = 'btn btn-secondary save-key-copy';
       copyBtn.setAttribute('data-testid', 'copy-private-key');
-      copyBtn.textContent = 'Copy to clipboard';
+      copyBtn.textContent = 'Copy private key to clipboard';
       copyBtn.addEventListener('click', async () => {
         await navigator.clipboard.writeText(privKey);
         copyBtn.textContent = 'Copied!';
-        setTimeout(() => (copyBtn.textContent = 'Copy to clipboard'), 2000);
+        setTimeout(() => (copyBtn.textContent = 'Copy private key to clipboard'), 2000);
       });
-      el.appendChild(copyBtn);
+
+      btnGroup.appendChild(savePrivBtn);
+      btnGroup.appendChild(savePubBtn);
+      btnGroup.appendChild(copyBtn);
+      el.appendChild(btnGroup);
     }
 
-    el.appendChild(
-      this.renderNav({
-        onBack: () => this.go('keys'),
-        nextLabel: "I've saved it →",
-        onNext: () => this.go('profile'),
-      }),
-    );
+    el.appendChild(nav);
     return el;
   }
 

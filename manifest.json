@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Financial Finger",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Figurin' out your finances — offline, encrypted, and yours.",
   "icons": {
     "48": "icons/icon.svg",
@@ -21,7 +21,7 @@
   "content_security_policy": {
     "extension_pages": "default-src 'self'; connect-src 'none'; script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "downloads"],
   "browser_specific_settings": {
     "gecko": {
       "id": "financial-finger@extension",

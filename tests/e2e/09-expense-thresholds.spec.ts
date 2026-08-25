@@ -39,6 +39,11 @@ const PREV_MONTH_DATE = [
 // Use a day that is already past for this month so the bill shows as past-due
 const PAST_DUE_DAY = Math.max(1, today.getDate() - 3);
 
+const thisYear = today.getFullYear();
+const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
+const thisMonthDate = (day: number): string =>
+  `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
+
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
   context = ext.context;
@@ -90,11 +95,10 @@ test('can add a recurring bill with a monthly threshold', async () => {
 
   await page.fill('#ef-desc', 'Electric Bill');
   await page.fill('#ef-amount', '95');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
-  await page.fill('#ef-dueday', String(PAST_DUE_DAY));
+  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-threshold', '120');
 
   await page.click('[data-testid="modal-submit"]');

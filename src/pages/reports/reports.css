@@ -384,3 +384,304 @@
   font-size: 2rem;
   opacity: 0.5;
 }
+
+/* ── Leaky Bucket ───────────────────────────────────────────────────────────── */
+
+.lb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.lb-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.lb-title {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.lb-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lb-month-sel {
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.lb-step-btn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity var(--ease-default), background var(--ease-default);
+}
+
+.lb-step-btn--prev {
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.lb-step-btn--prev:hover:not(:disabled) { background: var(--color-bg-sunken); }
+
+.lb-step-btn--next {
+  background: var(--ff-navy);
+  color: #fff;
+}
+.lb-step-btn--next:hover:not(:disabled) { opacity: 0.85; }
+
+.lb-step-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Scene layout ───────────────────────────────────────────────────────────── */
+
+.lb-scene {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.lb-mascot-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lb-mascot {
+  width: 72px;
+  transition: transform 0.65s ease;
+  transform-origin: bottom center;
+}
+
+.lb-mascot svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.lb-ground {
+  width: 72px;
+  height: 3px;
+  background: var(--color-border);
+  border-radius: 2px;
+  margin-top: 2px;
+}
+
+.lb-bucket-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lb-bucket-svg {
+  width: 140px;
+  height: auto;
+  display: block;
+  transition: transform 0.65s ease;
+  transform-origin: bottom center;
+}
+
+.lb-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--space-2);
+}
+
+.lb-balance-val {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--ff-green);
+  transition: color 0.4s ease;
+  line-height: 1;
+}
+
+.lb-balance-val.lb-warning { color: var(--ff-gold-dark); }
+.lb-balance-val.lb-danger  { color: var(--color-danger);  }
+
+.lb-balance-sub {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Stats column ───────────────────────────────────────────────────────────── */
+
+.lb-stats-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: center;
+}
+
+.lb-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lb-sk {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.lb-sv {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.lb-sv-red   { color: var(--color-danger); }
+.lb-sv-green { color: var(--ff-green);     }
+
+/* ── Day info row ───────────────────────────────────────────────────────────── */
+
+.lb-day-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-sunken);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.lb-day-lbl {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.lb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.lb-chip {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.lb-chip--payday  {
+  background: rgba(201, 168, 76, 0.12);
+  color: var(--ff-gold-dark, var(--ff-gold));
+  border: 1px solid rgba(201, 168, 76, 0.35);
+}
+
+.lb-chip--expense {
+  background: rgba(180, 83, 9, 0.08);
+  color: var(--ff-rust);
+  border: 1px solid rgba(180, 83, 9, 0.22);
+}
+
+.lb-chip--quiet {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+/* ── Timeline ───────────────────────────────────────────────────────────────── */
+
+.lb-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lb-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 52px;
+  padding: 0 2px;
+}
+
+.lb-bar {
+  flex: 1;
+  min-width: 3px;
+  background: rgba(180, 83, 9, 0.35);
+  border-radius: 2px 2px 0 0;
+  cursor: pointer;
+  transition: background var(--ease-default), height 0.25s ease;
+  position: relative;
+}
+
+.lb-bar:hover { background: rgba(180, 83, 9, 0.7); }
+
+.lb-bar--active { background: var(--ff-rust) !important; }
+
+.lb-bar--payday::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ff-gold);
+}
+
+.lb-scrub {
+  width: 100%;
+  cursor: pointer;
+  accent-color: var(--ff-navy);
+}
+
+.lb-ticks {
+  position: relative;
+  height: 14px;
+}
+
+.lb-tick {
+  position: absolute;
+  font-size: 9px;
+  color: var(--color-text-muted);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .lb-scene {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .lb-stats-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+  .lb-stat { min-width: 80px; }
+}
