@@ -100,14 +100,43 @@ export function setCurrency(code: string): void {
 export function getCurrentCurrency(): string { return _currency; }
 
 export const CATEGORY_COLORS = [
-  '#2D5A27', // farm green
-  '#1B2A4A', // navy
-  '#C9A84C', // gold
+  // Reds & pinks
+  '#DC2626', // red
+  '#E11D48', // rose
+  '#DB2777', // pink
+  '#BE185D', // deep rose
+  // Oranges & ambers
+  '#EA580C', // orange
+  '#D97706', // amber
   '#B45309', // rust
-  '#7C3AED', // purple
-  '#0891B2', // teal
-  '#BE185D', // rose
-  '#374151', // slate
+  '#C9A84C', // gold
+  // Yellows & limes
+  '#CA8A04', // yellow
+  '#65A30D', // lime
+  // Greens
+  '#16A34A', // green
+  '#15803D', // forest
   '#065F46', // emerald
+  '#2D5A27', // farm green
+  // Teals & cyans
+  '#0D9488', // teal-green
+  '#0891B2', // teal
+  '#0E7490', // dark teal
+  // Blues
+  '#0284C7', // sky blue
+  '#1D4ED8', // blue
+  '#1B2A4A', // navy
+  // Indigos & purples
+  '#4338CA', // indigo
+  '#7C3AED', // purple
+  '#9333EA', // bright purple
   '#6B21A8', // violet
+  '#A21CAF', // fuchsia
+  // Browns & neutrals
+  '#92400E', // brown
+  '#78350F', // dark brown
+  '#374151', // slate
+  '#475569', // slate-blue
+  '#6B7280', // gray
+  '#1F2937', // charcoal
 ];

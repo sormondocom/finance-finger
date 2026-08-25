@@ -147,6 +147,15 @@ input:focus, textarea:focus, select:focus {
   color: var(--color-danger);
 }
 
+.req {
+  color: var(--color-danger);
+  margin-left: 2px;
+  font-size: 0.8em;
+  vertical-align: super;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
 .text-muted { color: var(--color-text-muted); }
 .text-sm    { font-size: var(--text-sm); }
 .text-xs    { font-size: var(--text-xs); }

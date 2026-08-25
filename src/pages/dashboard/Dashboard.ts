@@ -136,7 +136,7 @@ export class Dashboard {
           Income Sources
           <a href="#/income" data-route="/income">Manage →</a>
         </h2>
-        ${this.renderIncomePanel(sources)}
+        <div data-section="income-content">${this.renderIncomePanel(sources)}</div>
       </div>
       <div class="dashboard-panel card">
         <h2 class="font-serif">
@@ -294,6 +294,9 @@ export class Dashboard {
 
     const oldActivity = this.el.querySelector('[data-section="activity"]');
     if (oldActivity) oldActivity.replaceWith(this.buildActivitySection(buckets));
+
+    const oldIncContent = this.el.querySelector('[data-section="income-content"]');
+    if (oldIncContent) oldIncContent.innerHTML = this.renderIncomePanel(this.allIncomeSources);
   }
 
   // ── Header controls ───────────────────────────────────────────────────────────
@@ -1238,7 +1241,15 @@ export class Dashboard {
 
   private renderIncomePanel(sources: IncomeSource[]): string {
     const recurring = sources.filter((s) => s.active && s.frequency !== 'once');
-    if (recurring.length === 0) {
+
+    // One-time income whose date falls in the currently-viewed month
+    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
+    const monthEnd = new Date(this.viewYear, this.viewMonth + 1, 1).getTime();
+    const oneTime = sources.filter(
+      (s) => s.frequency === 'once' && s.date !== undefined && s.date >= monthStart && s.date < monthEnd,
+    );
+
+    if (recurring.length === 0 && oneTime.length === 0) {
       return `
         <div class="empty-state">
           <span class="empty-state-icon">💰</span>
@@ -1248,17 +1259,44 @@ export class Dashboard {
         </div>
       `;
     }
-    return recurring
-      .slice(0, 5)
-      .map(
-        (s) => `
-        <div style="display:flex;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border)">
-          <span class="text-sm">${s.name}</span>
-          <span class="text-sm font-bold">${fmt.format(s.amount)} / ${s.frequency}</span>
-        </div>
-      `,
-      )
-      .join('');
+
+    const hasBoth = recurring.length > 0 && oneTime.length > 0;
+    const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border)';
+    const subLabelStyle = 'font-size:var(--text-xs);font-weight:var(--weight-bold);text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);padding:var(--space-2) 0 var(--space-1)';
+
+    let html = '';
+
+    if (hasBoth) {
+      html += `<div style="${subLabelStyle}">Recurring</div>`;
+    }
+    html += recurring.slice(0, 5).map((s) => `
+      <div style="${rowStyle}">
+        <span class="text-sm">${s.name}</span>
+        <span class="text-sm font-bold">${fmt.format(s.amount)} / ${s.frequency}</span>
+      </div>
+    `).join('');
+
+    if (oneTime.length > 0) {
+      if (hasBoth) {
+        html += `<div style="${subLabelStyle};margin-top:var(--space-2)">One-time this month</div>`;
+      }
+      html += oneTime.map((s) => {
+        const dateStr = s.date
+          ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
+        return `
+          <div style="${rowStyle}">
+            <div>
+              <span class="text-sm">${s.name}</span>
+              ${dateStr ? `<span class="text-xs text-muted" style="display:block">${dateStr}</span>` : ''}
+            </div>
+            <span class="text-sm font-bold" style="color:var(--ff-green)">+${fmt.format(s.amount)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    return html;
   }
 
   private renderDebtPanel(cards: Awaited<ReturnType<typeof getDebtAccounts>>): string {

@@ -1,4 +1,4 @@
-import type { DebtAccount, DebtPayment } from '@/types';
+import type { DebtAccount, DebtPayment, PaymentCycle } from '@/types';
 
 export type MonthPaymentStatus =
   | 'paid'      // payments this month >= minimum
@@ -30,6 +30,23 @@ export function computeMinPayment(a: DebtAccount): number | undefined {
   return Math.max(a.balance * a.minimumPaymentValue / 100, 25);
 }
 
+function advanceByCycle(date: Date, cycle: PaymentCycle): Date {
+  const d = new Date(date);
+  switch (cycle) {
+    case 'monthly': {
+      const targetDay = d.getDate();
+      d.setMonth(d.getMonth() + 1);
+      const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(targetDay, maxDay));
+      break;
+    }
+    case 'biweekly':    d.setDate(d.getDate() + 14); break;
+    case 'weekly':      d.setDate(d.getDate() + 7);  break;
+    case 'semimonthly': d.setDate(d.getDate() + 15); break;
+  }
+  return d;
+}
+
 export function computePaymentStatus(
   account: DebtAccount,
   payments: DebtPayment[],
@@ -48,11 +65,30 @@ export function computePaymentStatus(
   });
   const currentMonthTotal = thisMonthPayments.reduce((s, p) => s + p.amount, 0);
 
-  // Actual due date this month (clamped to month length, e.g. Feb 28 for due-day 31)
-  let dueDayThisMonth: Date | null = null;
-  if (account.dueDay) {
+  // Compute the effective next due date.
+  // If nextDueDateMs is stored, advance it forward by the payment cycle until it
+  // reaches the current month or a future month. This prevents a newly-added card
+  // from immediately showing past-due when the day-of-month has already passed.
+  let effectiveDueDate: Date | null = null;
+  if (account.nextDueDateMs) {
+    let candidate = new Date(account.nextDueDateMs);
+    const currentMonthStart = new Date(year, month, 1);
+    while (candidate < currentMonthStart) {
+      candidate = advanceByCycle(candidate, account.paymentCycle);
+    }
+    effectiveDueDate = candidate;
+  } else if (account.dueDay) {
+    // Legacy path: no nextDueDateMs — project dueDay into current month
     const maxDay = new Date(year, month + 1, 0).getDate();
-    dueDayThisMonth = new Date(year, month, Math.min(account.dueDay, maxDay));
+    effectiveDueDate = new Date(year, month, Math.min(account.dueDay, maxDay));
+  }
+
+  // dueDayThisMonth is only populated when the effective due date falls in the current month
+  let dueDayThisMonth: Date | null = null;
+  if (effectiveDueDate) {
+    const inCurrentMonth =
+      effectiveDueDate.getFullYear() === year && effectiveDueDate.getMonth() === month;
+    if (inCurrentMonth) dueDayThisMonth = effectiveDueDate;
   }
 
   let currentMonth: MonthPaymentStatus;
@@ -62,16 +98,23 @@ export function computePaymentStatus(
     currentMonth = 'ok';
   } else if (currentMonthTotal >= minPay) {
     currentMonth = 'paid';
-  } else if (!dueDayThisMonth) {
+  } else if (!effectiveDueDate) {
     currentMonth = currentMonthTotal > 0 ? 'partial' : 'ok';
   } else {
-    const daysUntilDue = dueDayThisMonth.getDate() - today;
-    if (daysUntilDue < 0) {
-      currentMonth = 'past-due';
-    } else if (daysUntilDue <= 7) {
-      currentMonth = currentMonthTotal > 0 ? 'partial' : 'due-soon';
-    } else {
+    const inCurrentMonth =
+      effectiveDueDate.getFullYear() === year && effectiveDueDate.getMonth() === month;
+    if (!inCurrentMonth) {
+      // Due date is in a future month — nothing is due yet this cycle
       currentMonth = currentMonthTotal > 0 ? 'partial' : 'ok';
+    } else {
+      const daysUntilDue = effectiveDueDate.getDate() - today;
+      if (daysUntilDue < 0) {
+        currentMonth = 'past-due';
+      } else if (daysUntilDue <= 7) {
+        currentMonth = currentMonthTotal > 0 ? 'partial' : 'due-soon';
+      } else {
+        currentMonth = currentMonthTotal > 0 ? 'partial' : 'ok';
+      }
     }
   }
 

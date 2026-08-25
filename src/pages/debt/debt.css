@@ -654,6 +654,20 @@
   flex-shrink: 0;
 }
 
+.charges-item-auto {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
 .charges-item-note {
   font-size: var(--text-xs);
   color: var(--color-text-muted);

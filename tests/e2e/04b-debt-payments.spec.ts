@@ -275,7 +275,7 @@ test('submitting with empty amount shows validation error', async () => {
   // Amount is already empty (Discover Card, no minimum)
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('#pay-error')).toBeVisible();
-  await expect(page.locator('#pay-error')).toContainText('valid payment amount');
+  await expect(page.locator('#pay-error')).toContainText('Payment amount');
   await page.screenshot({ path: 'tests/screenshots/dp-10-validation-empty.png' });
 });
 
@@ -283,7 +283,7 @@ test('submitting with zero amount shows validation error', async () => {
   await page.fill('#pay-amount', '0');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('#pay-error')).toBeVisible();
-  await expect(page.locator('#pay-error')).toContainText('valid payment amount');
+  await expect(page.locator('#pay-error')).toContainText('Payment amount');
 });
 
 test('cancelling payment modal leaves balance unchanged', async () => {

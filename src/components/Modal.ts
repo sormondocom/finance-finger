@@ -82,6 +82,28 @@ export function openFormModal(opts: {
 
   const { close } = openModal({ title: opts.title, content: wrapper, ...(opts.onClose ? { onClose: opts.onClose } : {}) });
 
+  // Enter on the last visible text-type input triggers submit
+  const TEXT_TYPES = new Set(['text', 'email', 'password', 'search', 'number']);
+  function isFieldVisible(el: HTMLElement): boolean {
+    let node: HTMLElement | null = el;
+    while (node && node !== wrapper) {
+      if (node.style.display === 'none') return false;
+      node = node.parentElement;
+    }
+    return true;
+  }
+  wrapper.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLInputElement;
+    if (!TEXT_TYPES.has(target.type)) return;
+    const visible = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input'))
+      .filter(el => TEXT_TYPES.has(el.type) && isFieldVisible(el));
+    if (visible.length > 0 && target === visible[visible.length - 1]) {
+      e.preventDefault();
+      if (!submitBtn.disabled) submitBtn.click();
+    }
+  });
+
   cancelBtn.addEventListener('click', close);
   submitBtn.addEventListener('click', async () => {
     submitBtn.disabled = true;

@@ -433,13 +433,13 @@ export class DebtPage {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group">
-          <label class="form-label" for="pay-amount">Payment amount</label>
+          <label class="form-label" for="pay-amount">Payment amount <span class="req">*</span></label>
           <input id="pay-amount" type="number" min="0.01" step="0.01"
             value="${minPay != null ? minPay.toFixed(2) : ''}" placeholder="0.00" />
           ${minPay != null ? `<span class="form-hint">Minimum: ${fmtCents.format(minPay)}</span>` : ''}
         </div>
         <div class="form-group">
-          <label class="form-label" for="pay-date">Payment date</label>
+          <label class="form-label" for="pay-date">Payment date <span class="req">*</span></label>
           <input id="pay-date" type="date" value="${today}" />
         </div>
       </div>
@@ -473,13 +473,13 @@ export class DebtPage {
         const errEl = body.querySelector<HTMLElement>('#pay-error')!;
 
         errEl.style.display = 'none';
-        if (isNaN(amountRaw) || amountRaw <= 0) {
-          errEl.textContent = 'Enter a valid payment amount.';
-          errEl.style.display = 'block';
-          return;
-        }
-        if (!dateStr) {
-          errEl.textContent = 'Select a payment date.';
+        const missing: string[] = [];
+        if (isNaN(amountRaw) || amountRaw <= 0) missing.push('Payment amount');
+        if (!dateStr)                           missing.push('Payment date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
           errEl.style.display = 'block';
           return;
         }
@@ -795,6 +795,15 @@ export class DebtPage {
         item.appendChild(catSpan);
       }
 
+      if (ch.sourceExpenseId) {
+        const autoBadge = document.createElement('span');
+        autoBadge.className = 'charges-item-auto';
+        autoBadge.setAttribute('data-testid', 'charge-auto-badge');
+        autoBadge.title = 'Auto-created from a linked expense';
+        autoBadge.textContent = 'Auto';
+        item.appendChild(autoBadge);
+      }
+
       const editBtn = document.createElement('button');
       editBtn.className = 'icon-btn';
       editBtn.title = 'Edit charge';
@@ -860,15 +869,15 @@ export class DebtPage {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label" for="ch-merchant">Merchant / Vendor</label>
+          <label class="form-label" for="ch-merchant">Merchant / Vendor <span class="req">*</span></label>
           <input id="ch-merchant" type="text" value="${ch.merchant}" placeholder="e.g. Amazon, Whole Foods, Netflix" maxlength="60" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="ch-amount">Amount</label>
+          <label class="form-label" for="ch-amount">Amount <span class="req">*</span></label>
           <input id="ch-amount" type="number" min="0.01" step="0.01" value="${ch.amount}" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="ch-date">Date</label>
+          <label class="form-label" for="ch-date">Date <span class="req">*</span></label>
           <input id="ch-date" type="date" value="${dateStr}" />
         </div>
       </div>
@@ -899,9 +908,17 @@ export class DebtPage {
         const errEl     = body.querySelector<HTMLElement>('#ch-error')!;
 
         errEl.style.display = 'none';
-        if (!merchant)              { errEl.textContent = 'Enter a merchant name.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (!dateVal)               { errEl.textContent = 'Select a date.'; errEl.style.display = 'block'; return; }
+        const missing: string[] = [];
+        if (!merchant)                    missing.push('Merchant / Vendor');
+        if (isNaN(amount) || amount <= 0) missing.push('Amount');
+        if (!dateVal)                     missing.push('Date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
+        }
 
         const date = new Date(dateVal + 'T12:00:00').getTime();
         const updated: CardCharge = { ...ch, merchant, amount, date };
@@ -928,15 +945,15 @@ export class DebtPage {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label" for="ch-merchant">Merchant / Vendor</label>
+          <label class="form-label" for="ch-merchant">Merchant / Vendor <span class="req">*</span></label>
           <input id="ch-merchant" type="text" placeholder="e.g. Amazon, Whole Foods, Netflix" maxlength="60" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="ch-amount">Amount</label>
+          <label class="form-label" for="ch-amount">Amount <span class="req">*</span></label>
           <input id="ch-amount" type="number" min="0.01" step="0.01" placeholder="0.00" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="ch-date">Date</label>
+          <label class="form-label" for="ch-date">Date <span class="req">*</span></label>
           <input id="ch-date" type="date" value="${today}" />
         </div>
       </div>
@@ -967,9 +984,17 @@ export class DebtPage {
         const errEl = body.querySelector<HTMLElement>('#ch-error')!;
 
         errEl.style.display = 'none';
-        if (!merchant) { errEl.textContent = 'Enter a merchant name.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (!dateStr) { errEl.textContent = 'Select a date.'; errEl.style.display = 'block'; return; }
+        const missing: string[] = [];
+        if (!merchant)                    missing.push('Merchant / Vendor');
+        if (isNaN(amount) || amount <= 0) missing.push('Amount');
+        if (!dateStr)                     missing.push('Date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
+        }
 
         const date = new Date(dateStr + 'T12:00:00').getTime();
         const charge = createCardCharge(a.id, merchant, amount, date, categoryId, note);
@@ -1476,6 +1501,29 @@ export class DebtPage {
 
     const minTypeChecked = existing?.minimumPaymentType ?? 'percentage';
 
+    // Compute the default value for the "Next payment due date" date picker.
+    // For new accounts: empty. For edits, prefer nextDueDateMs; fall back to
+    // projecting dueDay into the current or next month so it's never in the past.
+    const dueDateDefaultStr = (() => {
+      if (existing?.nextDueDateMs) {
+        return new Date(existing.nextDueDateMs).toISOString().split('T')[0];
+      }
+      if (existing?.dueDay) {
+        const n = new Date();
+        const day = existing.dueDay;
+        const curMaxDay = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
+        const clamped = Math.min(day, curMaxDay);
+        if (n.getDate() < clamped) {
+          return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(clamped).padStart(2, '0')}`;
+        }
+        // dueDay already passed this month — project to next month
+        const next = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+        const nextMaxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+        return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(Math.min(day, nextMaxDay)).padStart(2, '0')}`;
+      }
+      return '';
+    })();
+
     body.innerHTML = `
       <div class="form-group" id="da-type-row">
         <label class="form-label" for="da-type">Debt type</label>
@@ -1483,18 +1531,18 @@ export class DebtPage {
         ${isEdit ? '<span class="form-hint">Type cannot be changed after creation.</span>' : ''}
       </div>
       <div class="form-group">
-        <label class="form-label" for="da-name">Name / Lender</label>
+        <label class="form-label" for="da-name">Name / Lender <span class="req">*</span></label>
         <input id="da-name" type="text" value="${existing?.name ?? ''}"
           placeholder="e.g. Chase Sapphire, Wells Fargo Mortgage" maxlength="48" />
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group">
-          <label class="form-label" for="da-balance">Current balance</label>
+          <label class="form-label" for="da-balance">Current balance <span class="req">*</span></label>
           <input id="da-balance" type="number" min="0" step="0.01"
             value="${existing?.balance ?? ''}" placeholder="0.00" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="da-apr">APR (%)</label>
+          <label class="form-label" for="da-apr">APR (%) <span class="req" id="da-apr-req">*</span></label>
           <input id="da-apr" type="number" min="0" max="100" step="0.01"
             value="${existing?.apr ?? ''}" placeholder="e.g. 22.99" />
           <span class="form-hint" id="da-apr-hint">Annual percentage rate</span>
@@ -1523,10 +1571,10 @@ export class DebtPage {
           <select id="da-cycle">${cycleOptions}</select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="da-dueday">Due day</label>
-          <input id="da-dueday" type="number" min="1" max="28" step="1"
-            value="${existing?.dueDay ?? ''}" placeholder="e.g. 15" />
-          <span class="form-hint">Day of month (1–28)</span>
+          <label class="form-label" for="da-duedate">Next payment due date</label>
+          <input id="da-duedate" type="date"
+            value="${dueDateDefaultStr}" />
+          <span class="form-hint">Pick your next payment due date</span>
         </div>
       </div>
       <div id="da-section-intro-apr" style="display:none">
@@ -1612,6 +1660,8 @@ export class DebtPage {
       if (aprHint) {
         aprHint.textContent = isMedical ? 'Often 0% for interest-free medical plans' : 'Annual percentage rate';
       }
+      const aprReq = body.querySelector<HTMLElement>('#da-apr-req');
+      if (aprReq) aprReq.style.display = isMedical ? 'none' : '';
     };
 
     syncTypeUI(initialType);
@@ -1651,8 +1701,11 @@ export class DebtPage {
         const termMonths = isNaN(termYearsRaw) || termYearsRaw <= 0 ? undefined : termYearsRaw * 12;
         const cycleEl = body.querySelector<HTMLSelectElement>('#da-cycle');
         const paymentCycle = ((cycleEl?.value ?? 'monthly') as PaymentCycle);
-        const dueDayRaw = parseInt(body.querySelector<HTMLInputElement>('#da-dueday')?.value ?? '');
-        const dueDay = !isNaN(dueDayRaw) && dueDayRaw >= 1 && dueDayRaw <= 28 ? dueDayRaw : undefined;
+        const dueDateVal = body.querySelector<HTMLInputElement>('#da-duedate')?.value ?? '';
+        const dueDateMs = dueDateVal ? new Date(dueDateVal).getTime() : undefined;
+        // Extract day-of-month from the picked date for cycle display (clamped 1–28)
+        const dueDay = dueDateVal ? Math.min(parseInt(dueDateVal.split('-')[2]!), 28) : undefined;
+        const nextDueDateMs = dueDateMs && !isNaN(dueDateMs) ? dueDateMs : undefined;
 
         const minTypeEl = body.querySelector<HTMLInputElement>('[name="da-min-type"]:checked');
         const minType = (minTypeEl?.value ?? 'percentage') as 'fixed' | 'percentage';
@@ -1673,11 +1726,19 @@ export class DebtPage {
         }
 
         const errEl = body.querySelector<HTMLElement>('#da-error')!;
-        if (!name)               { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
-        if (isNaN(balance) || balance < 0) { errEl.textContent = 'Enter a valid balance.'; errEl.style.display = 'block'; return; }
-        if (isNaN(apr) || (!isMedical && apr <= 0)) { errEl.textContent = 'Enter a valid APR.'; errEl.style.display = 'block'; return; }
-        if (showMinPayment && isCard && minValue == null) { errEl.textContent = 'Enter a minimum payment amount.'; errEl.style.display = 'block'; return; }
-        if (introChecked && !introEndStr) { errEl.textContent = 'Select an end date for the 0% intro APR period.'; errEl.style.display = 'block'; return; }
+        const missing: string[] = [];
+        if (!name)                                   missing.push('Name / Lender');
+        if (isNaN(balance) || balance < 0)           missing.push('Current balance');
+        if (isNaN(apr) || (!isMedical && apr <= 0))  missing.push('APR');
+        if (showMinPayment && isCard && minValue == null) missing.push('Minimum payment');
+        if (introChecked && !introEndStr)             missing.push('Intro APR end date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
+        }
 
         const now = Date.now();
         // For edits, strip introAprEndDate from existing so we can cleanly control it
@@ -1690,6 +1751,7 @@ export class DebtPage {
               ...(originalAmount != null ? { originalAmount } : {}),
               ...(termMonths != null ? { termMonths } : {}),
               ...(dueDay != null ? { dueDay } : {}),
+              ...(nextDueDateMs != null ? { nextDueDateMs } : {}),
               ...(minValue != null ? { minimumPaymentType: isCard ? minType : 'fixed', minimumPaymentValue: minValue } : {}),
               ...(introAprEndDate != null ? { introAprEndDate } : {}),
             }
@@ -1700,6 +1762,7 @@ export class DebtPage {
               ...(originalAmount != null ? { originalAmount } : {}),
               ...(termMonths != null ? { termMonths } : {}),
               ...(dueDay != null ? { dueDay } : {}),
+              ...(nextDueDateMs != null ? { nextDueDateMs } : {}),
               ...(minValue != null ? { minimumPaymentType: isCard ? minType : 'fixed', minimumPaymentValue: minValue } : {}),
               ...(introAprEndDate != null ? { introAprEndDate } : {}),
             };

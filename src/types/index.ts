@@ -77,6 +77,7 @@ export interface ExpenseCategory {
   color: string;
   parentId: string | null;
   monthlyBudget?: number; // envelope budgeting cap — undefined = no cap set
+  defaultCardId?: string; // card-type DebtAccount to auto-charge when an expense in this category is saved
   createdAt: number;
 }
 
@@ -91,6 +92,7 @@ export interface Expense {
   recurringFrequency: IncomeFrequency | null;
   dueDay?: number;     // day of month this bill is due (1–28); recurring bills only
   threshold?: number;  // max expected monthly cost; enables overage tracking
+  linkedCardId?: string; // card-type DebtAccount that auto-receives a charge when this expense is saved
   createdAt: number;
 }
 
@@ -117,7 +119,8 @@ export interface DebtAccount {
   minimumPaymentValue?: number;
   introAprEndDate?: number;   // timestamp; 0% APR until this date (cards only)
   paymentCycle: PaymentCycle;
-  dueDay?: number;
+  dueDay?: number;            // day of month extracted from nextDueDateMs for ongoing cycle display
+  nextDueDateMs?: number;     // timestamp of the actual next payment due date; status computation advances this forward by paymentCycle
   createdAt: number;
   updatedAt: number;
 }
@@ -140,6 +143,7 @@ export interface CardCharge {
   date: number;
   categoryId?: string;
   note?: string;
+  sourceExpenseId?: string; // set when this charge was auto-created from a linked expense
   createdAt: number;
 }
 

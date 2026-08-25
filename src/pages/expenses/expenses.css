@@ -138,12 +138,37 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--ease-default), border-color var(--ease-default), box-shadow var(--ease-default);
+  user-select: none;
+}
+
+.category-pill-manage:hover {
+  border-color: var(--color-text-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.category-pill-manage:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .category-pill-manage .chip-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+.category-pill-edit-icon {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity var(--ease-default);
+  line-height: 1;
+}
+
+.category-pill-manage:hover .category-pill-edit-icon {
+  opacity: 1;
 }
 
 .category-pill-remove {
@@ -162,23 +187,23 @@
 /* ── Color swatch picker ────────────────────────────────────────────────── */
 
 .color-swatches {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
   gap: var(--space-2);
-  padding-bottom: var(--space-3);
+  padding-bottom: var(--space-1);
 }
 
 .color-swatch {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2.5px solid transparent;
   cursor: pointer;
-  transition: transform var(--ease-default), border-color var(--ease-default);
+  transition: transform var(--ease-default), border-color var(--ease-default), box-shadow var(--ease-default);
 }
 
-.color-swatch:hover { transform: scale(1.15); }
-.color-swatch.selected { border-color: var(--color-text); }
+.color-swatch:hover { transform: scale(1.18); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.color-swatch.selected { border-color: var(--color-text); box-shadow: 0 0 0 3px rgba(0,0,0,0.12); }
 
 /* ── Expense list ───────────────────────────────────────────────────────── */
 
@@ -283,6 +308,24 @@
   background: var(--color-bg-sunken);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
+}
+
+/* ── Card-link badge (shown on expense rows) ────────────────────────────── */
+
+.expense-card-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  margin-left: var(--space-2);
+  vertical-align: middle;
+  white-space: nowrap;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 /* ── Bill status badges ──────────────────────────────────────────────────── */

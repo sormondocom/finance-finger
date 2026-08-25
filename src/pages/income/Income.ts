@@ -267,13 +267,13 @@ export class IncomePage {
         <select id="sf-member">${memberOptions}</select>
       </div>
       <div class="form-group">
-        <label class="form-label" for="sf-name">Source name</label>
+        <label class="form-label" for="sf-name">Source name <span class="req">*</span></label>
         <input id="sf-name" type="text" value="${existing?.name ?? ''}"
           placeholder="e.g. Day job, Freelance, Rental income" maxlength="64" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" id="sf-amount-label" for="sf-amount">Amount</label>
+          <label class="form-label" id="sf-amount-label" for="sf-amount">Amount <span class="req">*</span></label>
           <input id="sf-amount" type="number" min="0" step="0.01"
             value="${existing?.amount ?? ''}" placeholder="0.00" />
         </div>
@@ -283,7 +283,7 @@ export class IncomePage {
         </div>
       </div>
       <div id="sf-date-row" class="form-group" style="display:none">
-        <label class="form-label" for="sf-date">Date received</label>
+        <label class="form-label" for="sf-date">Date received <span class="req">*</span></label>
         <input id="sf-date" type="date" value="${existingDate}" />
       </div>
       <div id="sf-active-row" class="form-group" style="display:none;flex-direction:row;align-items:center;gap:var(--space-3)">
@@ -325,7 +325,7 @@ export class IncomePage {
     const amount2Label = document.createElement('label');
     amount2Label.className = 'form-label';
     amount2Label.htmlFor = 'sf-amount2';
-    amount2Label.textContent = '2nd paycheck';
+    amount2Label.innerHTML = '2nd paycheck <span class="req">*</span>';
     const amount2Input = document.createElement('input');
     amount2Input.type = 'number';
     amount2Input.id = 'sf-amount2';
@@ -387,18 +387,23 @@ export class IncomePage {
         const isUnequal = frequency === 'semimonthly' && unequalCheck.checked;
 
         errEl.style.display = 'none';
-        if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (frequency === 'once' && !dateStr) { errEl.textContent = 'Date is required for one-time income.'; errEl.style.display = 'block'; return; }
+        const missing: string[] = [];
+        if (!name)                              missing.push('Source name');
+        if (isNaN(amount) || amount < 0)        missing.push('Amount');
+        if (frequency === 'once' && !dateStr)   missing.push('Date received');
 
         let amount2: number | undefined;
         if (isUnequal) {
           amount2 = parseFloat(amount2Input.value);
-          if (isNaN(amount2) || amount2 < 0) {
-            errEl.textContent = '2nd paycheck amount is required.';
-            errEl.style.display = 'block';
-            return;
-          }
+          if (isNaN(amount2) || amount2 < 0)    missing.push('2nd paycheck amount');
+        }
+
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
         }
 
         const source: IncomeSource = existing

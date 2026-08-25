@@ -17,10 +17,15 @@ let cleanup: () => Promise<void>;
 // Compute due days relative to today so tests remain valid regardless of run date.
 const today = new Date();
 const dayOfMonth = today.getDate();
+const thisYear = today.getFullYear();
+const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 // 5 days before today (min day 1) — always a past-due date unless run on the 1st
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
 // 4 days after today (max day 28) — always within the 7-day due-soon window
 const DUE_SOON_DAY = Math.min(28, dayOfMonth + 4);
+
+const thisMonthDate = (day: number): string =>
+  `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
@@ -46,7 +51,7 @@ test('adds a credit card with a past-due date', async () => {
   await page.fill('#da-balance', '2000');
   await page.fill('#da-apr', '22.99');
   await page.fill('#da-limit', '3000');
-  await page.fill('#da-dueday', String(PAST_DUE_DAY));
+  await page.fill('#da-duedate', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="debt-row"]').filter({ hasText: 'Past Due Card' })).toBeVisible();
@@ -72,7 +77,7 @@ test('adds a credit card due within the week', async () => {
   await page.fill('#da-balance', '1500');
   await page.fill('#da-apr', '19.99');
   await page.fill('#da-limit', '2000');
-  await page.fill('#da-dueday', String(DUE_SOON_DAY));
+  await page.fill('#da-duedate', thisMonthDate(DUE_SOON_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' })).toBeVisible();

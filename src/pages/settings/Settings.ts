@@ -524,18 +524,22 @@ export class SettingsPage {
       }
     })();
 
-    // Copy public key row
+    // Export public key row
     const copyRow = document.createElement('div');
     copyRow.className = 'setting-row';
     copyRow.innerHTML = `
       <div class="setting-row-info">
         <span class="setting-row-label">Export public key</span>
-        <span class="setting-row-desc">Copy your public key — safe to share. Used to encrypt data written to this vault.</span>
+        <span class="setting-row-desc">Copy or save your public key as a file — safe to share. Used to encrypt data written to this vault.</span>
       </div>
     `;
 
+    const keyBtns = document.createElement('div');
+    keyBtns.className = 'setting-row-control';
+    keyBtns.style.cssText = 'display:flex;gap:var(--space-2)';
+
     const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn btn-secondary setting-row-control';
+    copyBtn.className = 'btn btn-secondary';
     copyBtn.textContent = 'Copy';
     copyBtn.addEventListener('click', async () => {
       const pubkey = this.config?.publicKeyArmored;
@@ -545,7 +549,25 @@ export class SettingsPage {
       setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
     });
 
-    copyRow.appendChild(copyBtn);
+    const saveKeyBtn = document.createElement('button');
+    saveKeyBtn.className = 'btn btn-secondary';
+    saveKeyBtn.setAttribute('data-testid', 'settings-save-public-key-btn');
+    saveKeyBtn.textContent = 'Save file…';
+    saveKeyBtn.addEventListener('click', async () => {
+      const pubkey = this.config?.publicKeyArmored;
+      if (!pubkey) return;
+      const blob = new Blob([pubkey], { type: 'application/pgp-keys' });
+      const url = URL.createObjectURL(blob);
+      await browser.downloads.download({
+        url,
+        filename: 'finance-finger-public-key.asc',
+        saveAs: true,
+      });
+    });
+
+    keyBtns.appendChild(copyBtn);
+    keyBtns.appendChild(saveKeyBtn);
+    copyRow.appendChild(keyBtns);
     wrap.appendChild(copyRow);
 
     // Vault status row

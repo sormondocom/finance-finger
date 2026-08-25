@@ -233,7 +233,7 @@ test('add charge modal validates empty merchant', async () => {
   await page.fill('#ch-amount', '29.99');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('#ch-error')).toBeVisible();
-  await expect(page.locator('#ch-error')).toContainText('merchant name');
+  await expect(page.locator('#ch-error')).toContainText('Merchant / Vendor');
 });
 
 test('add charge modal validates missing amount', async () => {
@@ -241,7 +241,7 @@ test('add charge modal validates missing amount', async () => {
   await page.fill('#ch-amount', '');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('#ch-error')).toBeVisible();
-  await expect(page.locator('#ch-error')).toContainText('valid amount');
+  await expect(page.locator('#ch-error')).toContainText('Amount');
 });
 
 test('submitting a valid charge closes modal and persists the charge', async () => {

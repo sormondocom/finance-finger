@@ -102,7 +102,7 @@ test('adds a credit card with a past-due payment', async () => {
   await page.fill('#da-balance', '1200');
   await page.fill('#da-apr', '18');
   await page.fill('#da-limit', '3000');
-  await page.fill('#da-dueday', String(PAST_DUE_CARD_DAY));
+  await page.fill('#da-duedate', thisMonthDate(PAST_DUE_CARD_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();

@@ -4,13 +4,15 @@ import {
   getExpenses, saveExpense, deleteExpense, createExpense,
   saveExpensePaidRecord, createExpensePaidRecord,
   getMembers,
+  getDebtAccounts,
+  saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { toMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS, CATEGORY_COLORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
-import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember } from '@/types';
+import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember, DebtAccount } from '@/types';
 
 type FilterType = 'all' | 'recurring' | 'one-time';
 
@@ -28,6 +30,7 @@ export class ExpensesPage {
   private categories: ExpenseCategory[] = [];
   private expenses: Expense[] = [];
   private members: HouseholdMember[] = [];
+  private cardAccounts: DebtAccount[] = [];
   private activeCategoryId: string | null = null;
   private filter: FilterType = 'all';
   private container!: HTMLElement;
@@ -40,11 +43,16 @@ export class ExpensesPage {
   }
 
   private async load(): Promise<void> {
-    [this.categories, this.expenses, this.members] = await Promise.all([
+    const [categories, expenses, members, allAccounts] = await Promise.all([
       getCategories(),
       getExpenses(),
       getMembers(),
+      getDebtAccounts(),
     ]);
+    this.categories = categories;
+    this.expenses = expenses;
+    this.members = members;
+    this.cardAccounts = allAccounts.filter((a) => a.type === 'card');
     const kidTypes = new Set(['child', 'baby-male', 'baby-female', 'child-male', 'child-female', 'teen-male', 'teen-female']);
     this.members.sort((a, b) => {
       const aChild = kidTypes.has(a.avatarType ?? '') ? 1 : 0;
@@ -130,6 +138,11 @@ export class ExpensesPage {
       pill.className = 'category-pill-manage';
       pill.setAttribute('data-testid', 'category-pill');
       pill.setAttribute('data-category-id', cat.id);
+      pill.setAttribute('role', 'button');
+      pill.setAttribute('tabindex', '0');
+      pill.title = `Edit ${cat.name}`;
+      pill.addEventListener('click', () => this.openCategoryForm(cat));
+      pill.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') this.openCategoryForm(cat); });
 
       const dot = document.createElement('span');
       dot.className = 'chip-dot';
@@ -140,6 +153,12 @@ export class ExpensesPage {
       nameEl.textContent = cat.name;
       pill.appendChild(nameEl);
 
+      const editIcon = document.createElement('span');
+      editIcon.className = 'category-pill-edit-icon';
+      editIcon.setAttribute('aria-hidden', 'true');
+      editIcon.textContent = '✎';
+      pill.appendChild(editIcon);
+
       const removeBtn = document.createElement('button');
       removeBtn.className = 'category-pill-remove';
       removeBtn.setAttribute('aria-label', `Remove ${cat.name}`);
@@ -147,8 +166,9 @@ export class ExpensesPage {
       removeBtn.setAttribute('data-category-id', cat.id);
       removeBtn.title = 'Remove';
       removeBtn.textContent = '✕';
-      removeBtn.addEventListener('click', async () => {
-        const inUse = this.expenses.some((e) => e.categoryId === cat.id);
+      removeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const inUse = this.expenses.some((ex) => ex.categoryId === cat.id);
         if (inUse && !confirm(`"${cat.name}" has expenses. Remove the category anyway? (Expenses won't be deleted)`)) return;
         await deleteCategory(cat.id);
         if (this.activeCategoryId === cat.id) this.activeCategoryId = null;
@@ -175,7 +195,7 @@ export class ExpensesPage {
 
     body.innerHTML = `
       <div class="form-group">
-        <label class="form-label" for="cat-name">Category name</label>
+        <label class="form-label" for="cat-name">Category name <span class="req">*</span></label>
         <input id="cat-name" type="text"
           placeholder="e.g. Housing, Food, Transport" maxlength="32" />
       </div>
@@ -207,6 +227,37 @@ export class ExpensesPage {
       });
     });
 
+    // Inject "Default card" dropdown when card accounts exist
+    if (this.cardAccounts.length > 0) {
+      const cardGroup = document.createElement('div');
+      cardGroup.className = 'form-group';
+      const cardLabel = document.createElement('label');
+      cardLabel.className = 'form-label';
+      cardLabel.htmlFor = 'cat-card';
+      cardLabel.innerHTML = 'Default card <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
+      const cardSel = document.createElement('select');
+      cardSel.id = 'cat-card';
+      cardSel.setAttribute('data-testid', 'cat-card-select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— No default card —';
+      cardSel.appendChild(noneOpt);
+      this.cardAccounts.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === existing?.defaultCardId;
+        cardSel.appendChild(opt);
+      });
+      const hint = document.createElement('span');
+      hint.className = 'form-hint';
+      hint.textContent = 'Expenses in this category auto-create a charge on this card.';
+      cardGroup.appendChild(cardLabel);
+      cardGroup.appendChild(cardSel);
+      cardGroup.appendChild(hint);
+      body.insertBefore(cardGroup, body.querySelector('#cat-error'));
+    }
+
     openFormModal({
       title: existing ? 'Edit Category' : 'New Category',
       body,
@@ -214,18 +265,30 @@ export class ExpensesPage {
       onSubmit: async (close) => {
         const name = body.querySelector<HTMLInputElement>('#cat-name')!.value.trim();
         const errEl = body.querySelector<HTMLElement>('#cat-error')!;
-        if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
+        errEl.style.display = 'none';
+        if (!name) { errEl.textContent = 'Category name is required.'; errEl.style.display = 'block'; return; }
+
+        const nameLower = name.toLowerCase();
+        const duplicate = this.categories.find(
+          c => c.name.toLowerCase() === nameLower && c.id !== existing?.id,
+        );
+        if (duplicate) {
+          errEl.textContent = `A category named "${duplicate.name}" already exists.`;
+          errEl.style.display = 'block';
+          return;
+        }
 
         const budgetRaw = parseFloat(body.querySelector<HTMLInputElement>('#cat-budget')!.value);
         const hasBudget = !isNaN(budgetRaw) && budgetRaw > 0;
 
+        const defaultCardId = body.querySelector<HTMLSelectElement>('#cat-card')?.value || undefined;
+
         const base = existing
           ? { ...existing, name, color: selectedColor }
           : createCategory(name, selectedColor);
-        const cat: ExpenseCategory = hasBudget
-          ? { ...base, monthlyBudget: budgetRaw }
-          : { ...base };
-        if (!hasBudget) delete cat.monthlyBudget;
+        const cat: ExpenseCategory = { ...base };
+        if (hasBudget) cat.monthlyBudget = budgetRaw; else delete cat.monthlyBudget;
+        if (defaultCardId) cat.defaultCardId = defaultCardId; else delete cat.defaultCardId;
         await saveCategory(cat);
         close();
         await this.load();
@@ -421,6 +484,18 @@ export class ExpensesPage {
       </div>
     `;
 
+    // Card-link badge
+    const linkedCard = expense.linkedCardId
+      ? this.cardAccounts.find((a) => a.id === expense.linkedCardId)
+      : null;
+    if (linkedCard) {
+      const badge = document.createElement('span');
+      badge.className = 'expense-card-badge';
+      badge.setAttribute('data-testid', 'expense-card-badge');
+      badge.textContent = `💳 ${linkedCard.name}`;
+      row.querySelector('.expense-row-desc')!.appendChild(badge);
+    }
+
     if (isBill && billStatus?.status !== 'paid') {
       row.querySelector('[data-action="mark-paid"]')!.addEventListener('click', () => {
         this.openMarkPaidForm(expense);
@@ -432,6 +507,10 @@ export class ExpensesPage {
     );
     row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
       if (!confirm(`Delete "${expense.description}"?`)) return;
+      if (expense.linkedCardId) {
+        const charge = await findChargeByExpenseId(expense.id);
+        if (charge) await deleteCardCharge(charge.id);
+      }
       await deleteExpense(expense.id);
       await this.load();
     });
@@ -565,18 +644,18 @@ export class ExpensesPage {
 
     body.innerHTML = `
       <div class="form-group">
-        <label class="form-label" for="ef-desc">Description</label>
+        <label class="form-label" for="ef-desc">Description <span class="req">*</span></label>
         <input id="ef-desc" type="text" value="${existing?.description ?? ''}"
           placeholder="e.g. Rent, Groceries, Netflix" maxlength="64" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="ef-amount">Amount</label>
+          <label class="form-label" for="ef-amount">Amount <span class="req">*</span></label>
           <input id="ef-amount" type="number" min="0" step="0.01"
             value="${existing?.amount ?? ''}" placeholder="0.00" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="ef-date">Date</label>
+          <label class="form-label" for="ef-date">Date <span class="req">*</span></label>
           <input id="ef-date" type="date" value="${existingDate}" />
         </div>
       </div>
@@ -624,6 +703,54 @@ export class ExpensesPage {
       recurDetails.style.display = recurChk.checked ? '' : 'none';
     });
 
+    // Inject "Charge to card" dropdown when card accounts exist
+    const catSel = body.querySelector<HTMLSelectElement>('#ef-cat')!;
+    let efCardSel: HTMLSelectElement | null = null;
+    let autoCardId: string; // tracks the last auto-filled card value
+
+    if (this.cardAccounts.length > 0) {
+      const initialCat = this.categories.find((c) => c.id === (existing?.categoryId ?? ''));
+      autoCardId = existing?.linkedCardId ?? initialCat?.defaultCardId ?? '';
+
+      const cardGroup = document.createElement('div');
+      cardGroup.className = 'form-group';
+      const cardLabel = document.createElement('label');
+      cardLabel.className = 'form-label';
+      cardLabel.htmlFor = 'ef-card';
+      cardLabel.innerHTML = 'Charge to card <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
+      efCardSel = document.createElement('select');
+      efCardSel.id = 'ef-card';
+      efCardSel.setAttribute('data-testid', 'ef-card-select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— No card —';
+      efCardSel.appendChild(noneOpt);
+      this.cardAccounts.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === autoCardId;
+        efCardSel!.appendChild(opt);
+      });
+      cardGroup.appendChild(cardLabel);
+      cardGroup.appendChild(efCardSel);
+
+      // When category changes, auto-update card to the new category's default —
+      // but only if the card selection hasn't been manually changed.
+      catSel.addEventListener('change', () => {
+        if (efCardSel!.value !== autoCardId) return; // user overrode — leave it
+        const newCat = this.categories.find((c) => c.id === catSel.value);
+        const newDefault = newCat?.defaultCardId ?? '';
+        efCardSel!.value = newDefault;
+        autoCardId = newDefault;
+      });
+
+      const recurGroup = recurChk.closest('.form-group') ?? recurChk.parentElement!;
+      body.insertBefore(cardGroup, recurGroup);
+    } else {
+      autoCardId = '';
+    }
+
     openFormModal({
       title: isEdit ? 'Edit Expense' : 'Add Expense',
       body,
@@ -645,9 +772,17 @@ export class ExpensesPage {
         const threshold = recurring && !isNaN(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : undefined;
         const errEl = body.querySelector<HTMLElement>('#ef-error')!;
 
-        if (!description) { errEl.textContent = 'Description is required.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
+        const missing: string[] = [];
+        if (!description)                missing.push('Description');
+        if (isNaN(amount) || amount < 0) missing.push('Amount');
+        if (!dateStr)                    missing.push('Date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
+        }
 
         // Extract dueDay from the date picker; compute expense.date as one period before
         // the first/next due date so the status system sees the correct upcoming cycle.
@@ -668,6 +803,8 @@ export class ExpensesPage {
           }
         }
 
+        const linkedCardId = efCardSel?.value || undefined;
+
         const expense: Expense = existing
           ? { ...existing, description, amount, date, categoryId, memberId, recurring, recurringFrequency }
           : { ...createExpense(categoryId, description, amount, date, memberId), recurring, recurringFrequency };
@@ -678,7 +815,11 @@ export class ExpensesPage {
         if (threshold != null) expense.threshold = threshold;
         else delete expense.threshold;
 
+        if (linkedCardId) expense.linkedCardId = linkedCardId;
+        else delete expense.linkedCardId;
+
         await saveExpense(expense);
+        await this.syncLinkedCharge(expense, existing?.linkedCardId);
         close();
         await this.load();
 
@@ -688,5 +829,40 @@ export class ExpensesPage {
         }
       },
     });
+  }
+
+  // ── Card charge sync ───────────────────────────────────────────────────
+
+  private async syncLinkedCharge(expense: Expense, prevLinkedCardId?: string): Promise<void> {
+    const newCardId = expense.linkedCardId ?? null;
+    const existing = await findChargeByExpenseId(expense.id);
+
+    if (!newCardId) {
+      if (existing) await deleteCardCharge(existing.id);
+      return;
+    }
+
+    if (existing && existing.accountId === newCardId) {
+      // Same card — update merchant/amount/date in place
+      await saveCardCharge({
+        ...existing,
+        merchant: expense.description,
+        amount: expense.amount,
+        date: expense.date,
+        categoryId: expense.categoryId || undefined,
+      });
+    } else {
+      // New card (or first time) — remove old charge and create fresh
+      if (existing) await deleteCardCharge(existing.id);
+      const charge = createCardCharge(
+        newCardId,
+        expense.description,
+        expense.amount,
+        expense.date,
+        expense.categoryId || undefined,
+      );
+      charge.sourceExpenseId = expense.id;
+      await saveCardCharge(charge);
+    }
   }
 }

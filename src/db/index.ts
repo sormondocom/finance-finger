@@ -269,6 +269,11 @@ export async function deleteCardCharge(id: string): Promise<void> {
   await db.delete('card_charges', id);
 }
 
+export async function findChargeByExpenseId(expenseId: string): Promise<CardCharge | null> {
+  const all = await getCardCharges();
+  return all.find((c) => c.sourceExpenseId === expenseId) ?? null;
+}
+
 export function createCardCharge(
   accountId: string,
   merchant: string,
