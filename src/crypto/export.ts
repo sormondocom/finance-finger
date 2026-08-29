@@ -5,6 +5,10 @@ import {
   getExpenses,
   getDebtAccounts,
   getScenarios,
+  getDebtPayments,
+  getCardCharges,
+  getExpensePaidRecords,
+  getBankAccounts,
   saveMember,
   saveIncomeSource,
   saveCategory,
@@ -17,6 +21,10 @@ import {
   deleteExpense,
   deleteDebtAccount,
   deleteScenario,
+  deleteDebtPayment,
+  deleteCardCharge,
+  deleteExpensePaidRecord,
+  deleteBankAccount,
 } from '@/db';
 import { encryptToPublicKey, decryptWithPrivateKey } from './pgp';
 import type { HouseholdMember, IncomeSource, ExpenseCategory, Expense, DebtAccount, Scenario } from '@/types';
@@ -86,15 +94,22 @@ export async function decryptImport(
 
 export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace'): Promise<ImportResult> {
   if (mode === 'replace') {
-    const [existingMembers, existingSources, existingCats, existingExpenses, existingAccounts, existingScenarios] =
-      await Promise.all([
-        getMembers(),
-        getIncomeSources(),
-        getCategories(),
-        getExpenses(),
-        getDebtAccounts(),
-        getScenarios(),
-      ]);
+    const [
+      existingMembers, existingSources, existingCats, existingExpenses,
+      existingAccounts, existingScenarios, existingPayments, existingCharges,
+      existingPaidRecords, existingBankAccounts,
+    ] = await Promise.all([
+      getMembers(),
+      getIncomeSources(),
+      getCategories(),
+      getExpenses(),
+      getDebtAccounts(),
+      getScenarios(),
+      getDebtPayments(),
+      getCardCharges(),
+      getExpensePaidRecords(),
+      getBankAccounts(),
+    ]);
     await Promise.all([
       ...existingMembers.map((m) => deleteMember(m.id)),
       ...existingSources.map((s) => deleteIncomeSource(s.id)),
@@ -102,6 +117,10 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       ...existingExpenses.map((e) => deleteExpense(e.id)),
       ...existingAccounts.map((a) => deleteDebtAccount(a.id)),
       ...existingScenarios.map((s) => deleteScenario(s.id)),
+      ...existingPayments.map((p) => deleteDebtPayment(p.id)),
+      ...existingCharges.map((c) => deleteCardCharge(c.id)),
+      ...existingPaidRecords.map((r) => deleteExpensePaidRecord(r.id)),
+      ...existingBankAccounts.map((a) => deleteBankAccount(a.id)),
     ]);
   }
 

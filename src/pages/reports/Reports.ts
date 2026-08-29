@@ -811,19 +811,19 @@ export class ReportsPage {
   private buildOverageOffenders(): HTMLElement {
     const card = this.card(
       'Common Overage Offenders',
-      'Recurring expenses with a monthly target — showing actual paid amounts vs your threshold across months',
+      'Recurring expenses — showing actual paid amounts vs the monthly threshold across months',
     );
 
-    // Only recurring expenses that have a threshold + at least one paid record
-    const tracked = this.expenses.filter((e) => e.recurring && e.threshold != null && e.threshold > 0);
+    // All recurring expenses with at least one paid record
+    const tracked = this.expenses.filter((e) => e.recurring && e.amount > 0);
     if (tracked.length === 0) {
       const tip = document.createElement('div');
       tip.className = 'reports-empty';
       tip.innerHTML = `
         <span class="reports-empty-icon">⚡</span>
-        <p>No threshold targets set yet.</p>
+        <p>No recurring expenses yet.</p>
         <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">
-          Edit any recurring expense and set a <strong>Monthly threshold</strong> to start tracking overages.
+          Add recurring expenses and record payments to start seeing overage history.
         </p>
       `;
       card.appendChild(tip);
@@ -840,8 +840,8 @@ export class ReportsPage {
       .filter(({ records }) => records.length > 0)
       .sort((a, b) => {
         // Sort by over-budget frequency desc
-        const aOver = a.records.filter((r) => r.amount > a.expense.threshold!).length;
-        const bOver = b.records.filter((r) => r.amount > b.expense.threshold!).length;
+        const aOver = a.records.filter((r) => r.amount > a.expense.amount).length;
+        const bOver = b.records.filter((r) => r.amount > b.expense.amount).length;
         return bOver - aOver;
       });
 
@@ -850,9 +850,9 @@ export class ReportsPage {
       empty.className = 'reports-empty';
       empty.innerHTML = `
         <span class="reports-empty-icon">✓</span>
-        <p>No payment history yet for threshold-tracked expenses.</p>
+        <p>No payment history yet for recurring expenses.</p>
         <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">
-          Mark bills as paid to start building overage history.
+          Record payments on your bills to start building overage history.
         </p>
       `;
       card.appendChild(empty);
@@ -863,7 +863,7 @@ export class ReportsPage {
     wrap.className = 'overage-offenders-list';
 
     offenders.forEach(({ expense, records }) => {
-      const threshold = expense.threshold!;
+      const threshold = expense.amount;
       const overCount = records.filter((r) => r.amount > threshold).length;
       const total = records.length;
       const worst = Math.max(...records.map((r) => r.amount));
@@ -879,7 +879,7 @@ export class ReportsPage {
       header.innerHTML = `
         <span class="overage-offender-name">${expense.description}</span>
         <span class="overage-offender-meta">
-          Target: ${USD2.format(threshold)}
+          Monthly Threshold: ${USD2.format(threshold)}
           · <span class="${overCount > 0 ? 'overage-count-badge' : 'text-muted'}">${overCount} of ${total} over budget</span>
           ${worstOver > 0 ? `· Worst: +${USD2.format(worstOver)} over` : ''}
           ${isChronicOffender ? ' 🔥' : ''}

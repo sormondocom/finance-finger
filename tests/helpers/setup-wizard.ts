@@ -52,7 +52,7 @@ export async function completeSetupWizard(page: Page): Promise<SetupResult> {
 /** Navigates to a page by clicking the sidebar nav link. */
 export async function navigateTo(
   page: Page,
-  route: 'dashboard' | 'income' | 'expenses' | 'calendar' | 'budget' | 'debt' | 'reports' | 'afford' | 'insights' | 'settings',
+  route: 'dashboard' | 'income' | 'accounts' | 'expenses' | 'calendar' | 'budget' | 'debt' | 'reports' | 'afford' | 'insights' | 'settings',
 ): Promise<void> {
   await page.click(`[data-testid="nav-${route}"]`);
 }

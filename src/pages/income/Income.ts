@@ -2,15 +2,20 @@ import './income.css';
 import {
   getMembers, saveMember, deleteMember, createMember,
   getIncomeSources, saveIncomeSource, deleteIncomeSource, createIncomeSource,
+  getBankAccounts, saveBankAccount,
+  getExpenses, saveExpense,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
-import { toMonthly, sourceMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS } from '@/utils/finance';
+import { navigate } from '@/app/router';
+import { toMonthly, sourceMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS, MONTHLY_FACTORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
-import type { HouseholdMember, IncomeSource, IncomeFrequency } from '@/types';
+import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/notificationModal';
+import type { HouseholdMember, IncomeSource, IncomeFrequency, BankAccount } from '@/types';
 
 export class IncomePage {
   private members: HouseholdMember[] = [];
   private sources: IncomeSource[] = [];
+  private bankAccounts: BankAccount[] = [];
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -21,7 +26,7 @@ export class IncomePage {
   }
 
   private async load(): Promise<void> {
-    [this.members, this.sources] = await Promise.all([getMembers(), getIncomeSources()]);
+    [this.members, this.sources, this.bankAccounts] = await Promise.all([getMembers(), getIncomeSources(), getBankAccounts()]);
     this.members.sort((a, b) => {
       const kidTypes = new Set(['child', 'baby-male', 'baby-female', 'child-male', 'child-female', 'teen-male', 'teen-female']);
       const aChild = kidTypes.has(a.avatarType ?? '') ? 1 : 0;
@@ -88,7 +93,12 @@ export class IncomePage {
       chip.querySelector<HTMLButtonElement>('.member-chip-remove')!.addEventListener('click', async () => {
         if (!confirm(`Remove "${m.name}"? Their income sources will also be removed.`)) return;
         const toDelete = this.sources.filter((s) => s.memberId === m.id);
-        await Promise.all(toDelete.map((s) => deleteIncomeSource(s.id)));
+        const [allAccounts, allExpenses] = await Promise.all([getBankAccounts(), getExpenses()]);
+        await Promise.all([
+          ...toDelete.map((s) => deleteIncomeSource(s.id)),
+          ...allAccounts.filter((a) => a.memberId === m.id).map((a) => saveBankAccount({ ...a, memberId: undefined })),
+          ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: undefined })),
+        ]);
         await deleteMember(m.id);
         await this.load();
       });
@@ -200,9 +210,11 @@ export class IncomePage {
     const dateStr = isOnce && source.date
       ? new Date(source.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : null;
-    const amountDisplay = isUnequal
-      ? `${fmtCents.format(source.amount)} / ${fmtCents.format(source.amount2!)}`
-      : fmtCents.format(source.amount);
+    const amountDisplay = source.payType === 'hourly' && source.hourlyRate && source.hoursPerWeek
+      ? `${fmtCents.format(source.hourlyRate)}/hr · ${source.hoursPerWeek}h/wk`
+      : isUnequal
+        ? `${fmtCents.format(source.amount)} / ${fmtCents.format(source.amount2!)}`
+        : fmtCents.format(source.amount);
 
     row.innerHTML = `
       <div class="source-row-name">
@@ -214,12 +226,16 @@ export class IncomePage {
       <div class="source-row-freq">${dateStr ?? FREQUENCY_LABELS[source.frequency]}</div>
       <div class="source-row-monthly">${isOnce ? '' : `≈ ${fmt.format(monthly)}/mo`}</div>
       <div class="source-row-actions">
+        <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
         <button class="icon-btn" data-action="edit" data-testid="source-edit" title="Edit">✏️</button>
         ${!isOnce ? `<button class="icon-btn" data-action="toggle" data-testid="source-toggle" title="${source.active ? 'Deactivate' : 'Activate'}">${source.active ? '⏸' : '▶️'}</button>` : ''}
         <button class="icon-btn danger" data-action="delete" data-testid="source-delete" title="Delete">🗑️</button>
       </div>
     `;
 
+    row.querySelector('[data-action="notif"]')!.addEventListener('click', () => {
+      openAddNotificationModal({ label: source.name, defaultTrigger: 'monthly-day' });
+    });
     row.querySelector('[data-action="edit"]')!.addEventListener('click', () =>
       this.openSourceForm(source),
     );
@@ -271,16 +287,42 @@ export class IncomePage {
         <input id="sf-name" type="text" value="${existing?.name ?? ''}"
           placeholder="e.g. Day job, Freelance, Rental income" maxlength="64" />
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" id="sf-amount-label" for="sf-amount">Amount <span class="req">*</span></label>
-          <input id="sf-amount" type="number" min="0" step="0.01"
-            value="${existing?.amount ?? ''}" placeholder="0.00" />
+      <div class="form-group">
+        <label class="form-label" for="sf-freq">Frequency</label>
+        <select id="sf-freq">${freqOptions}</select>
+      </div>
+      <div id="sf-paytype-row" class="form-group" style="display:none">
+        <label class="form-label">Pay type</label>
+        <div style="display:flex;gap:var(--space-5)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;font-size:var(--text-sm)">
+            <input type="radio" name="sf-paytype" value="salary" ${existing?.payType !== 'hourly' ? 'checked' : ''} />
+            Salary / fixed amount
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;font-size:var(--text-sm)">
+            <input type="radio" name="sf-paytype" value="hourly" ${existing?.payType === 'hourly' ? 'checked' : ''} />
+            Hourly rate
+          </label>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="sf-freq">Frequency</label>
-          <select id="sf-freq">${freqOptions}</select>
+      </div>
+      <div id="sf-salary-row" class="form-group" style="display:none">
+        <label class="form-label" id="sf-amount-label" for="sf-amount">Amount <span class="req">*</span></label>
+        <input id="sf-amount" type="number" min="0" step="0.01"
+          value="${existing?.payType !== 'hourly' ? (existing?.amount ?? '') : ''}" placeholder="0.00" />
+      </div>
+      <div id="sf-hourly-row" class="form-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="sf-hourly-rate">Hourly rate <span class="req">*</span></label>
+            <input id="sf-hourly-rate" type="number" min="0" step="0.01" placeholder="25.00"
+              value="${existing?.hourlyRate ?? ''}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sf-hours-week">Hrs / week <span class="req">*</span></label>
+            <input id="sf-hours-week" type="number" min="1" max="168" step="0.5" placeholder="40"
+              value="${existing?.hoursPerWeek ?? ''}" />
+          </div>
         </div>
+        <span class="form-hint" id="sf-hourly-preview"></span>
       </div>
       <div id="sf-date-row" class="form-group" style="display:none">
         <label class="form-label" for="sf-date">Date received <span class="req">*</span></label>
@@ -291,17 +333,23 @@ export class IncomePage {
         <label for="sf-active" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)">Active (included in totals)</label>
       </div>
       <div id="sf-payday-row" class="form-group" style="display:none">
-        <label class="form-label" for="sf-payday">Payday <span style="font-weight:400;opacity:0.65">(optional)</span></label>
-        <input id="sf-payday" type="date" value="${existing?.paydayRef ? new Date(existing.paydayRef).toISOString().split('T')[0] : ''}" />
-        <span class="form-hint">Enter any upcoming payday to show it on your calendar.</span>
+        <label class="form-label" for="sf-payday">Payday reference date</label>
+        <input id="sf-payday" type="date" value="${existing?.paydayRef ? new Date(existing.paydayRef).toISOString().split('T')[0] : today}" />
+        <span class="form-hint">Your next (or most recent) payday — used to show payday chips on the calendar.</span>
       </div>
       <div id="sf-error" class="form-error" style="display:none"></div>
     `;
 
-    const amountLabel = body.querySelector<HTMLElement>('#sf-amount-label')!;
-    const freqSel = body.querySelector<HTMLSelectElement>('#sf-freq')!;
-    const dateRow = body.querySelector<HTMLElement>('#sf-date-row')!;
-    const activeRow = body.querySelector<HTMLElement>('#sf-active-row')!;
+    const amountLabel     = body.querySelector<HTMLElement>('#sf-amount-label')!;
+    const freqSel         = body.querySelector<HTMLSelectElement>('#sf-freq')!;
+    const paytypeRow      = body.querySelector<HTMLElement>('#sf-paytype-row')!;
+    const salaryRow       = body.querySelector<HTMLElement>('#sf-salary-row')!;
+    const hourlyRow       = body.querySelector<HTMLElement>('#sf-hourly-row')!;
+    const hourlyRateInput = hourlyRow.querySelector<HTMLInputElement>('#sf-hourly-rate')!;
+    const hoursWeekInput  = hourlyRow.querySelector<HTMLInputElement>('#sf-hours-week')!;
+    const hourlyPreview   = hourlyRow.querySelector<HTMLElement>('#sf-hourly-preview')!;
+    const dateRow         = body.querySelector<HTMLElement>('#sf-date-row')!;
+    const activeRow       = body.querySelector<HTMLElement>('#sf-active-row')!;
 
     // ── Unequal paychecks checkbox (semi-monthly only) ───────────────────
     const unequalRow = document.createElement('div');
@@ -336,10 +384,25 @@ export class IncomePage {
     amount2Row.appendChild(amount2Label);
     amount2Row.appendChild(amount2Input);
 
-    // Insert: formRow → unequalRow → amount2Row → dateRow → …
-    const formRow = body.querySelector<HTMLElement>('.form-row')!;
-    formRow.insertAdjacentElement('afterend', amount2Row);
-    formRow.insertAdjacentElement('afterend', unequalRow);
+    // ── Semi-monthly schedule selector ──────────────────────────────────
+    const semiScheduleRow = document.createElement('div');
+    semiScheduleRow.className = 'form-group';
+    semiScheduleRow.style.display = 'none';
+    semiScheduleRow.innerHTML = `
+      <label class="form-label" for="sf-semi-schedule">Payday schedule</label>
+      <select id="sf-semi-schedule">
+        <option value="1-15">1st and 15th of each month</option>
+        <option value="15-end">15th and last day of each month</option>
+      </select>
+      <span class="form-hint">When do your two monthly paychecks land?</span>
+    `;
+    const semiScheduleSel = semiScheduleRow.querySelector<HTMLSelectElement>('#sf-semi-schedule')!;
+    if (existing?.semimonthlySchedule) semiScheduleSel.value = existing.semimonthlySchedule;
+
+    // Insert after salary row: unequalRow → amount2Row → semiScheduleRow
+    salaryRow.insertAdjacentElement('afterend', amount2Row);
+    salaryRow.insertAdjacentElement('afterend', unequalRow);
+    amount2Row.insertAdjacentElement('afterend', semiScheduleRow);
 
     const syncUnequalUI = () => {
       const unequal = unequalCheck.checked;
@@ -347,55 +410,157 @@ export class IncomePage {
       amountLabel.textContent = unequal ? '1st paycheck' : 'Amount';
     };
 
+    // ── Bank account dropdown ────────────────────────────────────────────
+    const sourceModalRef: { close?: () => void } = {};
+    const accountGroup = document.createElement('div');
+    accountGroup.className = 'form-group';
+    const accountLabel = document.createElement('label');
+    accountLabel.className = 'form-label';
+    accountLabel.textContent = 'Deposit to account';
+    accountGroup.appendChild(accountLabel);
+
+    let sfAccountSel: HTMLSelectElement | null = null;
+    if (this.bankAccounts.length > 0) {
+      sfAccountSel = document.createElement('select');
+      sfAccountSel.id = 'sf-account';
+      sfAccountSel.setAttribute('data-testid', 'sf-account-select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— No account —';
+      sfAccountSel.appendChild(noneOpt);
+      this.bankAccounts.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === (existing?.bankAccountId ?? '');
+        sfAccountSel!.appendChild(opt);
+      });
+      accountGroup.appendChild(sfAccountSel);
+    } else {
+      const hint = document.createElement('span');
+      hint.className = 'form-hint';
+      hint.innerHTML = 'No bank accounts set up yet. ';
+      const link = document.createElement('a');
+      link.href = '#';
+      link.textContent = 'Add one in Accounts →';
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        sourceModalRef.close?.();
+        navigate('/accounts');
+      });
+      hint.appendChild(link);
+      accountGroup.appendChild(hint);
+    }
+
     const paydayRow = body.querySelector<HTMLElement>('#sf-payday-row')!;
 
-    const syncFreqUI = (freq: string) => {
-      const once = freq === 'once';
-      const semi = freq === 'semimonthly';
-      dateRow.style.display = once ? '' : 'none';
-      activeRow.style.display = once ? 'none' : '';
-      paydayRow.style.display = once ? 'none' : '';
-      unequalRow.style.display = semi ? '' : 'none';
-      if (!semi) {
-        unequalCheck.checked = false;
-        syncUnequalUI();
+    const getPayType = (): 'salary' | 'hourly' => {
+      const checked = body.querySelector<HTMLInputElement>('input[name="sf-paytype"]:checked');
+      return checked?.value === 'hourly' ? 'hourly' : 'salary';
+    };
+
+    const syncHourlyPreview = () => {
+      const rate   = parseFloat(hourlyRateInput.value);
+      const hours  = parseFloat(hoursWeekInput.value);
+      const freq   = freqSel.value as IncomeFrequency;
+      const factor = MONTHLY_FACTORS[freq] || 1;
+      if (rate > 0 && hours > 0) {
+        const perPeriod = (rate * hours * 52 / 12) / factor;
+        hourlyPreview.textContent = `≈ ${fmtCents.format(perPeriod)} per pay period`;
+      } else {
+        hourlyPreview.textContent = '';
       }
     };
 
+    const syncFreqUI = (freq: string) => {
+      const once   = freq === 'once';
+      const semi   = freq === 'semimonthly';
+      const hourly = !once && getPayType() === 'hourly';
+      paytypeRow.style.display      = once ? 'none' : '';
+      salaryRow.style.display       = (!once && !hourly) ? '' : 'none';
+      hourlyRow.style.display       = hourly ? '' : 'none';
+      dateRow.style.display         = once ? '' : 'none';
+      activeRow.style.display       = once ? 'none' : '';
+      paydayRow.style.display       = (once || semi) ? 'none' : '';
+      semiScheduleRow.style.display = semi ? '' : 'none';
+      unequalRow.style.display      = (semi && !hourly) ? '' : 'none';
+      if (!semi || hourly) {
+        unequalCheck.checked = false;
+        syncUnequalUI();
+      }
+      syncHourlyPreview();
+    };
+
     unequalCheck.addEventListener('change', syncUnequalUI);
+    body.querySelectorAll<HTMLInputElement>('input[name="sf-paytype"]').forEach((r) =>
+      r.addEventListener('change', () => syncFreqUI(freqSel.value)),
+    );
     freqSel.addEventListener('change', () => syncFreqUI(freqSel.value));
+    hourlyRateInput.addEventListener('input', syncHourlyPreview);
+    hoursWeekInput.addEventListener('input', syncHourlyPreview);
 
     // Initialize display from existing values
     syncFreqUI(initFreq);
-    if (initFreq === 'semimonthly' && existing?.amount2 != null) {
+    if (initFreq === 'semimonthly' && existing?.payType !== 'hourly' && existing?.amount2 != null) {
       unequalCheck.checked = true;
       syncUnequalUI();
     }
 
-    openFormModal({
+    // Insert account group before error div
+    const errDiv = body.querySelector<HTMLElement>('#sf-error')!;
+    body.insertBefore(accountGroup, errDiv);
+
+    let flushReminders: (finalItemId: string) => Promise<void> = async () => {};
+    if (isEdit && existing) {
+      const { element, flush } = buildLinkedRemindersSection(existing.id, 'income', existing.name);
+      body.appendChild(element);
+      flushReminders = flush;
+    } else {
+      const nameInput = body.querySelector<HTMLInputElement>('#sf-name')!;
+      const { element, flush } = buildLinkedRemindersSection('', 'income', 'Income source', {
+        deferred: true,
+        getLabel: () => nameInput.value.trim() || 'Income source',
+      });
+      body.appendChild(element);
+      flushReminders = flush;
+    }
+
+    const { close: closeSourceModal } = openFormModal({
       title: isEdit ? 'Edit Income Source' : 'Add Income Source',
       body,
       submitLabel: isEdit ? 'Save changes' : 'Add source',
       onSubmit: async (close) => {
-        const memberId = body.querySelector<HTMLSelectElement>('#sf-member')!.value;
-        const name = body.querySelector<HTMLInputElement>('#sf-name')!.value.trim();
-        const amount = parseFloat(body.querySelector<HTMLInputElement>('#sf-amount')!.value);
+        const memberId  = body.querySelector<HTMLSelectElement>('#sf-member')!.value;
+        const name      = body.querySelector<HTMLInputElement>('#sf-name')!.value.trim();
         const frequency = freqSel.value as IncomeFrequency;
-        const active = frequency === 'once' || body.querySelector<HTMLInputElement>('#sf-active')!.checked;
-        const dateStr = body.querySelector<HTMLInputElement>('#sf-date')!.value;
-        const errEl = body.querySelector<HTMLElement>('#sf-error')!;
-        const isUnequal = frequency === 'semimonthly' && unequalCheck.checked;
+        const payType   = getPayType();
+        const active    = frequency === 'once' || body.querySelector<HTMLInputElement>('#sf-active')!.checked;
+        const dateStr   = body.querySelector<HTMLInputElement>('#sf-date')!.value;
+        const errEl     = body.querySelector<HTMLElement>('#sf-error')!;
+        const isUnequal = frequency === 'semimonthly' && payType === 'salary' && unequalCheck.checked;
 
         errEl.style.display = 'none';
         const missing: string[] = [];
-        if (!name)                              missing.push('Source name');
-        if (isNaN(amount) || amount < 0)        missing.push('Amount');
-        if (frequency === 'once' && !dateStr)   missing.push('Date received');
+        if (!name)                            missing.push('Source name');
+        if (frequency === 'once' && !dateStr) missing.push('Date received');
+
+        let amount: number;
+        if (payType === 'hourly') {
+          const rate   = parseFloat(hourlyRateInput.value);
+          const hrs    = parseFloat(hoursWeekInput.value);
+          const factor = MONTHLY_FACTORS[frequency] || 1;
+          if (isNaN(rate)  || rate  <= 0) missing.push('Hourly rate');
+          if (isNaN(hrs)   || hrs   <= 0) missing.push('Hours per week');
+          amount = (rate * hrs * 52 / 12) / factor;
+        } else {
+          amount = parseFloat(body.querySelector<HTMLInputElement>('#sf-amount')!.value);
+          if (isNaN(amount) || amount < 0) missing.push('Amount');
+        }
 
         let amount2: number | undefined;
         if (isUnequal) {
           amount2 = parseFloat(amount2Input.value);
-          if (isNaN(amount2) || amount2 < 0)    missing.push('2nd paycheck amount');
+          if (isNaN(amount2) || amount2 < 0) missing.push('2nd paycheck amount');
         }
 
         if (missing.length > 0) {
@@ -411,16 +576,31 @@ export class IncomePage {
           : { ...createIncomeSource(memberId, name, amount, frequency), active };
 
         if (frequency === 'once') {
-          source.date = new Date(dateStr).getTime();
+          source.date = new Date(dateStr + 'T00:00:00').getTime();
+          delete source.payType;
         } else {
           delete source.date;
+          source.payType = payType;
+        }
+        if (payType === 'hourly') {
+          source.hourlyRate   = parseFloat(hourlyRateInput.value);
+          source.hoursPerWeek = parseFloat(hoursWeekInput.value);
+        } else {
+          delete source.hourlyRate;
+          delete source.hoursPerWeek;
         }
 
-        const paydayStr = body.querySelector<HTMLInputElement>('#sf-payday')!.value;
-        if (frequency !== 'once' && paydayStr) {
-          source.paydayRef = new Date(paydayStr + 'T00:00:00').getTime();
-        } else {
+        if (frequency === 'semimonthly') {
+          source.semimonthlySchedule = semiScheduleSel.value as '1-15' | '15-end';
           delete source.paydayRef;
+        } else {
+          delete source.semimonthlySchedule;
+          const paydayStr = body.querySelector<HTMLInputElement>('#sf-payday')!.value;
+          if (frequency !== 'once' && paydayStr) {
+            source.paydayRef = new Date(paydayStr + 'T00:00:00').getTime();
+          } else {
+            delete source.paydayRef;
+          }
         }
 
         if (isUnequal && amount2 != null) {
@@ -429,7 +609,12 @@ export class IncomePage {
           delete source.amount2;
         }
 
+        const bankAccountId = sfAccountSel?.value || undefined;
+        if (bankAccountId) source.bankAccountId = bankAccountId;
+        else delete source.bankAccountId;
+
         await saveIncomeSource(source);
+        await flushReminders(source.id);
         close();
         await this.load();
 
@@ -438,5 +623,6 @@ export class IncomePage {
         }
       },
     });
+    sourceModalRef.close = closeSourceModal;
   }
 }

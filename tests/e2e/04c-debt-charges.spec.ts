@@ -371,22 +371,14 @@ test('recording a debt payment reduces the balance', async () => {
   await page.screenshot({ path: 'tests/screenshots/dc-12-after-payment.png' });
 });
 
-test('expenses page shows Credit Card Payments category after payment', async () => {
+test('expenses page does not show a phantom expense entry for the debt payment', async () => {
   await navigateTo(page, 'expenses');
-  await expect(
-    page.locator('[data-testid="category-pill"]').filter({ hasText: 'Credit Card Payments' }),
-  ).toBeVisible({ timeout: 8_000 });
-  await page.screenshot({ path: 'tests/screenshots/dc-13-cc-category.png' });
-});
-
-test('expenses page shows auto-created expense with payment description and amount', async () => {
+  // Debt payments are tracked as DebtPayment records, not as Expense entries.
+  // Verify no auto-created expense row appears for the payment we just recorded.
   await expect(
     page.locator('[data-testid="expense-row"]').filter({ hasText: 'Visa Pay Test payment' }),
-  ).toBeVisible({ timeout: 8_000 });
-  await expect(
-    page.locator('[data-testid="expense-row"]').filter({ hasText: 'Visa Pay Test payment' }),
-  ).toContainText('$150');
-  await page.screenshot({ path: 'tests/screenshots/dc-14-cc-expense-entry.png' });
+  ).not.toBeVisible();
+  await page.screenshot({ path: 'tests/screenshots/dc-13-no-phantom-expense.png' });
 });
 
 // ── Cascade delete: account deletion removes its charges ──────────────────────

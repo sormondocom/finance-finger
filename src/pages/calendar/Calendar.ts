@@ -1,7 +1,8 @@
 import './calendar.css';
 import { getExpenses, saveExpense, saveExpensePaidRecord, createExpensePaidRecord,
          getDebtAccounts, getDebtPayments, saveDebtPayment, createDebtPayment,
-         getCategories, getIncomeSources, getMembers } from '@/db';
+         getCategories, getIncomeSources, getMembers,
+         saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { computeBillStatus } from '@/utils/billStatus';
 import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
@@ -9,13 +10,14 @@ import type { AccountPaymentStatus } from '@/utils/paymentStatus';
 import { getPaydaysInMonth } from '@/utils/paydays';
 import { refreshNotifier } from '@/utils/notifier';
 import { fmtCents } from '@/utils/finance';
-import type { Expense, DebtAccount, ExpenseCategory, DebtAccountType, IncomeSource, HouseholdMember } from '@/types';
+import type { Expense, DebtAccount, DebtPayment, ExpenseCategory, DebtAccountType, IncomeSource, HouseholdMember } from '@/types';
 
 const DEBT_TYPE_LABEL: Record<DebtAccountType, string> = {
   card: 'Credit Card',
   mortgage: 'Mortgage',
   medical: 'Medical Debt',
-  loan: 'Loan',
+  loan: 'Personal Loan',
+  vehicle: 'Vehicle Loan',
 };
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -38,7 +40,11 @@ export class CalendarPage {
   private debtEntries: DebtEntry[] = [];
   private categories: ExpenseCategory[] = [];
   private incomeSources: IncomeSource[] = [];
+  private oneTimeIncomeSources: IncomeSource[] = [];
   private members: HouseholdMember[] = [];
+  private cardAccounts: DebtAccount[] = [];
+  private allDebtPayments: DebtPayment[] = [];
+  private debtAccounts: DebtAccount[] = [];
   private container!: HTMLElement;
 
   constructor() {
@@ -66,7 +72,17 @@ export class CalendarPage {
     this.categories = categories;
     this.expenses = expenses;
     this.members = members;
-    this.incomeSources = sources.filter((s) => s.active && s.paydayRef);
+    this.debtAccounts = accounts;
+    this.allDebtPayments = allPayments;
+    this.cardAccounts = accounts.filter((a) => a.type === 'card');
+    // Include all active recurring sources. For sources without an explicit
+    // paydayRef (created before the income form started defaulting it), use
+    // today as the reference so paydays still land on a sensible day.
+    const fallbackRef = Date.now();
+    this.incomeSources = sources
+      .filter((s) => s.active && s.frequency !== 'once')
+      .map((s) => s.paydayRef ? s : { ...s, paydayRef: fallbackRef });
+    this.oneTimeIncomeSources = sources.filter((s) => s.active && s.frequency === 'once' && s.date != null);
     this.debtEntries = accounts
       .filter((a) => a.dueDay != null && a.balance > 0)
       .map((a) => ({
@@ -83,23 +99,69 @@ export class CalendarPage {
     const calRef = new Date(this.year, this.month, 15);
     const bills = this.expenses.filter((e) => {
       if (!e.recurring || !e.dueDay) return false;
-      if (e.recurringFrequency === 'quarterly') {
+      if (e.recurringFrequency === 'quarterly' || e.recurringFrequency === 'annual') {
         return computeBillStatus(e, calRef).dueDayThisMonth !== null;
       }
       return true;
     });
 
-    // Build payday map: day → list of income sources paid that day
-    const paydaysByDay = new Map<number, IncomeSource[]>();
+    // One-time expenses and income for this month
+    const monthStart = new Date(this.year, this.month, 1).getTime();
+    const monthEnd = new Date(this.year, this.month + 1, 1).getTime();
+    const oneTimeExpenses = this.expenses.filter(
+      (e) => !e.recurring && e.date >= monthStart && e.date < monthEnd,
+    );
+    const oneTimeIncomeThisMonth = this.oneTimeIncomeSources.filter(
+      (s) => s.date! >= monthStart && s.date! < monthEnd,
+    );
+
+    // Group one-time expenses by day
+    const oneTimeByDay = new Map<number, Expense[]>();
+    oneTimeExpenses.forEach((e) => {
+      const day = new Date(e.date).getDate();
+      const arr = oneTimeByDay.get(day) ?? [];
+      arr.push(e);
+      oneTimeByDay.set(day, arr);
+    });
+
+    // Group one-time income by day
+    const oneTimeIncomeByDay = new Map<number, IncomeSource[]>();
+    oneTimeIncomeThisMonth.forEach((s) => {
+      const day = new Date(s.date!).getDate();
+      const arr = oneTimeIncomeByDay.get(day) ?? [];
+      arr.push(s);
+      oneTimeIncomeByDay.set(day, arr);
+    });
+
+    // Build payday map: day → list of { source, paydayIndex }.
+    // paydayIndex tracks which paycheck this is (0 = first, 1 = second) so
+    // semimonthly sources with unequal paychecks can show the right amount.
+    const paydaysByDay = new Map<number, { source: IncomeSource; paydayIndex: number }[]>();
     this.incomeSources.forEach((s) => {
-      getPaydaysInMonth(s, this.year, this.month).forEach((d) => {
+      getPaydaysInMonth(s, this.year, this.month).forEach((d, i) => {
         const arr = paydaysByDay.get(d) ?? [];
-        arr.push(s);
+        arr.push({ source: s, paydayIndex: i });
         paydaysByDay.set(d, arr);
       });
     });
 
-    const hasAny = bills.length > 0 || this.debtEntries.length > 0 || paydaysByDay.size > 0;
+    // Group recorded debt payments for this month by day
+    const paymentsThisMonth = this.allDebtPayments.filter(
+      (p) => p.date >= monthStart && p.date < monthEnd,
+    );
+    const paymentsByDay = new Map<number, { payment: DebtPayment; account: DebtAccount }[]>();
+    paymentsThisMonth.forEach((p) => {
+      const account = this.debtAccounts.find((a) => a.id === p.accountId);
+      if (!account) return;
+      const day = new Date(p.date).getDate();
+      const arr = paymentsByDay.get(day) ?? [];
+      arr.push({ payment: p, account });
+      paymentsByDay.set(day, arr);
+    });
+
+    const hasAny = bills.length > 0 || this.debtEntries.length > 0 ||
+                   paydaysByDay.size > 0 || oneTimeExpenses.length > 0 ||
+                   oneTimeIncomeThisMonth.length > 0 || paymentsByDay.size > 0;
 
     // ── Page header ──────────────────────────────────────────────────────
     const header = document.createElement('div');
@@ -158,6 +220,8 @@ export class CalendarPage {
       <div class="legend-item"><span class="legend-dot" style="background:var(--ff-green)"></span>Paid</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--ff-sage)"></span>Upcoming</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--ff-gold)"></span>Payday</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#0d9488"></span>Payment Made</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--color-border)"></span>One-time</div>
     `;
     header.appendChild(legend);
 
@@ -169,8 +233,8 @@ export class CalendarPage {
       empty.setAttribute('data-testid', 'calendar-empty');
       empty.innerHTML = `
         <span class="calendar-empty-icon">📅</span>
-        <h3>No recurring bills, debt payments, or paydays</h3>
-        <p>Add a recurring expense with a due day, set a due day on a debt account, or enter a payday on an income source to see it here.</p>
+        <h3>No bills, expenses, debt payments, or paydays</h3>
+        <p>Add expenses to see them here. Set a due day on a recurring expense or debt account to enable payment tracking.</p>
       `;
       this.container.appendChild(empty);
       return;
@@ -181,7 +245,7 @@ export class CalendarPage {
 
     // ── Calendar grid ────────────────────────────────────────────────────
     const gridWrap = document.createElement('div');
-    gridWrap.className = 'card calendar-grid-wrap';
+    gridWrap.className = 'calendar-grid-wrap';
 
     const grid = document.createElement('div');
     grid.className = 'calendar-grid';
@@ -242,16 +306,23 @@ export class CalendarPage {
       dayNum.textContent = String(day);
       cell.appendChild(dayNum);
 
-      const dayBills = billsByDay.get(day) ?? [];
-      const dayDebts = debtByDay.get(day) ?? [];
-      const dayPaydays = paydaysByDay.get(day) ?? [];
+      const dayBills       = billsByDay.get(day) ?? [];
+      const dayDebts       = debtByDay.get(day) ?? [];
+      const dayPaydays     = paydaysByDay.get(day) ?? [];
+      const dayOneTimeIncome = oneTimeIncomeByDay.get(day) ?? [];
+      const dayOneTime     = oneTimeByDay.get(day) ?? [];
+      const dayPayments    = paymentsByDay.get(day) ?? [];
 
-      if (dayBills.length > 0 || dayDebts.length > 0 || dayPaydays.length > 0) {
+      if (dayBills.length > 0 || dayDebts.length > 0 || dayPaydays.length > 0 ||
+          dayOneTime.length > 0 || dayOneTimeIncome.length > 0 || dayPayments.length > 0) {
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'calendar-bills';
-        dayPaydays.forEach((s) => chipsWrap.appendChild(this.buildPaydayChip(s)));
+        dayPaydays.forEach(({ source, paydayIndex }) => chipsWrap.appendChild(this.buildPaydayChip(source, paydayIndex)));
+        dayOneTimeIncome.forEach((s) => chipsWrap.appendChild(this.buildOneTimeIncomeChip(s)));
         dayBills.forEach((e) => chipsWrap.appendChild(this.buildBillChip(e)));
         dayDebts.forEach(({ account, status }) => chipsWrap.appendChild(this.buildDebtChip(account, status)));
+        dayPayments.forEach(({ payment, account }) => chipsWrap.appendChild(this.buildDebtPaymentChip(payment, account)));
+        dayOneTime.forEach((e) => chipsWrap.appendChild(this.buildOneTimeExpenseChip(e)));
         cell.appendChild(chipsWrap);
       }
 
@@ -297,8 +368,10 @@ export class CalendarPage {
     return bar;
   }
 
-  private buildPaydayChip(source: IncomeSource): HTMLElement {
+  private buildPaydayChip(source: IncomeSource, paydayIndex: number): HTMLElement {
     const member = this.members.find((m) => m.id === source.memberId);
+    // For semimonthly sources with unequal paychecks, the second chip uses amount2
+    const amount = (paydayIndex === 1 && source.amount2 != null) ? source.amount2 : source.amount;
     const chip = document.createElement('div');
     chip.className = 'calendar-payday-chip';
     chip.setAttribute('data-testid', 'calendar-payday-chip');
@@ -309,6 +382,23 @@ export class CalendarPage {
         <span class="cal-chip-name" title="${source.name}">${source.name}</span>
       </div>
       ${member ? `<span class="cal-chip-type">${member.name}</span>` : ''}
+      <span class="cal-chip-amount">${fmtCents.format(amount)}</span>
+    `;
+    return chip;
+  }
+
+  private buildOneTimeIncomeChip(source: IncomeSource): HTMLElement {
+    const member = this.members.find((m) => m.id === source.memberId);
+    const chip = document.createElement('div');
+    chip.className = 'calendar-payday-chip';
+    chip.setAttribute('data-testid', 'calendar-one-time-income-chip');
+    chip.setAttribute('data-source-id', source.id);
+    chip.innerHTML = `
+      <div class="cal-chip-title">
+        <span class="cal-chip-icon">💵</span>
+        <span class="cal-chip-name" title="${source.name}">${source.name}</span>
+      </div>
+      <span class="cal-chip-type">${member ? member.name : 'One-time income'}</span>
       <span class="cal-chip-amount">${fmtCents.format(source.amount)}</span>
     `;
     return chip;
@@ -316,39 +406,89 @@ export class CalendarPage {
 
   private buildBillChip(expense: Expense): HTMLElement {
     const { status } = computeBillStatus(expense);
+    const isAutoPay = !!expense.isAutoPay;
     const category = this.categories.find((c) => c.id === expense.categoryId);
     const categoryName = category?.name ?? 'Expense';
-    const statusIcon = status === 'paid' ? '✓' : status === 'past-due' ? '⚠' : status === 'due-soon' ? '⏰' : '';
+    const chipStatus = isAutoPay ? 'ok' : status;
+    const statusIcon = isAutoPay ? '🔄' : (status === 'paid' ? '✓' : status === 'past-due' ? '⚠' : status === 'due-soon' ? '⏰' : '');
 
     const wrap = document.createElement('div');
     wrap.className = 'cal-chip-wrap';
 
     const chip = document.createElement('div');
-    chip.className = `calendar-bill-chip calendar-bill-chip--${status}`;
+    chip.className = `calendar-bill-chip calendar-bill-chip--${chipStatus}`;
     chip.setAttribute('data-testid', 'calendar-bill-chip');
     chip.setAttribute('data-expense-id', expense.id);
-    chip.setAttribute('data-bill-status', status);
+    chip.setAttribute('data-bill-status', chipStatus);
     chip.innerHTML = `
       <div class="cal-chip-title">
         ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
         <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
       </div>
-      <span class="cal-chip-type">${categoryName}</span>
+      ${isAutoPay
+        ? '<span class="cal-chip-autopay">Auto-pay</span>'
+        : `<span class="cal-chip-type">${categoryName}</span>`}
       <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
     `;
+
+    if (expense.url) {
+      const link = document.createElement('a');
+      link.className = 'cal-chip-portal-link';
+      link.setAttribute('data-testid', 'cal-chip-url-link');
+      link.href = expense.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Open billing portal';
+      link.textContent = '↗ Portal';
+      chip.appendChild(link);
+    }
+
     wrap.appendChild(chip);
 
-    if (status !== 'paid') {
-      const markPaidBtn = document.createElement('button');
-      markPaidBtn.className = 'calendar-mark-paid-btn';
-      markPaidBtn.setAttribute('data-testid', 'cal-mark-paid');
-      markPaidBtn.setAttribute('data-expense-id', expense.id);
-      markPaidBtn.textContent = '✓ Mark Paid';
-      markPaidBtn.addEventListener('click', () => this.openMarkPaidForm(expense));
-      wrap.appendChild(markPaidBtn);
+    if (!isAutoPay && status !== 'paid') {
+      const payBtn = document.createElement('button');
+      payBtn.className = 'calendar-mark-paid-btn';
+      payBtn.setAttribute('data-testid', 'cal-mark-paid');
+      payBtn.setAttribute('data-expense-id', expense.id);
+      payBtn.textContent = '$ Record Payment';
+      payBtn.addEventListener('click', () => this.openMarkPaidForm(expense));
+      wrap.appendChild(payBtn);
     }
 
     return wrap;
+  }
+
+  private buildOneTimeExpenseChip(expense: Expense): HTMLElement {
+    const category = this.categories.find((c) => c.id === expense.categoryId);
+    const categoryColor = category?.color ?? '#999';
+    const categoryName = category?.name ?? 'Expense';
+
+    const chip = document.createElement('div');
+    chip.className = 'calendar-expense-chip';
+    chip.setAttribute('data-testid', 'calendar-expense-chip');
+    chip.setAttribute('data-expense-id', expense.id);
+    chip.innerHTML = `
+      <div class="cal-chip-title">
+        <span class="cal-chip-dot-color" style="background:${categoryColor}"></span>
+        <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
+      </div>
+      <span class="cal-chip-type">${categoryName}</span>
+      <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
+    `;
+
+    if (expense.url) {
+      const link = document.createElement('a');
+      link.className = 'cal-chip-portal-link';
+      link.setAttribute('data-testid', 'cal-chip-url-link');
+      link.href = expense.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Open billing portal';
+      link.textContent = '↗ Portal';
+      chip.appendChild(link);
+    }
+
+    return chip;
   }
 
   private buildDebtChip(account: DebtAccount, status: AccountPaymentStatus): HTMLElement {
@@ -375,6 +515,19 @@ export class CalendarPage {
       <span class="cal-chip-type">${DEBT_TYPE_LABEL[account.type]}</span>
       <span class="cal-chip-amount">${amountLabel}</span>
     `;
+
+    if (account.url) {
+      const link = document.createElement('a');
+      link.className = 'cal-chip-portal-link';
+      link.setAttribute('data-testid', 'cal-chip-url-link');
+      link.href = account.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Open billing portal';
+      link.textContent = '↗ Portal';
+      chip.appendChild(link);
+    }
+
     wrap.appendChild(chip);
 
     if (chipStatus !== 'paid') {
@@ -390,7 +543,27 @@ export class CalendarPage {
     return wrap;
   }
 
+  private buildDebtPaymentChip(payment: DebtPayment, account: DebtAccount): HTMLElement {
+    const chip = document.createElement('div');
+    chip.className = 'calendar-payment-chip';
+    chip.setAttribute('data-testid', 'calendar-payment-chip');
+    chip.setAttribute('data-payment-id', payment.id);
+    chip.innerHTML = `
+      <div class="cal-chip-title">
+        <span class="cal-chip-icon">💸</span>
+        <span class="cal-chip-name" title="${account.name}">${account.name}</span>
+      </div>
+      <span class="cal-chip-type">${payment.type === 'extra' ? 'Extra payment' : 'Payment made'}</span>
+      <span class="cal-chip-amount">${fmtCents.format(payment.amount)}</span>
+    `;
+    return chip;
+  }
+
   private openMarkPaidForm(expense: Expense): void {
+    const isFixed = !!expense.isFixedAmount;
+    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+    const today = new Date().toISOString().split('T')[0];
+
     const body = document.createElement('div');
     body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
     body.innerHTML = `
@@ -398,25 +571,76 @@ export class CalendarPage {
         How much was the actual bill for <strong>${expense.description}</strong>?
       </p>
       <div class="form-group">
-        <label class="form-label" for="cal-mp-amount">Amount paid</label>
+        <label class="form-label" for="cal-mp-amount">Actual amount</label>
         <input id="cal-mp-amount" type="number" min="0" step="0.01"
-          value="${expense.amount.toFixed(2)}" />
+          value="${expense.amount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
+        ${isFixed
+          ? '<span class="form-hint">Fixed amount — same as estimated</span>'
+          : `<span class="form-hint">Estimated: ${currFmt.format(expense.amount)}</span>`}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cal-mp-date">Date paid</label>
+        <input id="cal-mp-date" type="date" value="${today}" />
       </div>
     `;
 
+    // Card dropdown
+    if (this.cardAccounts.length > 0) {
+      const cardGroup = document.createElement('div');
+      cardGroup.className = 'form-group';
+      const cardLabel = document.createElement('label');
+      cardLabel.className = 'form-label';
+      cardLabel.htmlFor = 'cal-mp-card';
+      cardLabel.innerHTML = 'Charge to card <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
+      const cardSel = document.createElement('select');
+      cardSel.id = 'cal-mp-card';
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— No card —';
+      cardSel.appendChild(noneOpt);
+      this.cardAccounts.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === (expense.linkedCardId ?? '');
+        cardSel.appendChild(opt);
+      });
+      cardGroup.appendChild(cardLabel);
+      cardGroup.appendChild(cardSel);
+      body.appendChild(cardGroup);
+    }
+
     openFormModal({
-      title: `Mark Paid — ${expense.description}`,
+      title: `Record Payment — ${expense.description}`,
       body,
-      submitLabel: 'Mark as Paid',
+      submitLabel: 'Record Payment',
       onSubmit: async (close) => {
         const rawAmount = parseFloat(body.querySelector<HTMLInputElement>('#cal-mp-amount')!.value);
         if (isNaN(rawAmount) || rawAmount < 0) return;
         const paidAmount = Math.round(rawAmount * 100) / 100;
-        const record = createExpensePaidRecord(expense.id, paidAmount);
-        await Promise.all([
-          saveExpense({ ...expense, date: Date.now() }),
+        const dateStr = body.querySelector<HTMLInputElement>('#cal-mp-date')!.value;
+        const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
+        const selectedCardId = body.querySelector<HTMLSelectElement>('#cal-mp-card')?.value || null;
+
+        const record = createExpensePaidRecord(expense.id, paidAmount, paidDate);
+        const ops: Promise<unknown>[] = [
+          saveExpense({ ...expense, date: paidDate }),
           saveExpensePaidRecord(record),
-        ]);
+        ];
+
+        if (selectedCardId) {
+          const existingCharge = await findChargeByExpenseId(expense.id);
+          if (existingCharge && existingCharge.accountId === selectedCardId) {
+            ops.push(saveCardCharge({ ...existingCharge, amount: paidAmount, date: paidDate }));
+          } else {
+            if (existingCharge) ops.push(deleteCardCharge(existingCharge.id));
+            const charge = createCardCharge(selectedCardId, expense.description, paidAmount, paidDate, expense.categoryId || undefined);
+            charge.sourceExpenseId = expense.id;
+            ops.push(saveCardCharge(charge));
+          }
+        }
+
+        await Promise.all(ops);
         close();
         refreshNotifier();
         await this.load();

@@ -4,7 +4,8 @@ import {
   getMembers, getIncomeSources, getExpenses, getDebtAccounts,
   getCategories, saveExpense, createExpense, deleteExpense,
   saveIncomeSource, createIncomeSource, deleteIncomeSource,
-  getDebtPayments,
+  getDebtPayments, getBankAccounts,
+  getExpensePaidRecords, deleteExpensePaidRecord,
 } from '@/db';
 import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
 import type { AccountPaymentStatus } from '@/utils/paymentStatus';
@@ -16,7 +17,7 @@ import { getDailyTip } from '@/mascot/messages';
 import { navigate } from '@/app/router';
 import { toMonthly, sourceMonthly, fmt, fmtCents } from '@/utils/finance';
 import { openFormModal } from '@/components/Modal';
-import type { VaultConfig, Expense, ExpenseCategory, IncomeSource, HouseholdMember } from '@/types';
+import type { VaultConfig, Expense, ExpenseCategory, IncomeSource, HouseholdMember, BankAccount } from '@/types';
 
 // Per-calendar-month bucket used for all date-range calculations.
 // "recurringIncome / recurringExpenses" are the current-config recurring
@@ -41,6 +42,7 @@ export class Dashboard {
   private allIncomeSources: IncomeSource[] = [];
   private categories: ExpenseCategory[] = [];
   private members: HouseholdMember[] = [];
+  private bankAccounts: BankAccount[] = [];
   private totalDebt = 0;
   private debtCount = 0;
 
@@ -60,7 +62,7 @@ export class Dashboard {
   }
 
   private async populate(): Promise<void> {
-    const [members, sources, expenses, cards, categories, configResult, payments] = await Promise.all([
+    const [members, sources, expenses, cards, categories, configResult, payments, bankAccounts] = await Promise.all([
       getMembers(),
       getIncomeSources(),
       getExpenses(),
@@ -68,12 +70,14 @@ export class Dashboard {
       getCategories(),
       browser.storage.local.get('vaultConfig'),
       getDebtPayments(),
+      getBankAccounts(),
     ]);
 
     this.members = members;
     this.allIncomeSources = sources;
     this.allExpenses = expenses;
     this.categories = categories;
+    this.bankAccounts = bankAccounts;
     this.totalDebt = cards.reduce((s, c) => s + c.balance, 0);
     this.debtCount = cards.length;
 
@@ -106,7 +110,7 @@ export class Dashboard {
     const dueSoon  = paymentStatuses.filter(({ status }) => status.currentMonth === 'due-soon');
 
     const billStatuses = expenses
-      .filter((e) => e.recurring && !!e.dueDay)
+      .filter((e) => e.recurring && !!e.dueDay && !e.isAutoPay)
       .map((e) => ({ expense: e, status: computeBillStatus(e) }));
     const billsPastDue = billStatuses.filter(({ status }) => status.status === 'past-due');
     const billsDueSoon = billStatuses.filter(({ status }) => status.status === 'due-soon');
@@ -153,6 +157,10 @@ export class Dashboard {
       });
     });
     this.el.appendChild(panels);
+
+    // ── Income by Account (only when accounts are linked) ───────────────────────
+    const incomeByAccountCard = this.buildIncomeByAccountCard(sources);
+    if (incomeByAccountCard) this.el.appendChild(incomeByAccountCard);
 
     // ── Activity / Report section (date-sensitive) ───────────────────────────
     this.el.appendChild(this.buildActivitySection(this.currentBuckets()));
@@ -691,6 +699,8 @@ export class Dashboard {
           amount: e.amount, colorClass: 'ma-amount-expense', prefix: '−',
           onDelete: async () => {
             if (!confirm(`Delete "${e.description}"?`)) return;
+            const paidRecords = await getExpensePaidRecords(e.id);
+            await Promise.all(paidRecords.map((r) => deleteExpensePaidRecord(r.id)));
             await deleteExpense(e.id);
             this.allExpenses = this.allExpenses.filter((x) => x.id !== e.id);
             this.refreshDateSections();
@@ -1234,6 +1244,95 @@ export class Dashboard {
     });
 
     card.appendChild(list);
+    return card;
+  }
+
+  // ── Income by Account card ────────────────────────────────────────────────────
+
+  private buildIncomeByAccountCard(sources: IncomeSource[]): HTMLElement | null {
+    const assignedSources = sources.filter((s) => s.active && s.bankAccountId);
+    if (assignedSources.length === 0 || this.bankAccounts.length === 0) return null;
+
+    const accountMap = new Map(this.bankAccounts.map((a) => [a.id, a]));
+
+    // Group active recurring sources by account; one-time income this month separately
+    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
+    const monthEnd = new Date(this.viewYear, this.viewMonth + 1, 1).getTime();
+
+    type RowData = { account: BankAccount | null; monthlyRecurring: number; oneTimeThisMonth: number };
+    const rows = new Map<string, RowData>();
+
+    sources.forEach((s) => {
+      if (!s.active) return;
+      const key = s.bankAccountId ?? '__none__';
+      const row = rows.get(key) ?? { account: accountMap.get(s.bankAccountId ?? '') ?? null, monthlyRecurring: 0, oneTimeThisMonth: 0 };
+      if (s.frequency === 'once') {
+        if (s.date !== undefined && s.date >= monthStart && s.date < monthEnd) {
+          row.oneTimeThisMonth += s.amount;
+        }
+      } else {
+        row.monthlyRecurring += sourceMonthly(s);
+      }
+      rows.set(key, row);
+    });
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.setAttribute('data-testid', 'income-by-account-card');
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)';
+    const title = document.createElement('h2');
+    title.className = 'font-serif';
+    title.style.fontSize = 'var(--text-xl)';
+    title.textContent = 'Income by Account';
+    const manageLink = document.createElement('a');
+    manageLink.href = '#/accounts';
+    manageLink.dataset['route'] = '/accounts';
+    manageLink.style.cssText = 'font-size:var(--text-sm)';
+    manageLink.textContent = 'Manage →';
+    manageLink.addEventListener('click', (e) => { e.preventDefault(); navigate('/accounts'); });
+    header.appendChild(title);
+    header.appendChild(manageLink);
+    card.appendChild(header);
+
+    const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) var(--space-1);border-bottom:1px solid var(--color-border)';
+
+    rows.forEach((data) => {
+      const total = data.monthlyRecurring + data.oneTimeThisMonth;
+      if (total === 0) return;
+
+      const row = document.createElement('div');
+      row.style.cssText = rowStyle;
+      row.setAttribute('data-testid', 'income-by-account-row');
+
+      const nameCol = document.createElement('div');
+      const name = data.account ? data.account.name : 'Unassigned';
+      nameCol.innerHTML = `<span class="text-sm font-bold">${name}</span>`;
+      if (data.account) {
+        const badge = document.createElement('span');
+        badge.className = 'text-xs text-muted';
+        badge.style.cssText = 'display:block;text-transform:capitalize';
+        badge.textContent = data.account.accountType.replace('-', ' ');
+        nameCol.appendChild(badge);
+      }
+
+      const amtCol = document.createElement('div');
+      amtCol.style.cssText = 'text-align:right';
+      amtCol.innerHTML = `<span class="text-sm font-bold" style="color:var(--ff-green)">${fmt.format(data.monthlyRecurring)}<span class="text-xs text-muted">/mo</span></span>`;
+      if (data.oneTimeThisMonth > 0) {
+        const ot = document.createElement('span');
+        ot.className = 'text-xs text-muted';
+        ot.style.display = 'block';
+        ot.textContent = `+${fmt.format(data.oneTimeThisMonth)} this month`;
+        amtCol.appendChild(ot);
+      }
+
+      row.appendChild(nameCol);
+      row.appendChild(amtCol);
+      card.appendChild(row);
+    });
+
     return card;
   }
 

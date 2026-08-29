@@ -122,6 +122,10 @@
   text-align: right;
 }
 
+.card-row-balance--zero {
+  color: var(--color-success);
+}
+
 .card-row-actions {
   display: flex;
   gap: var(--space-2);
@@ -430,6 +434,12 @@
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-history-bank {
+  font-size: var(--text-xs);
+  color: #059669;
   white-space: nowrap;
 }
 

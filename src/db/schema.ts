@@ -2,6 +2,10 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { EncryptedRecord } from '@/types';
 
 interface FinancialFingerDB extends DBSchema {
+  notifications: {
+    key: string;
+    value: EncryptedRecord;
+  };
   members: {
     key: string;
     value: EncryptedRecord;
@@ -44,6 +48,10 @@ interface FinancialFingerDB extends DBSchema {
     key: string;
     value: EncryptedRecord;
   };
+  bank_accounts: {
+    key: string;
+    value: EncryptedRecord;
+  };
 }
 
 export type AppDB = IDBPDatabase<FinancialFingerDB>;
@@ -53,7 +61,7 @@ let db: AppDB | null = null;
 export async function getDB(): Promise<AppDB> {
   if (db) return db;
 
-  db = await openDB<FinancialFingerDB>('financial-finger', 5, {
+  db = await openDB<FinancialFingerDB>('financial-finger', 7, {
     upgrade(database, oldVersion) {
       if (oldVersion < 1) {
         database.createObjectStore('members');
@@ -79,6 +87,12 @@ export async function getDB(): Promise<AppDB> {
       }
       if (oldVersion < 5) {
         database.createObjectStore('expense_paid_records');
+      }
+      if (oldVersion < 6) {
+        database.createObjectStore('bank_accounts');
+      }
+      if (oldVersion < 7) {
+        database.createObjectStore('notifications');
       }
     },
   });

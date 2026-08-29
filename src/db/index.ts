@@ -13,6 +13,11 @@ import type {
   CardCharge,
   Scenario,
   ThemeSettings,
+  BankAccount,
+  BankAccountType,
+  BankAccountOwnership,
+  CustomNotification,
+  NotificationTriggerType,
 } from '@/types';
 
 function uuid(): string {
@@ -314,9 +319,16 @@ export async function deleteExpensePaidRecord(id: string): Promise<void> {
   await db.delete('expense_paid_records', id);
 }
 
-export function createExpensePaidRecord(expenseId: string, amount: number): ExpensePaidRecord {
+export function createExpensePaidRecord(
+  expenseId: string,
+  amount: number,
+  date?: number,
+  cardId?: string,
+): ExpensePaidRecord {
   const now = Date.now();
-  return { id: crypto.randomUUID(), expenseId, amount, date: now, createdAt: now };
+  const record: ExpensePaidRecord = { id: crypto.randomUUID(), expenseId, amount, date: date ?? now, createdAt: now };
+  if (cardId) record.cardId = cardId;
+  return record;
 }
 
 // ── Credit Card Payments category (auto-created for payment expenses) ─────────
@@ -374,6 +386,39 @@ export function createScenario(name: string, description: string, color: string)
   };
 }
 
+// ── Bank Accounts ─────────────────────────────────────────────────────────────
+
+export async function saveBankAccount(account: BankAccount): Promise<void> {
+  const db = await getDB();
+  await db.put('bank_accounts', await encryptRecord(account), account.id);
+}
+
+export async function getBankAccounts(): Promise<BankAccount[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('bank_accounts');
+  const accounts = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('bank_accounts', k);
+      return decryptRecord<BankAccount>(rec!);
+    }),
+  );
+  return accounts.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function deleteBankAccount(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('bank_accounts', id);
+}
+
+export function createBankAccount(
+  name: string,
+  accountType: BankAccountType,
+  ownership: BankAccountOwnership,
+): BankAccount {
+  const now = Date.now();
+  return { id: uuid(), name, accountType, ownership, createdAt: now, updatedAt: now };
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export async function saveSetting<T>(key: string, value: T): Promise<void> {
@@ -395,4 +440,32 @@ export async function getTheme(): Promise<ThemeSettings> {
       accentColor: '#C9A84C',
     }
   );
+}
+
+// ── Custom Notifications ──────────────────────────────────────────────────────
+
+export async function saveCustomNotification(notif: CustomNotification): Promise<void> {
+  const db = await getDB();
+  await db.put('notifications', await encryptRecord(notif), notif.id);
+}
+
+export async function getCustomNotifications(): Promise<CustomNotification[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('notifications');
+  const results: CustomNotification[] = [];
+  for (const k of keys) {
+    const rec = await db.get('notifications', k);
+    if (rec) results.push(await decryptRecord<CustomNotification>(rec));
+  }
+  return results.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function deleteCustomNotification(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('notifications', id);
+}
+
+export function createCustomNotification(label: string, triggerType: NotificationTriggerType): CustomNotification {
+  const now = Date.now();
+  return { id: crypto.randomUUID(), label, triggerType, active: true, createdAt: now, updatedAt: now };
 }

@@ -77,15 +77,17 @@
 
 .calendar-grid-wrap {
   overflow-x: auto;
+  min-width: 0;
 }
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-bg-elevated);
+  width: 100%;
   min-width: 560px;
 }
 
@@ -107,6 +109,7 @@
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   vertical-align: top;
+  overflow: hidden;
   transition: background var(--ease-default);
 }
 
@@ -242,6 +245,75 @@
 .cal-chip-amount {
   font-weight: var(--weight-semibold);
   font-size: var(--text-xs);
+}
+
+/* ── Debt payment chip ───────────────────────────────────────────────────── */
+
+.calendar-payment-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  border-left: 3px solid #0d9488;
+  background: rgba(13, 148, 136, 0.08);
+  color: #0d9488;
+  cursor: default;
+}
+
+/* ── One-time expense chip ───────────────────────────────────────────────── */
+
+.calendar-expense-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  border-left: 3px solid var(--color-border);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.cal-chip-dot-color {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Billing portal link inside calendar chips ──────────────────────────── */
+
+.cal-chip-portal-link {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: var(--weight-semibold);
+  color: inherit;
+  opacity: 0.7;
+  text-decoration: none;
+  margin-top: 2px;
+  transition: opacity var(--ease-default);
+}
+
+.cal-chip-portal-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Auto-pay badge inside calendar chips ───────────────────────────────── */
+
+.cal-chip-autopay {
+  font-size: 0.6rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  color: #0d9488;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
 /* ── Mark paid / record payment button ──────────────────────────────────── */

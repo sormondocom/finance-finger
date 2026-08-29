@@ -139,7 +139,7 @@ test('threshold value is preserved when reopening the edit form', async () => {
 
 test('clicking Mark Paid opens an amount dialog instead of immediately saving', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
-  await row.locator('[data-testid="expense-mark-paid"]').click();
+  await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await expect(page.locator('#mp-amount')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/threshold-03-mark-paid-modal.png' });
@@ -187,7 +187,7 @@ test('submitting mark-paid with an over-threshold amount marks the bill paid', a
 
 test('Mark Paid button is gone after the first payment', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
-  await expect(row.locator('[data-testid="expense-mark-paid"]')).not.toBeVisible();
+  await expect(row.locator('[data-testid="expense-record-payment"]')).not.toBeVisible();
 });
 
 // ── Mascot trend alert after repeated overages ────────────────────────────────
@@ -206,14 +206,14 @@ test('resetting bill date to last month via edit makes Mark Paid reappear', asyn
   await expect(
     page.locator('[data-testid="expense-row"]')
       .filter({ hasText: 'Electric Bill' })
-      .locator('[data-testid="expense-mark-paid"]'),
+      .locator('[data-testid="expense-record-payment"]'),
   ).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/threshold-06-date-reset.png' });
 });
 
 test('second over-threshold payment triggers the mascot expense-trend alert', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
-  await row.locator('[data-testid="expense-mark-paid"]').click();
+  await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#mp-amount', '158');

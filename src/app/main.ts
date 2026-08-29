@@ -21,6 +21,7 @@ function buildNav(): HTMLElement {
     <nav class="nav-links" role="navigation" aria-label="Main">
       <a href="#/dashboard" class="nav-link" data-route="/dashboard" data-testid="nav-dashboard">Dashboard</a>
       <a href="#/income"    class="nav-link" data-route="/income"    data-testid="nav-income">Income</a>
+      <a href="#/accounts"  class="nav-link" data-route="/accounts"  data-testid="nav-accounts">Accounts</a>
       <a href="#/expenses"  class="nav-link" data-route="/expenses"  data-testid="nav-expenses">Expenses</a>
       <a href="#/calendar"  class="nav-link" data-route="/calendar"  data-testid="nav-calendar">Calendar</a>
       <a href="#/budget"    class="nav-link" data-route="/budget"    data-testid="nav-budget">Budget</a>
@@ -85,6 +86,10 @@ function launchApp(): void {
     const { IncomePage } = await import('@/pages/income/Income');
     return new IncomePage().render();
   });
+  register('/accounts', async () => {
+    const { AccountsPage } = await import('@/pages/accounts/Accounts');
+    return new AccountsPage().render();
+  });
   register('/expenses', async () => {
     const { ExpensesPage } = await import('@/pages/expenses/Expenses');
     return new ExpensesPage().render();
@@ -117,11 +122,26 @@ function launchApp(): void {
     const { SettingsPage } = await import('@/pages/settings/Settings');
     return new SettingsPage().render();
   });
+  register('/break-glass', async () => {
+    const [{ BreakGlassPage }, cfgResult] = await Promise.all([
+      import('@/pages/break-glass/BreakGlassPage'),
+      browser.storage.local.get('vaultConfig'),
+    ]);
+    const cfg = cfgResult['vaultConfig'] as { mascotGender?: 'buck' | 'penny' } | undefined;
+    return new BreakGlassPage().render(cfg?.mascotGender);
+  });
 
   onRouteChange(setActiveNavLink);
 
   // Replace the setup/unlock history entry so Back doesn't return to the gate.
   navigateReplace('/dashboard');
+
+  // Check for any due custom notifications after the dashboard has rendered
+  setTimeout(() => {
+    import('@/utils/notifications').then(({ checkAndFireNotifications }) => {
+      checkAndFireNotifications();
+    });
+  }, 1500);
 }
 
 async function boot(): Promise<void> {

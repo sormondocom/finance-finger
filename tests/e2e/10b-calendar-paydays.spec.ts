@@ -150,7 +150,7 @@ test('non-payday cells do not show a payday chip', async () => {
 
 // ── Calendar: semimonthly source has two payday chips per month ───────────────
 
-test('set up: add a semimonthly income source with payday reference', async () => {
+test('set up: add a semimonthly income source with "1st and 15th" schedule', async () => {
   await navigateTo(page, 'income');
 
   await page.click('[data-testid="add-source-btn"]');
@@ -158,19 +158,20 @@ test('set up: add a semimonthly income source with payday reference', async () =
   await page.fill('#sf-name', 'Freelance');
   await page.fill('#sf-amount', '1000');
   await page.selectOption('#sf-freq', 'semimonthly');
-  await expect(page.locator('#sf-payday-row')).toBeVisible();
-  // Reference on the 3rd → semimonthly gives chips on 3rd and 18th
-  await page.fill('#sf-payday', `${YEAR}-${MONTH}-03`);
+  // Semimonthly uses a schedule dropdown, not a payday reference date
+  await expect(page.locator('#sf-semi-schedule')).toBeVisible();
+  await expect(page.locator('#sf-payday-row')).not.toBeVisible();
+  await page.selectOption('#sf-semi-schedule', '1-15');
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
   await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Freelance' })).toBeVisible();
 });
 
-test('semimonthly source shows payday chips on both the 3rd and the 18th', async () => {
+test('semimonthly source shows payday chips on both the 1st and the 15th', async () => {
   await navigateTo(page, 'calendar');
 
-  await expect(page.locator('.calendar-cell[data-day="3"] [data-testid="calendar-payday-chip"]').filter({ hasText: 'Freelance' })).toBeVisible();
-  await expect(page.locator('.calendar-cell[data-day="18"] [data-testid="calendar-payday-chip"]').filter({ hasText: 'Freelance' })).toBeVisible();
+  await expect(page.locator('.calendar-cell[data-day="1"] [data-testid="calendar-payday-chip"]').filter({ hasText: 'Freelance' })).toBeVisible();
+  await expect(page.locator('.calendar-cell[data-day="15"] [data-testid="calendar-payday-chip"]').filter({ hasText: 'Freelance' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/calendar-payday-04-semimonthly.png' });
 });

@@ -1,9 +1,17 @@
 import type { IncomeSource } from '@/types';
 
 export function getPaydaysInMonth(source: IncomeSource, year: number, month: number): number[] {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Semi-monthly with an explicit schedule doesn't need a paydayRef
+  if (source.frequency === 'semimonthly' && source.semimonthlySchedule) {
+    return source.semimonthlySchedule === '1-15'
+      ? [1, Math.min(15, daysInMonth)]
+      : [Math.min(15, daysInMonth), daysInMonth];
+  }
+
   if (!source.paydayRef) return [];
   const ref = new Date(source.paydayRef);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days: number[] = [];
 
   switch (source.frequency) {
@@ -11,6 +19,7 @@ export function getPaydaysInMonth(source: IncomeSource, year: number, month: num
       days.push(Math.min(ref.getDate(), daysInMonth));
       break;
     case 'semimonthly': {
+      // Legacy: no semimonthlySchedule set; fall back to paydayRef-based calculation
       const d1 = Math.min(ref.getDate(), daysInMonth);
       const d2 = Math.min(d1 + 15, daysInMonth);
       days.push(d1);

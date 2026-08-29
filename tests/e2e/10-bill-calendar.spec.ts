@@ -24,9 +24,10 @@ const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due: 5 days before today (min day 1)
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
-// Due-soon: 4 days after today (max day 27) — inside the 7-day window, capped below 28
-// so OK_DAY always has a distinct slot if it can exist at all
-const DUE_SOON_DAY = Math.min(27, dayOfMonth + 4);
+// Due-soon: tomorrow, checked against the actual days in this month.
+// Only null on the last day of the month (no tomorrow exists this month).
+const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
+const DUE_SOON_DAY: number | null = dayOfMonth + 1 <= daysInMonth ? dayOfMonth + 1 : null;
 // "ok" bill: must be >7 days out (strictly outside the due-soon window).
 // Late in month (dayOfMonth > 18), no valid "ok" day exists within 1–28, so null.
 const OK_DAY: number | null = dayOfMonth + 10 <= 28 ? dayOfMonth + 10 : null;
@@ -76,13 +77,14 @@ test('adds a past-due recurring bill', async () => {
 });
 
 test('adds a due-soon recurring bill', async () => {
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists late in the month (dayOfMonth > 23)');
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-desc', 'Internet');
   await page.fill('#ef-amount', '75');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY));
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Internet' })).toBeVisible();
 });
@@ -132,6 +134,7 @@ test('past-due bill chip appears with past-due status', async () => {
 });
 
 test('due-soon bill chip appears with due-soon status', async () => {
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists late in the month (dayOfMonth > 23)');
   const chip = page.locator('[data-testid="calendar-bill-chip"][data-bill-status="due-soon"]');
   await expect(chip.first()).toBeVisible();
   await expect(chip.first()).toContainText('Internet');

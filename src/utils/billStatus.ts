@@ -19,6 +19,12 @@ export function computeNextDue(lastPaid: Date, dueDay: number, monthInterval: nu
   return candidate;
 }
 
+function billInterval(freq: string | null | undefined): number {
+  if (freq === 'quarterly') return 3;
+  if (freq === 'annual')    return 12;
+  return 1;
+}
+
 export function computeBillStatus(expense: Expense, now = new Date()): BillPaymentStatus {
   if (!expense.recurring || !expense.dueDay) {
     return { status: 'ok', dueDayThisMonth: null };
@@ -28,10 +34,11 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
   const month = now.getMonth();
   const today = now.getDate();
   const lastPaid = new Date(expense.date);
+  const interval = billInterval(expense.recurringFrequency);
 
-  // ── Quarterly bills: only active in their due months ─────────────────────
-  if (expense.recurringFrequency === 'quarterly') {
-    const nextDue = computeNextDue(lastPaid, expense.dueDay, 3);
+  // ── Multi-month bills (quarterly, annual): only active in their due month ─
+  if (interval > 1) {
+    const nextDue = computeNextDue(lastPaid, expense.dueDay, interval);
 
     if (nextDue.getFullYear() !== year || nextDue.getMonth() !== month) {
       return { status: 'ok', dueDayThisMonth: null };
@@ -41,11 +48,11 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
     const clampedDay = Math.min(expense.dueDay, maxDay);
     const dueDayThisMonth = new Date(year, month, clampedDay);
 
-    const paidThisQuarter =
+    const paidThisCycle =
       lastPaid.getFullYear() === nextDue.getFullYear() &&
       lastPaid.getMonth()    === nextDue.getMonth();
 
-    if (paidThisQuarter) return { status: 'paid', dueDayThisMonth };
+    if (paidThisCycle) return { status: 'paid', dueDayThisMonth };
 
     const daysUntilDue = clampedDay - today;
     const status: BillStatus =
@@ -54,7 +61,7 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
     return { status, dueDayThisMonth };
   }
 
-  // ── Monthly (and all other frequencies) ──────────────────────────────────
+  // ── Monthly (and weekly / biweekly / semimonthly) ─────────────────────────
   const maxDay = new Date(year, month + 1, 0).getDate();
   const clampedDay = Math.min(expense.dueDay, maxDay);
   const dueDayThisMonth = new Date(year, month, clampedDay);

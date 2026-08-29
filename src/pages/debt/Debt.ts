@@ -15,10 +15,14 @@ import {
   getDebtAccounts, saveDebtAccount, deleteDebtAccount, createDebtAccount,
   getDebtPayments, saveDebtPayment, deleteDebtPayment, createDebtPayment,
   getCardCharges, saveCardCharge, deleteCardCharge, createCardCharge,
-  getCategories, saveExpense, createExpense, ensureCreditCardCategory,
+  getCategories, saveCategory,
+  getBankAccounts,
+  getExpenses, saveExpense,
+  getExpensePaidRecords, saveExpensePaidRecord,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { fmt, fmtCents } from '@/utils/finance';
+import { navigate } from '@/app/router';
 import {
   amortizeSingleCard,
   amortizeMultiCard,
@@ -28,7 +32,8 @@ import {
 import { showMascot, showDebtPayoffCelebration, showAllDebtFreeCelebration } from '@/mascot/Mascot';
 import { computeMinPayment, computePaymentStatus } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
-import type { CardCharge, DebtAccount, DebtAccountType, DebtPayment, DebtStrategy, ExpenseCategory, PaymentCycle } from '@/types';
+import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/notificationModal';
+import type { BankAccount, CardCharge, DebtAccount, DebtAccountType, DebtPayment, DebtStrategy, ExpenseCategory, PaymentCycle } from '@/types';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
 
@@ -40,11 +45,12 @@ const DEBT_TYPE_LABELS: Record<DebtAccountType, string> = {
   card:     '💳 Credit Card',
   mortgage: '🏠 Mortgage',
   medical:  '🏥 Medical Debt',
-  loan:     '🚗 Loan (Auto / Personal / Student)',
+  loan:     '💼 Personal / Student Loan',
+  vehicle:  '🚗 Vehicle Loan',
 };
 
 const DEBT_TYPE_ICONS: Record<DebtAccountType, string> = {
-  card: '💳', mortgage: '🏠', medical: '🏥', loan: '🚗',
+  card: '💳', mortgage: '🏠', medical: '🏥', loan: '💼', vehicle: '🚗',
 };
 
 function ordinal(n: number): string {
@@ -77,6 +83,7 @@ export class DebtPage {
   private payments: DebtPayment[] = [];
   private charges: CardCharge[] = [];
   private expenseCategories: ExpenseCategory[] = [];
+  private bankAccounts: BankAccount[] = [];
   private horizonYears: 1 | 2 | 3 | 4 | 5 | 10 | 20 | 30 = 2;
   private strategy: DebtStrategy = 'avalanche';
   private customOrder: string[] = [];
@@ -95,11 +102,12 @@ export class DebtPage {
   }
 
   private async load(): Promise<void> {
-    [this.accounts, this.payments, this.charges, this.expenseCategories] = await Promise.all([
+    [this.accounts, this.payments, this.charges, this.expenseCategories, this.bankAccounts] = await Promise.all([
       getDebtAccounts(),
       getDebtPayments(),
       getCardCharges(),
       getCategories(),
+      getBankAccounts(),
     ]);
     if (this.accounts.length > 0 && !this.selectedAccountId) {
       this.selectedAccountId = this.accounts[0]!.id;
@@ -183,7 +191,7 @@ export class DebtPage {
       <div class="empty-state">
         <span class="empty-state-icon">🏦</span>
         <h3>No debt accounts added yet</h3>
-        <p>Add your credit cards, mortgage, medical debt, or loans to see payoff timelines,<br>interest costs, and your path to debt freedom.</p>
+        <p>Add your credit cards, mortgage, vehicle loans, medical debt, or personal loans to see payoff timelines,<br>interest costs, and your path to debt freedom.</p>
       </div>
     `;
     return div;
@@ -351,12 +359,13 @@ export class DebtPage {
           ` : ''}
         </div>
       </div>
-      <div class="card-row-balance" data-testid="debt-row-balance">${fmt.format(a.balance)}</div>
+      <div class="card-row-balance${a.balance === 0 ? ' card-row-balance--zero' : ''}" data-testid="debt-row-balance">${fmt.format(a.balance)}</div>
       <div class="card-row-actions">
         ${needsSetup ? '<button class="btn btn-secondary btn-sm" data-action="setup" data-testid="debt-setup">Complete setup →</button>' : ''}
         <button class="btn-pay" data-action="pay" data-testid="debt-pay-btn">💰 Pay</button>
         ${isCard ? `<button class="btn-charges" data-action="charges" data-testid="debt-charges-btn" title="Log charges">🧾 ${hasCharges ? charges.length : '+Charges'}</button>` : ''}
         ${hasPayments ? `<button class="payment-history-btn" data-action="history" data-testid="payment-history-btn" title="Payment history">↓ ${payments.length}</button>` : ''}
+        <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
         <button class="icon-btn" data-action="edit" data-testid="debt-edit" title="Edit">✏️</button>
         <button class="icon-btn danger" data-action="delete" data-testid="debt-delete" title="Delete">🗑️</button>
       </div>
@@ -405,12 +414,36 @@ export class DebtPage {
       row.querySelector('[data-action="setup"]')!.addEventListener('click', () => this.openDebtForm(a, true));
     }
     row.querySelector('[data-action="pay"]')!.addEventListener('click', () => this.openPaymentModal(a));
+
+    if (a.url) {
+      const link = document.createElement('a');
+      link.className = 'icon-btn';
+      link.setAttribute('data-testid', 'debt-url-link');
+      link.href = a.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Open billing portal';
+      link.textContent = '↗';
+      row.querySelector('[data-action="edit"]')!.before(link);
+    }
+
+    row.querySelector('[data-action="notif"]')!.addEventListener('click', () => {
+      openAddNotificationModal({ label: a.name, defaultTrigger: 'monthly-day' });
+    });
     row.querySelector('[data-action="edit"]')!.addEventListener('click', () => this.openDebtForm(a));
     row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
       if (!confirm(`Delete "${a.name}"?`)) return;
+      const [allExpenses, allCategories, allPaidRecords] = await Promise.all([
+        getExpenses(),
+        getCategories(),
+        getExpensePaidRecords(),
+      ]);
       await Promise.all([
         ...payments.map((p) => deleteDebtPayment(p.id)),
         ...charges.map((c) => deleteCardCharge(c.id)),
+        ...allExpenses.filter((e) => e.linkedCardId === a.id).map((e) => saveExpense({ ...e, linkedCardId: undefined })),
+        ...allCategories.filter((c) => c.defaultCardId === a.id).map((c) => saveCategory({ ...c, defaultCardId: undefined })),
+        ...allPaidRecords.filter((r) => r.cardId === a.id).map((r) => saveExpensePaidRecord({ ...r, cardId: undefined })),
       ]);
       await deleteDebtAccount(a.id);
       if (this.selectedAccountId === a.id) this.selectedAccountId = null;
@@ -430,6 +463,10 @@ export class DebtPage {
     const minPay = computeMinPayment(a);
     const today = new Date().toISOString().split('T')[0]!;
 
+    const bankOptions = this.bankAccounts
+      .map((b) => `<option value="${b.id}">${b.name}</option>`)
+      .join('');
+
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group">
@@ -442,6 +479,12 @@ export class DebtPage {
           <label class="form-label" for="pay-date">Payment date <span class="req">*</span></label>
           <input id="pay-date" type="date" value="${today}" />
         </div>
+      </div>
+      <div class="form-group" id="pay-bank-group">
+        <label class="form-label" for="pay-bank">Pay from account <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        ${this.bankAccounts.length > 0
+          ? `<select id="pay-bank"><option value="">— not specified —</option>${bankOptions}</select>`
+          : `<select id="pay-bank" disabled><option value="">No bank accounts set up</option></select>`}
       </div>
       <div class="form-group">
         <label class="form-label">Payment type</label>
@@ -461,7 +504,25 @@ export class DebtPage {
       <div id="pay-error" class="form-error" style="display:none"></div>
     `;
 
-    openFormModal({
+    // "Add one in Accounts →" hint when no bank accounts exist — close modal, then navigate
+    let closeModal: (() => void) | undefined;
+    if (this.bankAccounts.length === 0) {
+      const hint = document.createElement('span');
+      hint.className = 'form-hint';
+      hint.textContent = 'No bank accounts set up yet. ';
+      const addLink = document.createElement('a');
+      addLink.href = '#';
+      addLink.textContent = 'Add one in Accounts →';
+      addLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeModal?.();
+        navigate('/accounts');
+      });
+      hint.appendChild(addLink);
+      body.querySelector('#pay-bank-group')!.appendChild(hint);
+    }
+
+    const modal = openFormModal({
       title: `Make a Payment — ${a.name}`,
       body,
       submitLabel: 'Record Payment',
@@ -470,6 +531,7 @@ export class DebtPage {
         const dateStr = body.querySelector<HTMLInputElement>('#pay-date')!.value;
         const typeVal = (body.querySelector<HTMLInputElement>('[name="pay-type"]:checked')?.value ?? 'regular') as 'regular' | 'extra';
         const note = body.querySelector<HTMLInputElement>('#pay-note')!.value.trim();
+        const bankAccountId = body.querySelector<HTMLSelectElement>('#pay-bank')!.value || undefined;
         const errEl = body.querySelector<HTMLElement>('#pay-error')!;
 
         errEl.style.display = 'none';
@@ -486,14 +548,12 @@ export class DebtPage {
 
         const payment = createDebtPayment(a.id, amountRaw, typeVal, note || undefined);
         payment.date = new Date(dateStr + 'T12:00:00').getTime();
+        if (bankAccountId) payment.bankAccountId = bankAccountId;
 
         const newBalance = Math.max(0, a.balance - amountRaw);
         const updatedAccount: DebtAccount = { ...a, balance: newBalance, updatedAt: Date.now() };
 
-        // Auto-create an expense so the payment appears in spending history
-        const ccCategoryId = await ensureCreditCardCategory();
-        const expense = createExpense(ccCategoryId, `${a.name} payment`, amountRaw, payment.date, null);
-        await Promise.all([saveDebtPayment(payment), saveDebtAccount(updatedAccount), saveExpense(expense)]);
+        await Promise.all([saveDebtPayment(payment), saveDebtAccount(updatedAccount)]);
 
         const wasPaidOff = a.balance > 0 && newBalance === 0;
         close();
@@ -508,6 +568,102 @@ export class DebtPage {
             setTimeout(() => showDebtPayoffCelebration(a.name), 450);
           }
         }
+      },
+    });
+    closeModal = modal.close;
+  }
+
+  // ── Edit an existing payment ───────────────────────────────────────────
+
+  private openEditPaymentModal(a: DebtAccount, p: DebtPayment): void {
+    const body = document.createElement('div');
+    body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
+
+    const existingDate = new Date(p.date).toISOString().split('T')[0]!;
+    const bankOptions = this.bankAccounts
+      .map((b) => `<option value="${b.id}" ${p.bankAccountId === b.id ? 'selected' : ''}>${b.name}</option>`)
+      .join('');
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label" for="ep-amount">Payment amount <span class="req">*</span></label>
+          <input id="ep-amount" type="number" min="0.01" step="0.01" value="${p.amount.toFixed(2)}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ep-date">Payment date <span class="req">*</span></label>
+          <input id="ep-date" type="date" value="${existingDate}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ep-bank">Pay from account <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        ${this.bankAccounts.length > 0
+          ? `<select id="ep-bank"><option value="">— not specified —</option>${bankOptions}</select>`
+          : `<select id="ep-bank" disabled><option value="">No bank accounts set up</option></select>`}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment type</label>
+        <div style="display:flex;gap:var(--space-5)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+            <input type="radio" name="ep-type" value="regular" ${p.type === 'regular' ? 'checked' : ''} /> Regular payment
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
+            <input type="radio" name="ep-type" value="extra" ${p.type === 'extra' ? 'checked' : ''} /> Extra payment
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ep-note">Note <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <input id="ep-note" type="text" value="${p.note ?? ''}" maxlength="80" />
+      </div>
+      <div id="ep-error" class="form-error" style="display:none"></div>
+    `;
+
+    openFormModal({
+      title: `Edit Payment — ${a.name}`,
+      body,
+      submitLabel: 'Save Changes',
+      onSubmit: async (close) => {
+        const newAmount = parseFloat(body.querySelector<HTMLInputElement>('#ep-amount')!.value);
+        const dateStr   = body.querySelector<HTMLInputElement>('#ep-date')!.value;
+        const typeVal   = (body.querySelector<HTMLInputElement>('[name="ep-type"]:checked')?.value ?? 'regular') as 'regular' | 'extra';
+        const note      = body.querySelector<HTMLInputElement>('#ep-note')!.value.trim();
+        const bankAccountId = body.querySelector<HTMLSelectElement>('#ep-bank')!.value || undefined;
+        const errEl     = body.querySelector<HTMLElement>('#ep-error')!;
+
+        errEl.style.display = 'none';
+        const missing: string[] = [];
+        if (isNaN(newAmount) || newAmount <= 0) missing.push('Payment amount');
+        if (!dateStr)                           missing.push('Payment date');
+        if (missing.length > 0) {
+          errEl.textContent = missing.length === 1
+            ? `${missing[0]} is required.`
+            : `Fill in all required fields: ${missing.join(', ')}.`;
+          errEl.style.display = 'block';
+          return;
+        }
+
+        // Adjust the debt account balance: restore old amount, deduct new amount
+        const balanceDelta = p.amount - newAmount;
+        const updatedAccount: DebtAccount = {
+          ...a,
+          balance: Math.max(0, a.balance + balanceDelta),
+          updatedAt: Date.now(),
+        };
+
+        const updatedPayment: DebtPayment = {
+          ...p,
+          amount: newAmount,
+          date: new Date(dateStr + 'T12:00:00').getTime(),
+          type: typeVal,
+          note: note || undefined,
+          bankAccountId: bankAccountId,
+        };
+
+        await Promise.all([saveDebtPayment(updatedPayment), saveDebtAccount(updatedAccount)]);
+        close();
+        await this.load();
+        refreshNotifier();
       },
     });
   }
@@ -580,12 +736,23 @@ export class DebtPage {
       item.className = 'payment-history-item';
       item.setAttribute('data-testid', 'payment-history-item');
       const dateStr = new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const linkedBank = p.bankAccountId
+        ? this.bankAccounts.find((b) => b.id === p.bankAccountId)
+        : null;
       item.innerHTML = `
         <span class="payment-history-date">${dateStr}</span>
         <span class="payment-history-amount">${fmtCents.format(p.amount)}</span>
         <span class="payment-history-type payment-history-type--${p.type}">${p.type}</span>
+        ${linkedBank ? `<span class="payment-history-bank">🏦 ${linkedBank.name}</span>` : ''}
         <span class="payment-history-note">${p.note ?? ''}</span>
       `;
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn';
+      editBtn.title = 'Edit payment';
+      editBtn.setAttribute('data-testid', 'payment-history-edit');
+      editBtn.textContent = '✏️';
+      editBtn.addEventListener('click', () => this.openEditPaymentModal(a, p));
 
       const delBtn = document.createElement('button');
       delBtn.className = 'icon-btn danger';
@@ -602,6 +769,7 @@ export class DebtPage {
         await this.load();
       });
 
+      item.appendChild(editBtn);
       item.appendChild(delBtn);
       list.appendChild(item);
     });
@@ -1535,6 +1703,11 @@ export class DebtPage {
         <input id="da-name" type="text" value="${existing?.name ?? ''}"
           placeholder="e.g. Chase Sapphire, Wells Fargo Mortgage" maxlength="48" />
       </div>
+      <div class="form-group">
+        <label class="form-label" for="da-url">Billing portal URL <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <input id="da-url" type="url" placeholder="https://billing.example.com" maxlength="512" />
+        <span class="form-hint">Opens as a quick link on your debt list and calendar.</span>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
         <div class="form-group">
           <label class="form-label" for="da-balance">Current balance <span class="req">*</span></label>
@@ -1647,7 +1820,7 @@ export class DebtPage {
       };
       const isCard = type === 'card';
       const isMedical = type === 'medical';
-      const isLoanOrMortgage = type === 'mortgage' || type === 'loan';
+      const isLoanOrMortgage = type === 'mortgage' || type === 'loan' || type === 'vehicle';
 
       set('#da-row-limit', isCard ? 'block' : 'none');
       set('#da-row-loan-details', isLoanOrMortgage ? 'grid' : 'none');
@@ -1663,6 +1836,8 @@ export class DebtPage {
       const aprReq = body.querySelector<HTMLElement>('#da-apr-req');
       if (aprReq) aprReq.style.display = isMedical ? 'none' : '';
     };
+
+    if (existing?.url) body.querySelector<HTMLInputElement>('#da-url')!.value = existing.url;
 
     syncTypeUI(initialType);
 
@@ -1681,6 +1856,23 @@ export class DebtPage {
       const t = (body.querySelector<HTMLSelectElement>('#da-type')!.value as DebtAccountType);
       return DEBT_TYPE_LABELS[t].replace(/^[^ ]+ /, '');
     };
+
+    let flushReminders: (finalItemId: string) => Promise<void> = async () => {};
+    if (!showPaymentDetails) {
+      if (isEdit && existing) {
+        const { element, flush } = buildLinkedRemindersSection(existing.id, 'debt', existing.name);
+        body.appendChild(element);
+        flushReminders = flush;
+      } else if (!isEdit) {
+        const nameInput = body.querySelector<HTMLInputElement>('#da-name')!;
+        const { element, flush } = buildLinkedRemindersSection('', 'debt', 'Debt', {
+          deferred: true,
+          getLabel: () => nameInput.value.trim() || 'Debt',
+        });
+        body.appendChild(element);
+        flushReminders = flush;
+      }
+    }
 
     openFormModal({
       title: showPaymentDetails ? 'Complete Account Setup' : isEdit ? `Edit ${DEBT_TYPE_LABELS[initialType].replace(/^[^ ]+ /, '')}` : 'Add Debt',
@@ -1724,6 +1916,7 @@ export class DebtPage {
         if (introChecked && introEndStr) {
           introAprEndDate = new Date(introEndStr + 'T23:59:59Z').getTime();
         }
+        const url = body.querySelector<HTMLInputElement>('#da-url')!.value.trim() || undefined;
 
         const errEl = body.querySelector<HTMLElement>('#da-error')!;
         const missing: string[] = [];
@@ -1754,6 +1947,7 @@ export class DebtPage {
               ...(nextDueDateMs != null ? { nextDueDateMs } : {}),
               ...(minValue != null ? { minimumPaymentType: isCard ? minType : 'fixed', minimumPaymentValue: minValue } : {}),
               ...(introAprEndDate != null ? { introAprEndDate } : {}),
+              ...(url != null ? { url } : {}),
             }
           : {
               ...createDebtAccount(type, name, balance, apr),
@@ -1765,11 +1959,13 @@ export class DebtPage {
               ...(nextDueDateMs != null ? { nextDueDateMs } : {}),
               ...(minValue != null ? { minimumPaymentType: isCard ? minType : 'fixed', minimumPaymentValue: minValue } : {}),
               ...(introAprEndDate != null ? { introAprEndDate } : {}),
+              ...(url != null ? { url } : {}),
             };
 
         const wasPaidOff = !!(existing && existing.balance > 0 && balance === 0);
 
         await saveDebtAccount(account);
+        await flushReminders(account.id);
 
         if (!this.customOrder.includes(account.id)) this.customOrder.push(account.id);
         if (!this.selectedAccountId) this.selectedAccountId = account.id;

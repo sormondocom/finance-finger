@@ -41,6 +41,9 @@ async function main() {
   // Generate PNG icons (Chrome requires PNGs; Firefox uses SVG)
   await run(node, [resolve(__dirname, 'generate-icons.js')]);
 
+  console.log('\nGenerating data model documentation…');
+  await run(node, [resolve(__dirname, 'generate-data-model.js')]);
+
   console.log('\nBuilding Chrome distribution…');
   await run(node, [vite, 'build', '--mode', 'chrome']);
 

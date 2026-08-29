@@ -2,37 +2,60 @@ import './expenses.css';
 import {
   getCategories, saveCategory, deleteCategory, createCategory,
   getExpenses, saveExpense, deleteExpense, createExpense,
-  saveExpensePaidRecord, createExpensePaidRecord,
+  saveExpensePaidRecord, createExpensePaidRecord, getExpensePaidRecords, deleteExpensePaidRecord,
   getMembers,
   getDebtAccounts,
-  saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
+  getBankAccounts,
+  getCardCharges, saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
+import { navigate } from '@/app/router';
 import { toMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS, CATEGORY_COLORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
-import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember, DebtAccount } from '@/types';
+import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/notificationModal';
+import type { ExpenseCategory, Expense, ExpensePaidRecord, IncomeFrequency, HouseholdMember, DebtAccount, BankAccount } from '@/types';
 
 type FilterType = 'all' | 'recurring' | 'one-time';
+type SortBy = 'due-date' | 'name' | 'amount' | 'pay-type';
 
-function ordinal(n: number): string {
-  if (n >= 11 && n <= 13) return 'th';
-  switch (n % 10) {
-    case 1: return 'st';
-    case 2: return 'nd';
-    case 3: return 'rd';
-    default: return 'th';
+function freqInterval(freq: string | null | undefined): number {
+  if (freq === 'quarterly') return 3;
+  if (freq === 'annual')    return 12;
+  return 1;
+}
+
+function freqThresholdLabel(freq: string | null | undefined): string {
+  switch (freq) {
+    case 'weekly':      return 'Weekly';
+    case 'biweekly':    return 'Biweekly';
+    case 'semimonthly': return 'Semi-monthly';
+    case 'quarterly':   return 'Quarterly';
+    case 'annual':      return 'Annual';
+    default:            return 'Monthly';
   }
 }
+
+function overageColor(actual: number, threshold: number): string {
+  if (actual <= threshold) return 'var(--ff-green)';
+  const pct = (actual - threshold) / threshold;
+  if (pct < 0.10) return '#f87171'; // ≤10% over — light red
+  if (pct < 0.25) return '#ef4444'; // 10-25% over — medium red
+  return 'var(--color-danger)';     // 25%+ over — full danger red
+}
+
 
 export class ExpensesPage {
   private categories: ExpenseCategory[] = [];
   private expenses: Expense[] = [];
   private members: HouseholdMember[] = [];
   private cardAccounts: DebtAccount[] = [];
+  private bankAccounts: BankAccount[] = [];
+  private paidThisMonth = new Map<string, ExpensePaidRecord>();
   private activeCategoryId: string | null = null;
   private filter: FilterType = 'all';
+  private sortBy: SortBy = 'due-date';
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -43,16 +66,31 @@ export class ExpensesPage {
   }
 
   private async load(): Promise<void> {
-    const [categories, expenses, members, allAccounts] = await Promise.all([
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+
+    const [categories, expenses, members, allAccounts, allPaidRecords, bankAccounts] = await Promise.all([
       getCategories(),
       getExpenses(),
       getMembers(),
       getDebtAccounts(),
+      getExpensePaidRecords(),
+      getBankAccounts(),
     ]);
     this.categories = categories;
     this.expenses = expenses;
     this.members = members;
-    this.cardAccounts = allAccounts.filter((a) => a.type === 'card');
+    this.cardAccounts = allAccounts.filter((a) => a.type === 'card').sort((a, b) => a.name.localeCompare(b.name));
+    this.bankAccounts = bankAccounts.sort((a, b) => a.name.localeCompare(b.name));
+
+    this.paidThisMonth = new Map();
+    allPaidRecords
+      .filter((r) => r.date >= monthStart && r.date < monthEnd)
+      .forEach((r) => {
+        const existing = this.paidThisMonth.get(r.expenseId);
+        if (!existing || r.date > existing.date) this.paidThisMonth.set(r.expenseId, r);
+      });
     const kidTypes = new Set(['child', 'baby-male', 'baby-female', 'child-male', 'child-female', 'teen-male', 'teen-female']);
     this.members.sort((a, b) => {
       const aChild = kidTypes.has(a.avatarType ?? '') ? 1 : 0;
@@ -140,7 +178,7 @@ export class ExpensesPage {
       pill.setAttribute('data-category-id', cat.id);
       pill.setAttribute('role', 'button');
       pill.setAttribute('tabindex', '0');
-      pill.title = `Edit ${cat.name}`;
+      pill.title = cat.description ? `${cat.description}\n\nClick to edit` : `Edit ${cat.name}`;
       pill.addEventListener('click', () => this.openCategoryForm(cat));
       pill.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') this.openCategoryForm(cat); });
 
@@ -170,6 +208,25 @@ export class ExpensesPage {
         e.stopPropagation();
         const inUse = this.expenses.some((ex) => ex.categoryId === cat.id);
         if (inUse && !confirm(`"${cat.name}" has expenses. Remove the category anyway? (Expenses won't be deleted)`)) return;
+        // Null out categoryId on affected expenses
+        await Promise.all(
+          this.expenses
+            .filter((ex) => ex.categoryId === cat.id)
+            .map((ex) => saveExpense({ ...ex, categoryId: '' })),
+        );
+        // Null out categoryId on affected card charges
+        const allCharges = await getCardCharges();
+        await Promise.all(
+          allCharges
+            .filter((ch) => ch.categoryId === cat.id)
+            .map((ch) => { const { categoryId: _, ...rest } = ch; return saveCardCharge(rest as typeof ch); }),
+        );
+        // Detach subcategories that have this category as parent
+        await Promise.all(
+          this.categories
+            .filter((c) => c.parentId === cat.id)
+            .map((c) => saveCategory({ ...c, parentId: undefined })),
+        );
         await deleteCategory(cat.id);
         if (this.activeCategoryId === cat.id) this.activeCategoryId = null;
         await this.load();
@@ -200,6 +257,14 @@ export class ExpensesPage {
           placeholder="e.g. Housing, Food, Transport" maxlength="32" />
       </div>
       <div class="form-group">
+        <label class="form-label" for="cat-desc">
+          Description
+          <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>
+        </label>
+        <textarea id="cat-desc" rows="2" maxlength="200"
+          placeholder="e.g. All housing-related bills and rent"></textarea>
+      </div>
+      <div class="form-group">
         <label class="form-label">Color</label>
         <div class="color-swatches">${swatchesHtml}</div>
       </div>
@@ -214,9 +279,12 @@ export class ExpensesPage {
       </div>
       <div id="cat-error" class="form-error" style="display:none"></div>
     `;
-    // Set existing name via .value to avoid embedding user data in HTML attribute
+    // Set existing values via .value to avoid embedding user data in HTML attributes
     if (existing?.name) {
       body.querySelector<HTMLInputElement>('#cat-name')!.value = existing.name;
+    }
+    if (existing?.description) {
+      body.querySelector<HTMLTextAreaElement>('#cat-desc')!.value = existing.description;
     }
 
     body.querySelectorAll<HTMLButtonElement>('.color-swatch').forEach((btn) => {
@@ -282,6 +350,7 @@ export class ExpensesPage {
         const hasBudget = !isNaN(budgetRaw) && budgetRaw > 0;
 
         const defaultCardId = body.querySelector<HTMLSelectElement>('#cat-card')?.value || undefined;
+        const description = body.querySelector<HTMLTextAreaElement>('#cat-desc')!.value.trim();
 
         const base = existing
           ? { ...existing, name, color: selectedColor }
@@ -289,6 +358,7 @@ export class ExpensesPage {
         const cat: ExpenseCategory = { ...base };
         if (hasBudget) cat.monthlyBudget = budgetRaw; else delete cat.monthlyBudget;
         if (defaultCardId) cat.defaultCardId = defaultCardId; else delete cat.defaultCardId;
+        if (description) cat.description = description; else delete cat.description;
         await saveCategory(cat);
         close();
         await this.load();
@@ -351,6 +421,37 @@ export class ExpensesPage {
       filterSection.appendChild(btn);
     });
 
+    // Sort control
+    const sortSep = document.createElement('div');
+    sortSep.className = 'filter-separator';
+    filterSection.appendChild(sortSep);
+
+    const sortLabel = document.createElement('span');
+    sortLabel.className = 'filter-sort-label';
+    sortLabel.textContent = 'Sort:';
+    filterSection.appendChild(sortLabel);
+
+    const sortSel = document.createElement('select');
+    sortSel.className = 'filter-sort-select';
+    sortSel.setAttribute('data-testid', 'expense-sort-select');
+    ([
+      ['due-date', 'Due Date'],
+      ['name',     'Name (A–Z)'],
+      ['amount',   'Cost'],
+      ['pay-type', 'Pay Type'],
+    ] as [SortBy, string][]).forEach(([val, label]) => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = label;
+      opt.selected = this.sortBy === val;
+      sortSel.appendChild(opt);
+    });
+    sortSel.addEventListener('change', () => {
+      this.sortBy = sortSel.value as SortBy;
+      this.paint();
+    });
+    filterSection.appendChild(sortSel);
+
     bar.appendChild(filterSection);
     return bar;
   }
@@ -362,6 +463,30 @@ export class ExpensesPage {
       if (this.filter === 'one-time' && e.recurring) return false;
       return true;
     });
+  }
+
+  private sortExpenses(items: Expense[]): Expense[] {
+    return [...items].sort((a, b) => {
+      switch (this.sortBy) {
+        case 'name':
+          return a.description.localeCompare(b.description);
+        case 'amount':
+          return b.amount - a.amount;
+        case 'pay-type':
+          // manual pay first, then auto-pay; within each group sort by due date
+          if (!!a.isAutoPay !== !!b.isAutoPay) return (a.isAutoPay ? 1 : 0) - (b.isAutoPay ? 1 : 0);
+          return this.nextDueMs(a) - this.nextDueMs(b);
+        case 'due-date':
+        default:
+          return this.nextDueMs(a) - this.nextDueMs(b);
+      }
+    });
+  }
+
+  private nextDueMs(expense: Expense): number {
+    if (!expense.dueDay) return expense.date;
+    const interval = freqInterval(expense.recurringFrequency);
+    return computeNextDue(new Date(expense.date), expense.dueDay, interval).getTime();
   }
 
   // ── Expense list ───────────────────────────────────────────────────────
@@ -413,8 +538,7 @@ export class ExpensesPage {
       `;
       group.appendChild(groupHeader);
 
-      items
-        .sort((a, b) => b.date - a.date)
+      this.sortExpenses(items)
         .forEach((e) => group.appendChild(this.buildExpenseRow(e)));
 
       container.appendChild(group);
@@ -426,6 +550,24 @@ export class ExpensesPage {
   private buildExpenseRow(expense: Expense): HTMLElement {
     const isBill = expense.recurring && !!expense.dueDay;
     const billStatus = isBill ? computeBillStatus(expense) : null;
+    const isAutoPay = !!expense.isAutoPay;
+    // A bill is considered paid for this cycle only when a paid record exists in the
+    // current month AND expense.date is also in the current month (meaning the bill
+    // was explicitly marked paid in this cycle). Editing expense.date back to a prior
+    // month resets the cycle without deleting historical paid records (which are needed
+    // for the overage-trend mascot alert).
+    const paidRecord = this.paidThisMonth.get(expense.id);
+    const _now = new Date();
+    const _monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).getTime();
+    const _monthEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 1).getTime();
+    const billDateThisMonth = isBill && expense.date >= _monthStart && expense.date < _monthEnd;
+    const alreadyPaid = !!paidRecord && (!isBill || billDateThisMonth);
+    const showPayBtn = !isAutoPay && !alreadyPaid;
+    // Auto-pay always shows a log button — "Log Actual" when nothing recorded yet,
+    // "Update Actual" when a record exists (allows correction or retroactive entry).
+    const showLogActualBtn = isAutoPay;
+    // Non-auto-pay expenses that have already been paid can still have their payment edited.
+    const showEditPaymentBtn = !isAutoPay && alreadyPaid;
 
     const dateStr = new Date(expense.date).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
@@ -433,14 +575,22 @@ export class ExpensesPage {
     const freqLabel = expense.recurring && expense.recurringFrequency
       ? FREQUENCY_LABELS[expense.recurringFrequency]
       : null;
-    const dueDayStr = expense.dueDay
-      ? `· Due the ${expense.dueDay}${ordinal(expense.dueDay)}`
-      : '';
+    const nextDueStr = (() => {
+      if (!expense.dueDay) return '';
+      const interval = freqInterval(expense.recurringFrequency);
+      const nextDue = computeNextDue(new Date(expense.date), expense.dueDay, interval);
+      const now = new Date();
+      const opts: Intl.DateTimeFormatOptions = {
+        month: 'short', day: 'numeric',
+        ...(nextDue.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+      };
+      return ` · Due ${nextDue.toLocaleDateString('en-US', opts)}`;
+    })();
 
     const statusBadge = (() => {
-      if (!billStatus) return '';
+      if (alreadyPaid) return '<span class="expense-badge expense-badge--paid" data-testid="expense-bill-badge">✓ Paid</span>';
+      if (!billStatus || isAutoPay) return ''; // auto-pay past-due/due-soon isn't actionable
       switch (billStatus.status) {
-        case 'paid':     return '<span class="expense-badge expense-badge--paid" data-testid="expense-bill-badge">✓ Paid</span>';
         case 'past-due': return '<span class="expense-badge expense-badge--past-due" data-testid="expense-bill-badge">⚠ Past Due</span>';
         case 'due-soon': {
           const dueLabel = billStatus.dueDayThisMonth
@@ -452,33 +602,54 @@ export class ExpensesPage {
       }
     })();
 
-    const dateLabel = isBill && billStatus?.status === 'paid'
-      ? `Paid ${dateStr}`
-      : dateStr;
-
-    const thresholdFmt = expense.threshold
-      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(expense.threshold)
+    const paidDateStr = paidRecord
+      ? new Date(paidRecord.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : null;
-    const thresholdBadge = thresholdFmt
-      ? `<span class="expense-threshold-badge" data-testid="expense-threshold-badge" title="Monthly target">⚡ ${thresholdFmt}</span>`
-      : '';
+    const dateLabel = alreadyPaid ? `Paid ${paidDateStr ?? dateStr}` : dateStr;
+
 
     const row = document.createElement('div');
     row.className = 'expense-row';
     row.setAttribute('data-testid', 'expense-row');
     row.setAttribute('data-expense-id', expense.id);
 
+    // When we have an actual paid record, show it with threshold-relative color.
+    const amountDisplay = (() => {
+      if (paidRecord) {
+        const actualFmt = fmtCents.format(paidRecord.amount);
+        const threshFmt = fmtCents.format(expense.amount);
+        const color = overageColor(paidRecord.amount, expense.amount);
+        return `<span style="color:${color}" data-testid="expense-actual-amount">${actualFmt}</span>`
+          + `<span class="expense-row-amount-sub">est. ${threshFmt}</span>`;
+      }
+      return fmtCents.format(expense.amount);
+    })();
+
+    const logActualLabel = paidRecord ? '$ Update Actual' : '$ Log Actual';
+
+    const thresholdBadge = expense.threshold
+      ? `<span class="expense-threshold-badge" data-testid="expense-threshold-badge">⚡ ${fmtCents.format(expense.threshold)}</span>`
+      : '';
+
     row.innerHTML = `
-      <div class="expense-row-desc">${statusBadge}${expense.description}</div>
+      <div class="expense-row-desc">${statusBadge}${expense.description}${thresholdBadge}</div>
       <div class="expense-row-date">${dateLabel}</div>
       ${expense.recurring && freqLabel
-        ? `<span class="expense-row-recur">↻ ${freqLabel}${dueDayStr}${thresholdBadge ? ' ' + thresholdBadge : ''}</span>`
-        : thresholdBadge ? `<span class="expense-row-recur">${thresholdBadge}</span>` : ''}
-      <div class="expense-row-amount">${fmtCents.format(expense.amount)}</div>
+        ? `<span class="expense-row-recur">↻ ${freqLabel}${nextDueStr}</span>`
+        : ''}
+      <div class="expense-row-amount">${amountDisplay}</div>
       <div class="expense-row-actions">
-        ${isBill && billStatus?.status !== 'paid'
-          ? `<button class="mark-paid-btn" data-action="mark-paid" data-testid="expense-mark-paid" title="Mark as paid for this month">✓ Mark Paid</button>`
+        ${isAutoPay ? '<span class="expense-autopay-badge" data-testid="expense-autopay-badge">🔄 Auto-pay</span>' : ''}
+        ${showPayBtn
+          ? `<button class="mark-paid-btn" data-action="record-payment" data-testid="expense-record-payment" title="Record actual payment">$ Record Payment</button>`
           : ''}
+        ${showLogActualBtn
+          ? `<button class="mark-paid-btn" data-action="log-actual" data-testid="expense-log-actual" title="Log actual amount charged">${logActualLabel}</button>`
+          : ''}
+        ${showEditPaymentBtn
+          ? `<button class="mark-paid-btn mark-paid-btn--edit" data-action="edit-payment" data-testid="expense-edit-payment" title="Edit recorded payment">✎ Edit Payment</button>`
+          : ''}
+        <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
         <button class="icon-btn" data-action="edit" data-testid="expense-edit" title="Edit">✏️</button>
         <button class="icon-btn danger" data-action="delete" data-testid="expense-delete" title="Delete">🗑️</button>
       </div>
@@ -496,12 +667,55 @@ export class ExpensesPage {
       row.querySelector('.expense-row-desc')!.appendChild(badge);
     }
 
-    if (isBill && billStatus?.status !== 'paid') {
-      row.querySelector('[data-action="mark-paid"]')!.addEventListener('click', () => {
-        this.openMarkPaidForm(expense);
+    // Bank account badge
+    const linkedBank = expense.bankAccountId
+      ? this.bankAccounts.find((a) => a.id === expense.bankAccountId)
+      : null;
+    if (linkedBank) {
+      const badge = document.createElement('span');
+      badge.className = 'expense-bank-badge';
+      badge.setAttribute('data-testid', 'expense-bank-badge');
+      badge.textContent = `🏦 ${linkedBank.name}`;
+      row.querySelector('.expense-row-desc')!.appendChild(badge);
+    }
+
+    // Billing portal link
+    if (expense.url) {
+      const link = document.createElement('a');
+      link.className = 'icon-btn';
+      link.setAttribute('data-testid', 'expense-url-link');
+      link.href = expense.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Open billing portal';
+      link.textContent = '↗';
+      row.querySelector('[data-action="edit"]')!.before(link);
+    }
+
+    if (showPayBtn) {
+      row.querySelector('[data-action="record-payment"]')!.addEventListener('click', () => {
+        this.openRecordPaymentForm(expense);
       });
     }
 
+    if (showLogActualBtn) {
+      row.querySelector('[data-action="log-actual"]')!.addEventListener('click', () => {
+        this.openLogActualForm(expense, paidRecord);
+      });
+    }
+
+    if (showEditPaymentBtn) {
+      row.querySelector('[data-action="edit-payment"]')!.addEventListener('click', () => {
+        this.openRecordPaymentForm(expense, paidRecord);
+      });
+    }
+
+    row.querySelector('[data-action="notif"]')!.addEventListener('click', () => {
+      const ctx = expense.dueDay
+        ? { label: expense.description, defaultTrigger: 'bill-before' as const, defaultExpenseId: expense.id }
+        : { label: expense.description, defaultTrigger: 'monthly-day' as const };
+      openAddNotificationModal(ctx);
+    });
     row.querySelector('[data-action="edit"]')!.addEventListener('click', () =>
       this.openExpenseForm(expense),
     );
@@ -511,11 +725,22 @@ export class ExpensesPage {
         const charge = await findChargeByExpenseId(expense.id);
         if (charge) await deleteCardCharge(charge.id);
       }
+      const paidRecords = await getExpensePaidRecords(expense.id);
+      await Promise.all(paidRecords.map((r) => deleteExpensePaidRecord(r.id)));
       await deleteExpense(expense.id);
       await this.load();
     });
 
-    // Wrap in a status container if this is a tracked bill
+    // Wrap paid non-bill expenses with the green left bar
+    if (!isBill && alreadyPaid) {
+      const wrap = document.createElement('div');
+      wrap.className = 'expense-bill-wrap expense-bill-wrap--paid';
+      wrap.setAttribute('data-testid', 'expense-bill-wrap');
+      wrap.appendChild(row);
+      return wrap;
+    }
+
+    // Wrap tracked bills that have a noteworthy status
     if (!billStatus || billStatus.status === 'ok') return row;
 
     const wrap = document.createElement('div');
@@ -528,69 +753,287 @@ export class ExpensesPage {
     return wrap;
   }
 
-  // ── Mark Paid form ─────────────────────────────────────────────────────
+  // ── Record Payment form ────────────────────────────────────────────────
 
-  private openMarkPaidForm(expense: Expense): void {
+  private openRecordPaymentForm(expense: Expense, existingRecord?: ExpensePaidRecord): void {
+    const isBill = expense.recurring && !!expense.dueDay;
+    const isFixed = !!expense.isFixedAmount;
+    const isUpdate = !!existingRecord;
+    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+    const today = new Date().toISOString().split('T')[0]!;
+    const prefillDate = existingRecord
+      ? new Date(existingRecord.date).toISOString().split('T')[0]!
+      : today;
+    const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
+
     const body = document.createElement('div');
     body.className = 'expense-form';
 
-    const hasThreshold = expense.threshold != null && expense.threshold > 0;
-    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-    const thresholdDisplay = hasThreshold ? currFmt.format(expense.threshold!) : null;
-
     body.innerHTML = `
-      <p class="text-sm text-muted" style="margin-bottom:var(--space-3)">
-        How much was the actual bill for <strong>${expense.description}</strong>?
+      <p class="text-sm text-muted">
+        ${isUpdate
+          ? `Update the recorded payment for <strong>${expense.description}</strong>.`
+          : `How much was the actual ${isBill ? 'bill' : 'expense'} for <strong>${expense.description}</strong>?`}
       </p>
       <div class="form-group">
-        <label class="form-label" for="mp-amount">Amount paid</label>
+        <label class="form-label" for="mp-amount">Actual amount</label>
         <input id="mp-amount" type="number" min="0" step="0.01"
-          value="${expense.amount.toFixed(2)}" />
-        ${hasThreshold ? `<span class="form-hint">Monthly target: ${thresholdDisplay}</span>` : ''}
+          value="${prefillAmount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
+        ${isFixed
+          ? '<span class="form-hint">Fixed amount — same as estimated amount</span>'
+          : expense.threshold
+            ? `<span class="form-hint">Estimated: ${currFmt.format(expense.amount)} · Target: ${currFmt.format(expense.threshold)}</span>`
+            : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${currFmt.format(expense.amount)}</span>`}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mp-date">Date paid</label>
+        <input id="mp-date" type="date" value="${prefillDate}" />
       </div>
       <div id="mp-overage-msg" style="display:none"></div>
     `;
 
-    const amountInput = body.querySelector<HTMLInputElement>('#mp-amount')!;
+    // Unified "Pay from" dropdown — bank accounts + credit cards in optgroups
+    const modalRef: { close?: () => void } = {};
+    const sourceGroup = document.createElement('div');
+    sourceGroup.className = 'form-group';
     const overageMsg = body.querySelector<HTMLElement>('#mp-overage-msg')!;
 
-    if (hasThreshold) {
+    const hasAnySources = this.bankAccounts.length > 0 || this.cardAccounts.length > 0;
+
+    // Determine pre-selected value (edit: use existing record; new: use expense defaults)
+    const defaultSourceValue = (() => {
+      if (existingRecord?.bankAccountId) return `bank:${existingRecord.bankAccountId}`;
+      if (existingRecord?.cardId)        return `card:${existingRecord.cardId}`;
+      if (expense.bankAccountId)         return `bank:${expense.bankAccountId}`;
+      if (expense.linkedCardId)          return `card:${expense.linkedCardId}`;
+      return '';
+    })();
+
+    const srcLabel = document.createElement('label');
+    srcLabel.className = 'form-label';
+    srcLabel.htmlFor = 'mp-source';
+    srcLabel.innerHTML = 'Pay from <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
+    sourceGroup.appendChild(srcLabel);
+
+    if (hasAnySources) {
+      const srcSel = document.createElement('select');
+      srcSel.id = 'mp-source';
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— Not specified —';
+      srcSel.appendChild(noneOpt);
+
+      if (this.bankAccounts.length > 0) {
+        const bankGroup = document.createElement('optgroup');
+        bankGroup.label = 'Bank Accounts';
+        this.bankAccounts.forEach((b) => {
+          const opt = document.createElement('option');
+          opt.value = `bank:${b.id}`;
+          opt.textContent = b.name;
+          opt.selected = defaultSourceValue === `bank:${b.id}`;
+          bankGroup.appendChild(opt);
+        });
+        srcSel.appendChild(bankGroup);
+      }
+
+      if (this.cardAccounts.length > 0) {
+        const cardGroup = document.createElement('optgroup');
+        cardGroup.label = 'Credit Cards';
+        this.cardAccounts.forEach((a) => {
+          const opt = document.createElement('option');
+          opt.value = `card:${a.id}`;
+          opt.textContent = a.name;
+          opt.selected = defaultSourceValue === `card:${a.id}`;
+          cardGroup.appendChild(opt);
+        });
+        srcSel.appendChild(cardGroup);
+      }
+
+      sourceGroup.appendChild(srcSel);
+    } else {
+      const hint = document.createElement('span');
+      hint.className = 'form-hint';
+      hint.textContent = 'No accounts or cards set up. ';
+      const bankLink = document.createElement('a');
+      bankLink.href = '#';
+      bankLink.textContent = 'Add a bank account →';
+      bankLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        modalRef.close?.();
+        navigate('/accounts');
+      });
+      const sep = document.createTextNode(' · ');
+      const cardLink = document.createElement('a');
+      cardLink.href = '#';
+      cardLink.textContent = 'Add a credit card →';
+      cardLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        modalRef.close?.();
+        navigate('/debt');
+      });
+      hint.appendChild(bankLink);
+      hint.appendChild(sep);
+      hint.appendChild(cardLink);
+      sourceGroup.appendChild(hint);
+    }
+
+    body.insertBefore(sourceGroup, overageMsg);
+
+    const amountInput = body.querySelector<HTMLInputElement>('#mp-amount')!;
+
+    const overageLimit = expense.threshold ?? expense.amount;
+    if (!isFixed) {
       amountInput.addEventListener('input', () => {
         const val = parseFloat(amountInput.value);
-        if (!isNaN(val) && val > expense.threshold!) {
-          const over = val - expense.threshold!;
-          overageMsg.textContent = `⚠ Over target by ${currFmt.format(over)}`;
-          overageMsg.style.display = 'block';
-          overageMsg.style.color = 'var(--color-danger)';
-          overageMsg.style.fontSize = 'var(--text-xs)';
-          overageMsg.style.marginTop = 'var(--space-1)';
+        if (!isNaN(val) && val > overageLimit) {
+          const over = val - overageLimit;
+          const label = expense.threshold ? 'Over target by' : `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by`;
+          overageMsg.textContent = `⚠ ${label} ${currFmt.format(over)}`;
+          overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
         } else {
           overageMsg.style.display = 'none';
         }
       });
     }
 
-    openFormModal({
-      title: `Mark Paid — ${expense.description}`,
+    const { close: closeModal } = openFormModal({
+      title: isUpdate ? `Edit Payment — ${expense.description}` : `Record Payment — ${expense.description}`,
       body,
-      submitLabel: 'Mark as Paid',
+      submitLabel: isUpdate ? 'Save Changes' : 'Record Payment',
       onSubmit: async (close) => {
         const rawAmount = parseFloat(amountInput.value);
         if (isNaN(rawAmount) || rawAmount < 0) return;
         const paidAmount = Math.round(rawAmount * 100) / 100;
-        const record = createExpensePaidRecord(expense.id, paidAmount);
-        await Promise.all([
-          saveExpense({ ...expense, date: Date.now() }),
-          saveExpensePaidRecord(record),
-        ]);
+        const dateStr = body.querySelector<HTMLInputElement>('#mp-date')!.value;
+        const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
+        const sourceVal = body.querySelector<HTMLSelectElement>('#mp-source')?.value ?? '';
+        const selectedCardId   = sourceVal.startsWith('card:') ? sourceVal.slice(5) : null;
+        const selectedBankId   = sourceVal.startsWith('bank:') ? sourceVal.slice(5) : null;
+
+        const record: ExpensePaidRecord = isUpdate && existingRecord
+          ? { ...existingRecord, amount: paidAmount, date: paidDate, cardId: selectedCardId ?? undefined, bankAccountId: selectedBankId ?? undefined }
+          : { ...createExpensePaidRecord(expense.id, paidAmount, paidDate), cardId: selectedCardId ?? undefined, bankAccountId: selectedBankId ?? undefined };
+        const ops: Promise<unknown>[] = [saveExpensePaidRecord(record)];
+
+        // Update expense.date to signal last-paid for tracked bills
+        if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
+
+        // Handle card charge — create/update when card selected, delete when switched away
+        const existingCharge = await findChargeByExpenseId(expense.id);
+        if (selectedCardId) {
+          if (existingCharge && existingCharge.accountId === selectedCardId) {
+            ops.push(saveCardCharge({ ...existingCharge, amount: paidAmount, date: paidDate }));
+          } else {
+            if (existingCharge) ops.push(deleteCardCharge(existingCharge.id));
+            const charge = createCardCharge(selectedCardId, expense.description, paidAmount, paidDate, expense.categoryId || undefined);
+            charge.sourceExpenseId = expense.id;
+            ops.push(saveCardCharge(charge));
+          }
+        } else if (existingCharge) {
+          // Payment source changed away from card — remove the charge
+          ops.push(deleteCardCharge(existingCharge.id));
+        }
+
+        await Promise.all(ops);
         close();
         await this.load();
         refreshNotifier();
 
-        if (expense.threshold != null && paidAmount > expense.threshold) {
-          const overCount = await getOverageTrend(expense.id, expense.threshold);
+        if (paidAmount > overageLimit) {
+          const overCount = await getOverageTrend(expense.id, overageLimit);
           if (overCount >= 2) {
-            const fmtThreshold = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(expense.threshold);
+            const fmtLimit = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(overageLimit);
+            setTimeout(() => showMascot('expense-trend', {
+              bill: expense.description,
+              threshold: fmtLimit,
+              count: String(overCount),
+            }), 600);
+          }
+        }
+      },
+    });
+    modalRef.close = closeModal;
+  }
+
+  // ── Log Actual form (auto-pay only) ───────────────────────────────────────
+
+  private openLogActualForm(expense: Expense, existingRecord?: ExpensePaidRecord): void {
+    const isBill = expense.recurring && !!expense.dueDay;
+    const isUpdate = !!existingRecord;
+    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+    const today = new Date().toISOString().split('T')[0]!;
+    const prefillDate = existingRecord
+      ? new Date(existingRecord.date).toISOString().split('T')[0]!
+      : today;
+    const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
+
+    const body = document.createElement('div');
+    body.className = 'expense-form';
+    body.innerHTML = `
+      <p class="text-sm text-muted">
+        ${isUpdate
+          ? `Update the actual amount auto-charged for <strong>${expense.description}</strong>.`
+          : `Log the actual amount auto-charged for <strong>${expense.description}</strong>.`}
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="la-amount">Actual amount charged <span class="req">*</span></label>
+        <input id="la-amount" type="number" min="0" step="0.01"
+          value="${prefillAmount.toFixed(2)}" />
+        <span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${currFmt.format(expense.amount)}</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="la-date">Date charged</label>
+        <input id="la-date" type="date" value="${prefillDate}" />
+        <span class="form-hint">Use any past date to log retroactively.</span>
+      </div>
+      <div id="la-overage-msg" style="display:none"></div>
+    `;
+
+    const amountInput = body.querySelector<HTMLInputElement>('#la-amount')!;
+    const overageMsg = body.querySelector<HTMLElement>('#la-overage-msg')!;
+
+    const checkOverage = () => {
+      const val = parseFloat(amountInput.value);
+      if (!isNaN(val) && val > expense.amount) {
+        const over = val - expense.amount;
+        overageMsg.textContent = `⚠ Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by ${currFmt.format(over)}`;
+        overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
+      } else {
+        overageMsg.style.display = 'none';
+      }
+    };
+    amountInput.addEventListener('input', checkOverage);
+    checkOverage();
+
+    openFormModal({
+      title: isUpdate ? `Update Actual — ${expense.description}` : `Log Actual — ${expense.description}`,
+      body,
+      submitLabel: isUpdate ? 'Update' : 'Log Actual',
+      onSubmit: async (close) => {
+        const rawAmount = parseFloat(amountInput.value);
+        if (isNaN(rawAmount) || rawAmount < 0) return;
+        const actualAmount = Math.round(rawAmount * 100) / 100;
+        const dateStr = body.querySelector<HTMLInputElement>('#la-date')!.value;
+        const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
+
+        const ops: Promise<unknown>[] = [];
+        if (isUpdate && existingRecord) {
+          // Update the existing record in-place
+          ops.push(saveExpensePaidRecord({ ...existingRecord, amount: actualAmount, date: paidDate }));
+        } else {
+          ops.push(saveExpensePaidRecord(createExpensePaidRecord(expense.id, actualAmount, paidDate)));
+        }
+        if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
+
+        await Promise.all(ops);
+        close();
+        await this.load();
+        refreshNotifier();
+
+        if (actualAmount > expense.amount) {
+          const overCount = await getOverageTrend(expense.id, expense.amount);
+          if (overCount >= 2) {
+            const fmtThreshold = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(expense.amount);
             setTimeout(() => showMascot('expense-trend', {
               bill: expense.description,
               threshold: fmtThreshold,
@@ -619,7 +1062,7 @@ export class ExpensesPage {
     const defaultDueDate = (() => {
       if (!existing?.dueDay) return '';
       const lastPaid = new Date(existing.date);
-      const interval = existing.recurringFrequency === 'quarterly' ? 3 : 1;
+      const interval = freqInterval(existing.recurringFrequency);
       const next = computeNextDue(lastPaid, existing.dueDay, interval);
       return next.toISOString().split('T')[0];
     })();
@@ -648,9 +1091,14 @@ export class ExpensesPage {
         <input id="ef-desc" type="text" value="${existing?.description ?? ''}"
           placeholder="e.g. Rent, Groceries, Netflix" maxlength="64" />
       </div>
+      <div class="form-group">
+        <label class="form-label" for="ef-url">Billing portal URL <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <input id="ef-url" type="url" placeholder="https://billing.example.com" maxlength="512" />
+        <span class="form-hint">Opens as a quick link on your expense list and calendar.</span>
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="ef-amount">Amount <span class="req">*</span></label>
+          <label class="form-label" id="ef-amount-label" for="ef-amount">Estimated Amount <span class="req">*</span></label>
           <input id="ef-amount" type="number" min="0" step="0.01"
             value="${existing?.amount ?? ''}" placeholder="0.00" />
         </div>
@@ -688,20 +1136,63 @@ export class ExpensesPage {
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="ef-threshold">Monthly threshold <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+          <label class="form-label" for="ef-threshold">
+            Alert threshold
+            <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>
+          </label>
           <input id="ef-threshold" type="number" min="0" step="0.01"
-            value="${existing?.threshold ?? ''}" placeholder="e.g. 200.00" />
-          <span class="form-hint">Alert when this bill's actual cost exceeds this amount</span>
+            value="${existing?.threshold ?? ''}" placeholder="e.g. 120.00" />
+          <span class="form-hint">Warn when actual payment exceeds this amount. Leave blank to use the estimated amount.</span>
+        </div>
+        <div class="form-group" style="flex-direction:row;align-items:center;gap:var(--space-3)">
+          <input id="ef-fixed-amount" type="checkbox" style="width:auto" ${existing?.isFixedAmount ? 'checked' : ''} />
+          <label for="ef-fixed-amount" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)">
+            Fixed amount — actual always equals estimated (e.g. cable, subscriptions)
+          </label>
+        </div>
+        <div class="form-group" style="flex-direction:row;align-items:center;gap:var(--space-3)">
+          <input id="ef-autopay" type="checkbox" style="width:auto" ${existing?.isAutoPay ? 'checked' : ''} />
+          <label for="ef-autopay" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)">
+            Auto-pay — charged automatically, no manual payment needed
+          </label>
         </div>
       </div>
       <div id="ef-error" class="form-error" style="display:none"></div>
     `;
 
+    if (existing?.url) body.querySelector<HTMLInputElement>('#ef-url')!.value = existing.url;
+
     const recurChk = body.querySelector<HTMLInputElement>('#ef-recurring')!;
     const recurDetails = body.querySelector<HTMLElement>('#ef-recur-details')!;
+    const amountLabel = body.querySelector<HTMLElement>('#ef-amount-label')!;
+    const updateAmountLabel = () => {
+      const freq = body.querySelector<HTMLSelectElement>('#ef-freq')?.value;
+      const labelText = recurChk.checked ? `${freqThresholdLabel(freq)} Threshold` : 'Estimated Amount';
+      amountLabel.childNodes[0]!.nodeValue = labelText + ' ';
+    };
     recurChk.addEventListener('change', () => {
       recurDetails.style.display = recurChk.checked ? '' : 'none';
+      updateAmountLabel();
     });
+    body.querySelector<HTMLSelectElement>('#ef-freq')?.addEventListener('change', updateAmountLabel);
+    updateAmountLabel();
+
+    // When First Due Date changes, auto-sync the Date field to one period prior
+    // so the user can see exactly what will be stored (date = firstDue - interval)
+    const dueDateInput = body.querySelector<HTMLInputElement>('#ef-duedate')!;
+    const mainDateInput = body.querySelector<HTMLInputElement>('#ef-date')!;
+    const syncDateFromDue = () => {
+      if (!dueDateInput.value || !recurChk.checked) return;
+      const firstDue = new Date(dueDateInput.value + 'T00:00:00');
+      const interval = freqInterval(body.querySelector<HTMLSelectElement>('#ef-freq')?.value);
+      const prev = new Date(firstDue);
+      prev.setMonth(prev.getMonth() - interval);
+      const maxDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
+      prev.setDate(Math.min(firstDue.getDate(), maxDay));
+      mainDateInput.value = prev.toISOString().split('T')[0]!;
+    };
+    dueDateInput.addEventListener('change', syncDateFromDue);
+    body.querySelector<HTMLSelectElement>('#ef-freq')?.addEventListener('change', syncDateFromDue);
 
     // Inject "Charge to card" dropdown when card accounts exist
     const catSel = body.querySelector<HTMLSelectElement>('#ef-cat')!;
@@ -749,9 +1240,96 @@ export class ExpensesPage {
       body.insertBefore(cardGroup, recurGroup);
     } else {
       autoCardId = '';
+
+      const noCardGroup = document.createElement('div');
+      noCardGroup.className = 'form-group';
+      const noCardLabel = document.createElement('label');
+      noCardLabel.className = 'form-label';
+      noCardLabel.textContent = 'Charge to card';
+      const noCardHint = document.createElement('span');
+      noCardHint.className = 'form-hint';
+      noCardHint.innerHTML = 'No credit cards set up yet. ';
+      const goLink = document.createElement('a');
+      goLink.href = '#';
+      goLink.textContent = 'Add one in the Debt section →';
+      goLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        expenseModalRef.close?.();
+        navigate('/debt');
+      });
+      noCardHint.appendChild(goLink);
+      noCardGroup.appendChild(noCardLabel);
+      noCardGroup.appendChild(noCardHint);
+      const recurGroup = recurChk.closest('.form-group') ?? recurChk.parentElement!;
+      body.insertBefore(noCardGroup, recurGroup);
     }
 
-    openFormModal({
+    // ── Bank account dropdown ("Pay from account") ──────────────────────
+    const bankAccountGroup = document.createElement('div');
+    bankAccountGroup.className = 'form-group';
+    const bankAccountLabel = document.createElement('label');
+    bankAccountLabel.className = 'form-label';
+    bankAccountLabel.textContent = 'Pay from account';
+    bankAccountGroup.appendChild(bankAccountLabel);
+
+    let efBankAccountSel: HTMLSelectElement | null = null;
+    if (this.bankAccounts.length > 0) {
+      efBankAccountSel = document.createElement('select');
+      efBankAccountSel.id = 'ef-bank-account';
+      efBankAccountSel.setAttribute('data-testid', 'ef-bank-account-select');
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— No account —';
+      efBankAccountSel.appendChild(noneOpt);
+      this.bankAccounts.forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        opt.selected = a.id === (existing?.bankAccountId ?? '');
+        efBankAccountSel!.appendChild(opt);
+      });
+      bankAccountGroup.appendChild(efBankAccountSel);
+    } else {
+      const hint = document.createElement('span');
+      hint.className = 'form-hint';
+      hint.innerHTML = 'No bank accounts set up yet. ';
+      const link = document.createElement('a');
+      link.href = '#';
+      link.textContent = 'Add one in Accounts →';
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        expenseModalRef.close?.();
+        navigate('/accounts');
+      });
+      hint.appendChild(link);
+      bankAccountGroup.appendChild(hint);
+    }
+
+    // Insert bank account group after the card group (before recurring checkbox)
+    const recurGroup = recurChk.closest('.form-group') ?? recurChk.parentElement!;
+    body.insertBefore(bankAccountGroup, recurGroup);
+
+    let flushReminders: (finalItemId: string) => Promise<void> = async () => {};
+    if (isEdit && existing) {
+      const remindersOpts = existing.dueDay
+        ? { defaultTrigger: 'bill-before' as const, defaultExpenseId: existing.id }
+        : { defaultTrigger: 'monthly-day' as const };
+      const { element, flush } = buildLinkedRemindersSection(existing.id, 'expense', existing.description, remindersOpts);
+      body.appendChild(element);
+      flushReminders = flush;
+    } else {
+      const descInput = body.querySelector<HTMLInputElement>('#ef-desc')!;
+      const { element, flush } = buildLinkedRemindersSection('', 'expense', 'Expense', {
+        deferred: true,
+        getLabel: () => descInput.value.trim() || 'Expense',
+      });
+      body.appendChild(element);
+      flushReminders = flush;
+    }
+
+    const expenseModalRef: { close?: () => void } = {};
+
+    const { close: closeExpenseModal } = openFormModal({
       title: isEdit ? 'Edit Expense' : 'Add Expense',
       body,
       submitLabel: isEdit ? 'Save changes' : 'Add expense',
@@ -768,8 +1346,11 @@ export class ExpensesPage {
         const dueDateStr = recurring
           ? (body.querySelector<HTMLInputElement>('#ef-duedate')?.value ?? '')
           : '';
-        const thresholdRaw = parseFloat(body.querySelector<HTMLInputElement>('#ef-threshold')?.value ?? '');
-        const threshold = recurring && !isNaN(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : undefined;
+        const isFixedAmount = recurring ? (body.querySelector<HTMLInputElement>('#ef-fixed-amount')?.checked ?? false) : false;
+        const isAutoPay = recurring ? (body.querySelector<HTMLInputElement>('#ef-autopay')?.checked ?? false) : false;
+        const thresholdRaw = recurring ? parseFloat(body.querySelector<HTMLInputElement>('#ef-threshold')?.value ?? '') : NaN;
+        const hasThreshold = !isNaN(thresholdRaw) && thresholdRaw > 0;
+        const url = body.querySelector<HTMLInputElement>('#ef-url')!.value.trim() || undefined;
         const errEl = body.querySelector<HTMLElement>('#ef-error')!;
 
         const missing: string[] = [];
@@ -794,7 +1375,7 @@ export class ExpensesPage {
           const firstDue = new Date(dueDateStr + 'T00:00:00');
           dueDay = firstDue.getDate();
           if (!existing || dueDateStr !== defaultDueDate) {
-            const interval = recurringFrequency === 'quarterly' ? 3 : 1;
+            const interval = freqInterval(recurringFrequency);
             const prevPeriod = new Date(firstDue);
             prevPeriod.setMonth(prevPeriod.getMonth() - interval);
             const maxDay = new Date(prevPeriod.getFullYear(), prevPeriod.getMonth() + 1, 0).getDate();
@@ -812,19 +1393,35 @@ export class ExpensesPage {
         if (dueDay != null) expense.dueDay = dueDay;
         else delete expense.dueDay;
 
-        if (threshold != null) expense.threshold = threshold;
-        else delete expense.threshold;
 
         if (linkedCardId) expense.linkedCardId = linkedCardId;
         else delete expense.linkedCardId;
 
+        if (isFixedAmount) expense.isFixedAmount = true;
+        else delete expense.isFixedAmount;
+
+        if (isAutoPay) expense.isAutoPay = true;
+        else delete expense.isAutoPay;
+
+        if (hasThreshold) expense.threshold = thresholdRaw;
+        else delete expense.threshold;
+
+        if (url) expense.url = url;
+        else delete expense.url;
+
+        const bankAccountId = efBankAccountSel?.value || undefined;
+        if (bankAccountId) expense.bankAccountId = bankAccountId;
+        else delete expense.bankAccountId;
+
         await saveExpense(expense);
         await this.syncLinkedCharge(expense, existing?.linkedCardId);
+        await flushReminders(expense.id);
         close();
         await this.load();
 
       },
     });
+    expenseModalRef.close = closeExpenseModal;
   }
 
   // ── Card charge sync ───────────────────────────────────────────────────

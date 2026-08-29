@@ -216,6 +216,121 @@
   transform: scale(0.97);
 }
 
+/* ── Bell Notification Overlay ─────────────────────────────────────── */
+
+@keyframes bell-ring {
+  0%   { transform: rotate(0deg); }
+  12%  { transform: rotate(18deg); }
+  28%  { transform: rotate(-16deg); }
+  44%  { transform: rotate(13deg); }
+  58%  { transform: rotate(-9deg); }
+  72%  { transform: rotate(5deg); }
+  86%  { transform: rotate(-2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes bell-panel-in {
+  0%   { transform: translateY(28px) scale(0.94); opacity: 0; }
+  100% { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+@keyframes bell-panel-out {
+  0%   { transform: translateY(0)    scale(1);    opacity: 1; }
+  100% { transform: translateY(16px) scale(0.96); opacity: 0; }
+}
+
+.bell-notif-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: celebration-in 0.25s ease forwards;
+}
+
+.bell-notif-overlay.bell-notif-out {
+  animation: celebration-out 0.3s ease forwards;
+  pointer-events: none;
+}
+
+.bell-notif-panel {
+  background: var(--color-bg-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8) var(--space-10);
+  max-width: 420px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(201, 168, 76, 0.15);
+  animation: bell-panel-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.bell-notif-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bell-notif-bell {
+  font-size: 2.2rem;
+  display: inline-block;
+  animation: bell-ring 0.7s ease-in-out 0.15s;
+  transform-origin: top center;
+}
+
+.bell-notif-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.25;
+}
+
+.bell-notif-mascot {
+  width: 88px;
+  flex-shrink: 0;
+}
+
+.bell-notif-mascot svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+}
+
+.bell-notif-canned {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.bell-notif-custom {
+  background: var(--color-bg-sunken);
+  border-left: 3px solid var(--ff-gold);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.55;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bell-notif-btn {
+  margin-top: var(--space-2);
+  min-width: 200px;
+}
+
 /* ── Debt Payoff Celebration ───────────────────────────────────────── */
 
 @keyframes celebration-in {

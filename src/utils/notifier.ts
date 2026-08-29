@@ -61,9 +61,9 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
       }
     });
 
-  // Bill statuses
+  // Bill statuses — auto-pay bills are charged automatically; exclude from manual-payment alerts
   expenses
-    .filter((e) => e.recurring && !!e.dueDay)
+    .filter((e) => e.recurring && !!e.dueDay && !e.isAutoPay)
     .forEach((e) => {
       const { status, dueDayThisMonth } = computeBillStatus(e);
       if (status === 'past-due') {
@@ -76,18 +76,18 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
   // Threshold overage trends — flag bills that consistently exceed their target
   const sixMonthsAgo = Date.now() - 183 * 24 * 60 * 60 * 1000;
   expenses
-    .filter((e) => e.recurring && e.threshold != null && e.threshold > 0)
+    .filter((e) => e.recurring && e.amount > 0)
     .forEach((e) => {
       const recent = paidRecords
         .filter((r) => r.expenseId === e.id && r.date >= sixMonthsAgo)
         .sort((a, b) => b.date - a.date)
         .slice(0, 6);
       if (recent.length < 2) return;
-      const overCount = recent.filter((r) => r.amount > e.threshold!).length;
+      const overCount = recent.filter((r) => r.amount > e.amount).length;
       if (overCount >= 3 || (recent.length >= 2 && overCount === recent.length)) {
         const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
         items.push({
-          text: `📈 ${e.description} — over ${fmt.format(e.threshold!)} target ${overCount}× recently`,
+          text: `📈 ${e.description} — over ${fmt.format(e.amount)} target ${overCount}× recently`,
           route: '/expenses',
           severity: 'warning',
         });

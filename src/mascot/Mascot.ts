@@ -3,8 +3,9 @@ import browser from 'webextension-polyfill';
 import { BUCK_SVG, PENNY_SVG } from './svgs';
 import { getLines, getDailyTip } from './messages';
 import { navigate } from '@/app/router';
+import { playBellChime } from '@/utils/bellSound';
 import type { NotifierItem } from '@/utils/notifier';
-import type { MascotGender, MascotTrigger, VaultConfig } from '@/types';
+import type { CustomNotification, MascotGender, MascotTrigger, VaultConfig } from '@/types';
 
 // ── Debt Payoff Celebration ───────────────────────────────────────────────────
 
@@ -510,6 +511,80 @@ export function updateMascotItems(items: NotifierItem[]): void {
     else bubble.appendChild(list);
   }
   renderItemsIntoList(list, items);
+}
+
+// ── Bell Notification Overlay ─────────────────────────────────────────────────
+
+const BELL_CANNED: Record<MascotGender, string> = {
+  buck: "Pardon the interruption, partner — I've got a note here with your name on it.",
+  penny: "A moment of your time, dear — I've been keeping this reminder safe just for you.",
+};
+
+const BELL_DISMISS: Record<MascotGender, string> = {
+  buck: 'Much obliged — got it! 🤠',
+  penny: 'Thank you, sugar — got it! 🌻',
+};
+
+export async function showBellNotification(notif: CustomNotification): Promise<void> {
+  return new Promise<void>(async (resolve) => {
+    await loadConfig();
+    const gender: MascotGender = activeConfig?.mascotGender ?? 'buck';
+
+    // The bell overlay is full-screen (z-index 10000) and covers everything,
+    // so there is no need to touch the corner mascot bubble — payment alerts,
+    // greetings, and other built-in mascot messages remain intact underneath
+    // and reappear naturally once the bell is dismissed.
+    playBellChime();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'bell-notif-overlay';
+
+    const panel = document.createElement('div');
+    panel.className = 'bell-notif-panel';
+
+    const header = document.createElement('div');
+    header.className = 'bell-notif-header';
+    const bellEl = document.createElement('span');
+    bellEl.className = 'bell-notif-bell';
+    bellEl.setAttribute('aria-hidden', 'true');
+    bellEl.textContent = '🔔';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'bell-notif-title';
+    titleEl.textContent = notif.label;
+    header.appendChild(bellEl);
+    header.appendChild(titleEl);
+    panel.appendChild(header);
+
+    const mascotEl = document.createElement('div');
+    mascotEl.className = 'bell-notif-mascot';
+    mascotEl.setAttribute('aria-hidden', 'true');
+    mascotEl.innerHTML = gender === 'buck' ? BUCK_SVG : PENNY_SVG;
+    panel.appendChild(mascotEl);
+
+    const cannedEl = document.createElement('p');
+    cannedEl.className = 'bell-notif-canned';
+    cannedEl.textContent = BELL_CANNED[gender];
+    panel.appendChild(cannedEl);
+
+    if (notif.customMessage) {
+      const customEl = document.createElement('blockquote');
+      customEl.className = 'bell-notif-custom';
+      customEl.textContent = notif.customMessage;
+      panel.appendChild(customEl);
+    }
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'btn btn-primary bell-notif-btn';
+    dismissBtn.textContent = BELL_DISMISS[gender];
+    dismissBtn.addEventListener('click', () => {
+      overlay.classList.add('bell-notif-out');
+      overlay.addEventListener('animationend', () => { overlay.remove(); resolve(); }, { once: true });
+    });
+    panel.appendChild(dismissBtn);
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+  });
 }
 
 function dismiss(root: HTMLElement): void {

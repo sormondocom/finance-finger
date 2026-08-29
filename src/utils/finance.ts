@@ -23,7 +23,6 @@ export const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
 };
 
 export const FREQUENCY_OPTIONS: { value: IncomeFrequency; label: string }[] = [
-  { value: 'hourly',      label: 'Hourly' },
   { value: 'weekly',      label: 'Weekly' },
   { value: 'biweekly',   label: 'Every 2 weeks' },
   { value: 'semimonthly', label: 'Twice monthly' },

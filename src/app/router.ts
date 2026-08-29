@@ -3,6 +3,7 @@ export type Route =
   | '/unlock'
   | '/dashboard'
   | '/income'
+  | '/accounts'
   | '/expenses'
   | '/calendar'
   | '/budget'
@@ -10,7 +11,8 @@ export type Route =
   | '/reports'
   | '/afford'
   | '/insights'
-  | '/settings';
+  | '/settings'
+  | '/break-glass';
 
 type RouteHandler = (params?: Record<string, string>) => HTMLElement | Promise<HTMLElement>;
 

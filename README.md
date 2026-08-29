@@ -122,7 +122,45 @@ On subsequent launches the **vault unlock screen** appears. Paste your private k
 
 **Household members** — Add named members to your household. Each member can have an avatar type (adult male, adult female, baby, child, teen). Members are used to assign income sources so you can see each person's contribution to household income.
 
-**Income sources** — Each member can have multiple income sources at any frequency: hourly, weekly, biweekly, semi-monthly, monthly, annual, or one-time. Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them.
+**Income sources** — Each member can have multiple income sources. The pay type can be **salary** (enter the amount at any frequency) or **hourly** (enter an hourly rate and hours per period — the app computes the per-period pay and shows a preview). Frequencies: hourly, weekly, biweekly, semi-monthly, monthly, annual, or one-time. Semi-monthly sources support unequal paychecks — different amounts on the 1st and 15th of the month. Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them. Income sources can optionally be linked to a bank account to feed the Accounts page balance projection.
+
+---
+
+### Custom Reminders
+
+Custom reminders let you schedule personal bell notifications for any item in your budget — a debt payment date, a monthly income day, a recurring expense, or an account transfer. They are separate from the built-in payment-due mascot alerts and deliver a full-screen overlay with your custom message.
+
+**Trigger types:**
+
+| Type | When it fires |
+|---|---|
+| **Days before a bill's due date** | N days before a specific recurring expense's due day (e.g. 7 days before the electric bill) |
+| **Monthly on a specific day** | On the chosen day of each month (e.g. the 1st) |
+| **One-time on a specific date** | Once, on or after a specific date; deactivates itself after firing |
+
+**Time of day** — All reminders support an optional time field. If set, the reminder only fires when you open the app at or after that time on the trigger day. If left blank, it fires at the first app-open of that day.
+
+**Linking reminders to items** — When you add or edit any income source, expense, debt account, or bank account, a **Reminders** subsection appears at the bottom of the form. Use **+ Add reminder** to attach a reminder directly to that item. The reminder is automatically linked so it appears both in the item's edit form and in the central Settings → Reminders panel.
+
+**Create-form reminders** — Reminders can be added while creating a new item (before saving it). These are buffered and saved together with the item when you submit the form.
+
+**Settings → Reminders** — The central management panel for all custom reminders. Add, edit, or delete any reminder regardless of which item it was created from. Each card shows the label, trigger description, active/inactive status, and a toggle and delete button.
+
+**Custom message** — All reminders support an optional free-text message that appears in the notification overlay.
+
+---
+
+### Accounts
+
+**Bank accounts** — Track every deposit account in your household: checking, savings, money market, or other. Each account can be set as individual (assigned to one household member), joint, or household-level.
+
+**Balance projection** — The Accounts page calculates a running balance for each account by starting from an optional **starting balance** you provide, then adding income deposits and subtracting expenses and debt payments that are linked to that account. Navigate forward and backward through months to see projected balances over time.
+
+**Balance chart** — A stacked bar chart shows all accounts side by side across recent months. Each account gets its own color, chosen from a custom color picker when adding or editing the account.
+
+**Dashboard "Income by Account" card** — When at least one account has an active income source linked to it, the Dashboard shows a breakdown card listing each account alongside the income flowing into it. The card is hidden when no accounts have linked income.
+
+**Cross-form hints** — The income source form and expense form both show a "No bank accounts" hint (with a direct link to the Accounts page) when no accounts exist yet, so you can add one without losing your place.
 
 ---
 
@@ -177,10 +215,10 @@ The mascot fires automatically on the Budget page if you are running a deficit (
 
 ---
 
-### Debt & credit cards
+### Debt
 
-**Card management** — Track any debt account type: credit card, mortgage, medical debt, or personal loan. For each account you can set:
-- Current balance, APR, credit limit (cards), original principal and term (mortgages/loans)
+**Card management** — Track any debt account type: credit card, mortgage, vehicle loan, medical debt, or personal/student loan. For each account you can set:
+- Current balance, APR, credit limit (cards), original principal and term (mortgages/vehicle loans/personal loans)
 - Minimum payment — fixed dollar amount or percentage of balance (with a $25 floor)
 - Payment cycle — weekly, biweekly, semi-monthly, or monthly
 - Due day — same tracking logic as bill tracking (past-due, due-soon badges)
@@ -267,9 +305,10 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 - **Members** — add or remove household members; each shows an initial avatar; removing a member also removes their assigned income sources
 - **Theme** — Light, Dark, or Auto (follows `prefers-color-scheme`)
 - **Security** — PGP fingerprint display and public key export
-- **Sharing keys** — store contacts' public keys for future data-sharing features (portability, planned)
-- **Export / Import** — back up and restore your encrypted vault data
+- **Data Sharing** — store household members' public keys and export your database encrypted to any recipient; import a `.ffx` file received from another installation
+- **Export / Import** — back up your database encrypted to your own key, or receive a file from another household member and merge or replace your local data
 - **Danger zone** — full vault wipe and IndexedDB reset
+- **Break Glass** — emergency direct-access panel for reading, editing, and deleting raw database records; includes an Orphan Scanner for finding broken references (see [Troubleshooting → Break Glass](#break-glass))
 
 ---
 
@@ -346,6 +385,39 @@ Click the gold tip card at the bottom to have Buck or Penny deliver today's fina
 
 Sources with frequency **once** appear in the Monthly Activity widget on the Dashboard for the month matching their date. You can also log them directly from the Dashboard without going to the Income page.
 
+**Reminders on income sources**
+
+A **Reminders** section appears at the bottom of the Add and Edit income source forms. Click **+ Add reminder** to attach a custom notification — for example, a monthly reminder on your payday to review your budget. Reminders added during creation are saved together with the source. All linked reminders are also visible and manageable from **Settings → Reminders**.
+
+---
+
+### Accounts
+
+**Adding a bank account**
+
+1. Click **+ Add Account** on the Accounts page.
+2. Choose the account type: **Checking**, **Savings**, **Money Market**, or **Other**.
+3. Choose ownership: **Individual** (select a household member), **Joint**, or **Household**.
+4. Enter an optional starting balance — this is the known balance at a point in time that the projection builds forward from.
+5. Choose a chart color to identify this account in the balance chart.
+6. Click **Save**.
+
+**Linking income to an account**
+
+Open any income source (Income page → pencil icon) and select the account from the **Deposit to** dropdown. Income linked this way is added to the account's projected balance each month.
+
+**Reading the balance**
+
+The Accounts page shows a balance card for each account. The balance is calculated as: starting balance + all linked income deposits − all linked expense payments − linked debt payments for the current month being viewed. Use the **‹ / ›** arrows to step through months.
+
+**Reminders on accounts**
+
+A **Reminders** section appears at the bottom of the Add and Edit bank account forms. Use it to attach reminders such as a monthly prompt to reconcile the account or transfer to savings. All linked reminders are also manageable from **Settings → Reminders**.
+
+**Balance chart**
+
+The stacked bar chart at the top of the page shows all accounts side by side across recent months. Hover a bar segment to see the exact balance.
+
 ---
 
 ### Expenses
@@ -369,10 +441,17 @@ Click any category pill in the management row to open the Edit Category modal. Y
 1. Click **+ Add Expense**.
 2. Fill in a description, amount, category, and date.
 3. Check **Recurring** to make it a recurring bill. This reveals:
-   - **Frequency** — hourly through annual.
+   - **Frequency** — weekly through annual.
    - **Due day** (1–28) — turns the expense into a tracked bill monitored each month.
    - **Monthly threshold** — the maximum you expect the bill to cost. If an actual payment exceeds this, the app warns you.
+   - **Fixed amount** — check this when the bill is always exactly the same (e.g. a streaming subscription). The payment dialog pre-fills the amount and makes it read-only.
+   - **Auto-pay** — check this for bills paid automatically by your bank. Auto-pay bills show an Auto-pay badge instead of a Record Payment button and do not appear in payment reminders.
+   - **Charge to card** — link the expense to a debt account so payments automatically create a charge entry on that card.
 4. Click **Save**.
+
+**Reminders on expenses**
+
+A **Reminders** section appears at the bottom of the Add and Edit expense forms. Click **+ Add reminder** to attach a custom notification — for example, a reminder a few days before a bill's due date, or a monthly prompt for a variable expense. The trigger type defaults to "days before due date" for expenses that have a due day, or "monthly on a specific day" for others. All linked reminders are also manageable from **Settings → Reminders**.
 
 **Marking a bill paid**
 
@@ -432,13 +511,13 @@ If total spending exceeds income, your mascot slides in automatically with a hea
 
 ---
 
-### Debt & Cards
+### Debt
 
 **Adding a debt account**
 
 1. Click **+ Add Account**.
-2. Choose the account type: **Credit Card**, **Mortgage**, **Medical**, or **Personal Loan**.
-3. Enter: name, current balance, APR, credit limit (for cards), original principal and term (for mortgages and loans).
+2. Choose the account type: **Credit Card**, **Mortgage**, **Vehicle Loan**, **Medical**, or **Personal / Student Loan**.
+3. Enter: name, current balance, APR, credit limit (for cards), original principal and term (for mortgages, vehicle loans, and personal loans).
 4. Set the minimum payment: **fixed dollar amount** or **percentage of balance** (the app enforces a $25 floor on percentage minimums).
 5. Choose a payment cycle (weekly, biweekly, semi-monthly, monthly) and an optional due day.
 6. Optionally enter a 0% introductory APR end date for promotional-rate cards.
@@ -473,6 +552,10 @@ Enter an extra monthly payment in the grid field. The table instantly shows how 
 1. Click **+ Charge** on a credit card.
 2. Enter the merchant name, amount, and date.
 3. Charges appear in the **Top Merchants** chart on the Reports page.
+
+**Reminders on debt accounts**
+
+A **Reminders** section appears at the bottom of the Add and Edit debt account forms (not the "Complete Account Setup" payment-details step). Click **+ Add reminder** to attach a custom notification — for example, a monthly reminder on your payment due date, or a one-time reminder to call about an introductory APR expiry. All linked reminders are also manageable from **Settings → Reminders**.
 
 **Debt payoff celebration**
 
@@ -585,11 +668,88 @@ The Learn page provides plain-language financial education with interactive calc
 | **Household name** | Edit the field and save. Updates the title on the Dashboard. |
 | **Members** | Click **+ Add Member** to add a household member. Click the trash icon to remove one — a confirmation dialog warns you that all assigned income sources will also be removed. |
 | **Theme** | Choose Light, Dark, or Auto (follows your OS preference). Applies immediately without a reload. |
+| **Reminders** | View, add, edit, and delete all custom bell notifications. Each card shows the label, when the reminder fires, and active/inactive status. Reminders can also be created and deleted from within the Add/Edit forms on the Income, Expenses, Debt, and Accounts pages — they all appear here for centralized management. |
 | **Security** | View your PGP fingerprint. Click **Export public key** to copy the armored public key to clipboard. |
-| **Sharing keys** | Paste another person's PGP public key to store it. This is preparation for future encrypted data-sharing features. |
-| **Export** | Downloads an encrypted JSON backup of your vault. The file is encrypted to your PGP public key — only your private key can decrypt it. |
-| **Import** | Restores vault data from a previously exported backup file. Existing data is replaced. |
+| **Sharing keys** | Store a household member's or spouse's public key here so you can quickly encrypt exports to them without pasting their key every time. |
+| **Export** | Encrypts your database and downloads a `.ffx` file. You choose a recipient: a saved sharing key, a one-time paste, or your own key (for a personal backup). Only the holder of the matching private key can open the file. |
+| **Import** | Decrypts a `.ffx` file shared from another Financial Finger installation using your private key and passphrase. Choose **Merge** to add incoming records alongside your existing data, or **Replace** to wipe your database first. |
 | **Danger zone** | Wipes the vault completely. All data, settings, and the vault key are deleted. The extension returns to the first-run setup wizard. This is permanent and irreversible. |
+| **Break Glass** | Emergency direct-access panel. Opens the Break Glass data browser where you can read, edit, or delete any raw record in the database. Also contains the Orphan Scanner for finding records with broken FK references. See [Troubleshooting → Break Glass](#break-glass) for full details. |
+
+---
+
+### Data Sharing
+
+Financial Finger is built for households — and households don't always sit at the same computer. If you and a partner, spouse, or co-parent each have the extension installed on separate machines, data sharing lets you keep both installations in sync without ever uploading anything to a server.
+
+#### What is a public key?
+
+When you went through setup, Financial Finger generated a **PGP key pair** — two mathematically linked keys:
+
+- **Public key** — safe to hand out to anyone. Think of it as a padlock: anyone can snap it shut to lock a message, but only you can open it.
+- **Private key** — stays with you, stored in your password manager. It is the only key that can unlock something your public key locked.
+
+When Person A wants to send their database to Person B, A encrypts the export with **B's public key**. The resulting `.ffx` file is unreadable to anyone in transit — even A cannot decrypt it. Only B's private key, combined with B's passphrase, can open it.
+
+This is why Financial Finger asks for a recipient's public key before exporting, and asks for your own private key when importing — each step is exactly what the math requires.
+
+#### One-time setup: exchanging public keys
+
+Before the first sync, each person needs the other's public key.
+
+**Person A** (sending machine):
+1. Go to **Settings → Security & Keys**.
+2. Click **Save file…** next to Export public key. This saves `finance-finger-public-key.asc` — a plain text file that is completely safe to share. Email it, send it over chat, copy it to a USB drive. It is not a secret.
+
+**Person B** (receiving machine):
+1. Go to **Settings → Data Sharing**.
+2. Click **+ Add person**.
+3. Paste Person A's public key (or click **Choose file…** to load the `.asc` file directly).
+4. Give Person A a label (e.g. "Alex") and click **Add**. The key is now saved as a contact.
+
+Repeat in the opposite direction so each person has the other's public key saved.
+
+> If you use Financial Finger on two computers yourself (rather than two people), you only need to export to your own key for backup. When importing on the second machine you will still need your private key and passphrase — you must have moved those to the second machine beforehand.
+
+#### Exporting your database to a household member
+
+1. Go to **Settings → Data Sharing**.
+2. Click **Export…**.
+3. Select the household member from your saved sharing keys (e.g. "Alex") or choose **One-time key…** to paste a key without saving it.
+4. Click **Export & Download**. A `.ffx` file is saved to your Downloads folder.
+5. Send the file to the other person — email, shared cloud folder, USB drive, whatever you use. The file is fully encrypted; it does not need to travel over a secure channel.
+
+The exported file includes: **members, income sources, expense categories, expenses, debt accounts, and scenarios**.
+
+> Bank accounts, payment history, card charges, and individual expense payment records are **not included** in an export. These are transactional records tied to a specific installation. The export carries the structural and budget data — the things you set up once and want both people to agree on.
+
+#### Importing a file from a household member
+
+When you receive a `.ffx` file:
+
+1. Go to **Settings → Data Sharing**.
+2. Click **Import…**.
+3. Click **Choose file…** and select the `.ffx` file, or paste its contents into the text area.
+4. In **Your private key**, paste your own private key (the one you stored in your password manager during setup), or load it from a file.
+5. Enter your **passphrase**.
+6. Choose an import mode:
+   - **Merge** *(default)* — Incoming records are added to or updated in your database. Records you have locally that aren't in the file are kept. This is the right choice for regular syncs.
+   - **Replace** — Your entire database is wiped first, then the incoming records are written. Use this when you want to completely replace your local data with the sender's copy. There is no undo.
+7. Click **Decrypt & Import**.
+
+The app reloads after a successful import and shows a count of records written.
+
+#### Recommended workflow for a shared household
+
+Designate one installation as the **primary** and use it for day-to-day data entry — adding expenses, recording payments, logging income changes. The other installation stays current by periodically importing from the primary.
+
+A practical cadence:
+
+- **Weekly or monthly**: Primary exports → sends the `.ffx` to the other person → other person imports with **Merge**.
+- **After a major setup change** (new household member, new debt account, category restructure): export immediately so both machines stay in agreement on structure.
+- **Quarterly or annually**: Both people export to their own key as a personal backup, stored somewhere separate from the machine.
+
+If both people enter data independently on their own machines, merge mode will combine records from both sides on import. Because records use unique IDs, merge will not create duplicates for records already shared. It will, however, bring in records the other person entered that you don't have yet — which is the point.
 
 ---
 
@@ -601,10 +761,11 @@ The Learn page provides plain-language financial education with interactive calc
 
 1. Complete the six-step setup wizard. Generate a PGP key pair, save the private key to a password manager or print it, name your household, and pick a mascot.
 2. Go to **Income** — add each person in your household, then add their income sources with the exact frequency they're paid (biweekly if that's reality, not monthly).
-3. Go to **Expenses** — create categories (Housing, Food, Utilities, Transportation), then add every recurring bill with a due day so the extension can track payment status.
-4. Go to **Debt & Cards** — add every credit card, loan, and mortgage with current balance, APR, and minimum payment.
-5. Open **Budget** — the donut and summary bar now reflect your full financial picture. If the surplus is negative, look for recurring expenses to cut or reclassify.
-6. Come back to the Dashboard throughout the month to log one-time income and expenses as they happen.
+3. Go to **Accounts** — add your checking and savings accounts. This lets you link income sources to the accounts they deposit into and see a projected balance for each account.
+4. Go to **Expenses** — create categories (Housing, Food, Utilities, Transportation), then add every recurring bill with a due day so the extension can track payment status.
+5. Go to **Debt** — add every credit card, vehicle loan, personal loan, and mortgage with current balance, APR, and minimum payment.
+6. Open **Budget** — the donut and summary bar now reflect your full financial picture. If the surplus is negative, look for recurring expenses to cut or reclassify.
+7. Come back to the Dashboard throughout the month to log one-time income and expenses as they happen.
 
 ---
 
@@ -612,7 +773,7 @@ The Learn page provides plain-language financial education with interactive calc
 
 > *"I just opened a new credit card (or transferred a balance onto one)."*
 
-1. Go to **Debt & Cards → + Add Account → Credit Card**.
+1. Go to **Debt → + Add Account → Credit Card**.
 2. Enter the current balance, APR, credit limit, minimum payment type, and due day.
 3. Open the **Avalanche** or **Snowball** tab and review the payoff schedule.
 4. Try the **What-if grid**: enter $50 extra per month. See how many months and how many dollars you save.
@@ -639,9 +800,48 @@ The Learn page provides plain-language financial education with interactive calc
 
 1. Open the **Calendar** page. Today is highlighted; any overdue bills show in red on the grid.
 2. Check the summary bar chips at the top — address Past Due items first.
-3. Click **Mark Paid** on each bill as you take care of it. Enter the actual amount paid for variable bills.
+3. Click **Record Payment** on each bill as you take care of it. Enter the actual amount paid for variable bills.
 4. Return to the **Dashboard** — the Payment Reminders card disappears (or shrinks) as you mark things paid.
 5. At the end of the month, open **Reports → Common Overage Offenders** to see which bills regularly cost more than planned.
+
+---
+
+### Linking expense payments to a credit card
+
+> *"I pay most of my bills with a credit card — how do I track that without double-counting?"*
+
+1. Go to **Debt → + Add Account → Credit Card** and add the card if you haven't already. This is required before any expense can be assigned to it.
+2. Head to **Expenses**. When adding or editing a recurring bill, choose the card from the **Charge to card** dropdown. The expense is now linked — future payments will automatically create a charge entry on that card.
+3. When a bill is due, click **Record Payment** on the expense row. A dialog opens where you can enter the actual amount paid, the date, and confirm (or change) which card was charged.
+4. Submitting the dialog marks the bill paid for the month and posts a charge to the card's ledger in **Debt**. No manual double-entry needed.
+5. For expenses that are always the same amount (streaming subscriptions, cable), check **Fixed amount** in the expense form — the actual payment will pre-fill automatically and the amount field will be read-only in the payment dialog.
+6. For bills charged by your bank automatically, check **Auto-pay** — Finance Finger will show an Auto-pay badge instead of a Record Payment button, and the bill won't appear in payment reminders.
+
+> **Tip:** If you open Record Payment and there's no card dropdown, you haven't set up any credit cards yet. Click **Add one in the Debt section →** in the dialog to navigate there directly.
+
+---
+
+### Syncing data with a household member on a separate computer
+
+> *"My partner and I both have Financial Finger installed but on different machines. How do we keep our data in sync?"*
+
+**One-time setup (do this once per pair of computers):**
+
+1. On each machine, go to **Settings → Security & Keys** and click **Save file…** next to Export public key. Email or share the resulting `.asc` file with the other person.
+2. On each machine, go to **Settings → Data Sharing → + Add person** and load the other person's `.asc` file. Give them a label and click **Add**.
+
+You now each have the other's public key saved as a contact. You will not need to repeat this step.
+
+**Regular sync (whoever is most up-to-date sends to the other):**
+
+1. The person with the more current data goes to **Settings → Data Sharing → Export…**.
+2. Select the other person from the saved contacts list.
+3. Click **Export & Download**. Send the `.ffx` file.
+4. The recipient goes to **Settings → Data Sharing → Import…**, loads the `.ffx` file, pastes their private key and passphrase, leaves the mode on **Merge**, and clicks **Decrypt & Import**.
+
+> **Merge is almost always the right choice.** Replace mode deletes everything on the receiving machine before writing the incoming data — use that only when you want a full mirror, not a sync.
+
+> **Bank accounts, payment history, card charges, and individual expense payment records are not included in an export.** Those are transactional records specific to each machine. The export covers the structural data: members, income sources, expense categories, expenses, debt accounts, and scenarios.
 
 ---
 
@@ -649,7 +849,7 @@ The Learn page provides plain-language financial education with interactive calc
 
 > *"I have multiple credit cards and I want a coordinated payoff plan."*
 
-1. Confirm all cards are entered in **Debt & Cards** with accurate balances, APRs, and minimums.
+1. Confirm all cards are entered in **Debt** with accurate balances, APRs, and minimums.
 2. Switch to the **Avalanche** tab for the cheapest path, or **Snowball** for the fastest psychological wins.
 3. Use the **What-if grid** — try $100, $200, and $300 in extra monthly payments to find the highest amount your budget can support.
 4. Cross-check that amount against your **Budget** page surplus to confirm you actually have it available.
@@ -677,11 +877,14 @@ A complete walkthrough using every feature of Financial Finger across a typical 
 **Income**
 Go to **Income** and add each household member. For each person, add their income sources at the frequency they actually get paid — biweekly if that's reality, not monthly. Toggle off any source that is currently inactive (seasonal job, parental leave).
 
+**Accounts**
+Go to **Accounts** and add your checking and savings accounts. Enter a starting balance if you know it. Then link each income source to the account it deposits into (edit the source on the Income page and select the account). The Accounts page will then project your running balance month by month.
+
 **Expenses**
 Go to **Expenses** and create your expense categories. Add every recurring bill with its due day. Set a monthly threshold on any bill that varies (electricity, water, gas) so the extension can warn you when an actual payment runs high.
 
 **Debt**
-Go to **Debt & Cards** and add every credit card, personal loan, and mortgage. Enter the current balance, APR, minimum payment, and due day. Add your credit limit for cards so the utilization chip on the Dashboard works correctly.
+Go to **Debt** and add every credit card, vehicle loan, personal loan, and mortgage. Enter the current balance, APR, minimum payment, and due day. Add your credit limit for cards so the utilization chip on the Dashboard works correctly.
 
 **Budget check**
 Open the **Budget** page. Review the summary bar surplus. If it's negative, identify the category or expense driving it in the donut chart. Decide whether to cut something or accept the shortfall this month.
@@ -706,7 +909,7 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 
 ### When you make a debt payment
 
-1. Go to **Debt & Cards** and click **Record Payment** on the target account.
+1. Go to **Debt** and click **Record Payment** on the target account.
 2. Enter the amount and date. Mark it as an extra payment if it's above the minimum.
 3. Watch the amortization schedule update. Open the **Dashboard** — the credit utilization chip and DTI chip update to reflect the new balance.
 4. Open **Reports → Card Balance Trend** to see your payoff trajectory.
@@ -733,6 +936,104 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 2. Layer all the relevant films active at once. Confirm the combined verdict is ✅ or ⚠️ (not ❌) before committing.
 3. Open **Insights → Saving & Investing → Compound Interest** and drag the slider to 10 years. Look at the gap between what your debt is costing you and what the same money would earn invested. Use the visual as motivation to accelerate payoff.
 4. Open **Reports → All Time** and look at the **Card Balance Trend**. If the slope is flat or rising, revisit the payoff strategy on the **Debt** page.
+
+---
+
+## Troubleshooting
+
+### Break Glass
+
+The **Break Glass** tool is an emergency access panel that gives you direct read, edit, and delete access to every raw record in your encrypted database. It is intended for situations where something went wrong at the data level and the normal UI cannot fix it.
+
+**When to use it**
+
+- A record contains a bad value that the app UI will not let you correct
+- You need to verify a specific field (e.g. a linked ID) while debugging unexpected behavior
+- You want to manually inspect what is actually stored vs. what the UI is showing
+
+**Opening Break Glass**
+
+1. Go to **Settings** and scroll to the bottom.
+2. Click **🔧 Open Break Glass**. Your mascot will appear with a warning — this tool has no guardrails and no undo after saving.
+3. Click **"I hear ya — open 'er up"** to confirm.
+
+**Data Browser**
+
+The left panel shows a store selector (Members, Income Sources, Expenses, Debt Accounts, etc.) and a list of every record in that store. Click any record to open it in the detail pane on the right.
+
+| Mode | How to enter | What it does |
+|---|---|---|
+| **View** | Click a record | Shows all fields with human-readable labels and formatted values — dates rendered as readable timestamps, currency as `$X.XX`, percentages as `XX.XX%` |
+| **Edit** | Click **Edit** | Opens a per-field form with type-appropriate controls — a date/time picker for epoch timestamps, a dollar input for currency fields, a checkbox for booleans |
+| **Edit Raw JSON** | Click **Edit Raw JSON** | Opens the raw JSON in a textarea — for edge cases where you need to change a field the field editor does not surface, or paste in a corrected blob |
+
+UUID reference fields (like `memberId` on an income source) are rendered as **clickable links** in view mode. Clicking one navigates directly to the referenced record in the correct store — useful for verifying a relationship is pointing to the right place before making a correction.
+
+**Save** writes the change to the encrypted database. **Cancel** discards it. **🗑 Delete** removes the record permanently after a browser confirmation prompt. There is no undo after any write.
+
+---
+
+### Orphan Record Scanner
+
+The Orphan Scanner lives inside the Break Glass tool. Switch to the **Orphan Scanner** tab after opening Break Glass.
+
+**What it does**
+
+It scans every inter-store relationship in the database — income sources referencing members, expenses referencing categories, debt payments referencing accounts, and so on — and surfaces any record where the referenced record no longer exists. These are called *orphans* or *dangling FKs*. They can appear if a record was hard-deleted unexpectedly, if data was surgically edited via Break Glass, or if a vault backup was imported from a database at a different point in time.
+
+Orphans are harmless in most cases, but they can cause records to silently disappear from lists (because the app filters by a member or category that no longer exists) or produce unexpected totals on the Budget and Reports pages.
+
+**Running a scan**
+
+1. Open Break Glass and click the **Orphan Scanner** tab.
+2. Click **Run Scan**.
+
+A clean database shows a ✅ Clean result. If orphans are found, the scanner groups them by relationship and shows:
+
+- The store and record name that has the broken reference
+- Which field is broken and what value it points to
+- A **View in Browser** button that jumps directly to the orphaned record in the Data Browser
+
+**Fixing orphans**
+
+With the orphaned record open in the Data Browser:
+
+- Click **Edit** and update the broken field to point to a valid record ID, or
+- Click **🗑 Delete** to remove the orphan if it is no longer needed.
+
+Re-run the scan after each fix to confirm the database is clean.
+
+---
+
+## FAQ
+
+### Why can't I connect my bank or financial services directly via API?
+
+This is an intentional design decision, not a technical limitation.
+
+The financial industry's track record with third-party data aggregators is not reassuring. Aggregator breaches have exposed account numbers, balances, and full transaction histories for millions of people. Even well-intentioned services get acquired, pivoted, or subpoenaed. The moment your data leaves your device in plaintext — regardless of how good the vendor's intentions are — you have lost control of it. Every API integration, every OAuth handshake, every "we only store a read-only token" is another link in a chain that you do not control.
+
+Financial Finger's answer to that problem is to eliminate the chain entirely. Your data is encrypted to a PGP key that only you hold, stored only in your browser's local IndexedDB, and never transmitted anywhere. There is no server to breach. There is no vendor to subpoena. There is no token to rotate after a leak.
+
+There is also a more deliberate reason: **manual entry is a feature, not a burden**. When you type in a transaction you see it. When you set a recurring bill amount you think about it. The small friction of entering data yourself is exactly what forces active engagement with where your money is going. Tools that auto-import transactions often become tools people glance at instead of act on — a dashboard of numbers that confirms everything is fine until suddenly it is not. Financial Finger is designed to make you a participant in your own finances, not an observer.
+
+Put simply: this tool is built for people who will actually use it. If you want a hands-off experience where an app reads your accounts and builds your budget for you, there are plenty of those — they typically cost a monthly subscription, and they have well-documented histories of data breaches, unexpected pivots, and terms of service that treat your financial life as a product to be monetized.
+
+Financial Finger is free. It always will be. If it has been useful to you and you feel like buying the developer a coffee, there is a link in the sidebar — but it is never expected and never required. What is expected is that if you choose this tool, you show up for it.
+
+Financial Finger will never auto-pull your bank data, connect to financial aggregators, or send anything off your device unencrypted.
+
+---
+
+### Why can't Financial Finger email me or text my phone when a reminder fires?
+
+For the same reason it doesn't connect to your bank: doing so would require sending your data — and your contact information — to a server.
+
+An email or SMS notification service needs three things to work: a server to run on, your email address or phone number to send to, and a reason to have both stored somewhere. That server is a target. The company running it is a vendor with terms of service, investors, and an acquisition value. Your email address and phone number are personal identifiers that, combined with the fact that you use a budgeting tool, are worth something to data brokers — and worth a great deal more to criminals after a breach. The history of "simple, helpful" notification services ending up on the dark web is long and not getting shorter.
+
+Financial Finger's reminders fire inside the extension when you open it, with no data ever leaving your device. That is a meaningful constraint, and it is an intentional one. The bell notification you see is generated entirely locally — no network request, no third-party service, no account to create, no email address to harvest.
+
+So: do you really need your email address and phone number winding up on the dark web through yet another service that promised it was just sending you a friendly reminder? Financial Finger's answer is no. Your contact information stays yours. Your reminders stay on your device. The tradeoff is that you have to open the app to see them — which, for a tool built around the idea that active engagement with your finances is the whole point, seems like a reasonable ask.
 
 ---
 
@@ -775,6 +1076,16 @@ Every meaningful step takes a **screenshot**, stored in `tests/screenshots/`. Sc
 | `16-form-validation.spec.ts` | Enter key submits on last field, no-submit on non-last field, multi-field error list on blank submission |
 | `17-expense-card-link.spec.ts` | Expense-to-card-charge linking: auto-charge creation, Auto badge, edit/card-swap/unlink/delete sync across both records |
 | `18-category-edit.spec.ts` | Category edit modal: pre-fill, rename, color change, budget change, clear budget, duplicate name validation (case-insensitive), keyboard Enter |
+| `19-expense-payments.spec.ts` | Expense payment recording: fixed-amount pre-fill, auto-pay badge, variable bill flow, form label changes between regular and recurring modes |
+| `20-accounts.spec.ts` | Bank accounts CRUD, account types, ownership (individual/joint/household), chart color picker, starting balance, balance projection, month navigation, Income by Account dashboard card |
+| `21-no-accounts-hints.spec.ts` | "No bank accounts" and "no credit cards" inline hints with navigation links in the income source form and expense form |
+| `22-dashboard-card-conditions.spec.ts` | Income by Account card conditional rendering: absent when no accounts exist, absent when account has no linked income |
+| `23-income-pay-type.spec.ts` | Income pay type: salary vs. hourly inputs, rate × hours preview, hourly source display in list, semi-monthly payday schedule dropdown |
+| `24-calendar-income.spec.ts` | Calendar one-time income chips (💵), semi-monthly unequal paychecks showing correct amounts on 1st and 15th |
+| `25-accounts-balance.spec.ts` | Account balance: starting balance field, balance calculation from linked income, month navigation, next-month disabled guard |
+| `26-expense-payment-display.spec.ts` | Expense payment display and edit: actual-amount row visibility after payment, under/over threshold sub-labels, edit payment flow |
+| `27-break-glass.spec.ts` | Break Glass tool: warning overlay, data browser (columnar view, field editor, raw JSON editor, store switching), FK navigation links, orphan scanner (clean pass + dangling FK detection + View in Browser), record deletion, refresh |
+| `28-custom-reminders.spec.ts` | Custom reminders: Reminders section visible in create and edit forms for Income, Expenses, Debt, and Accounts; reminder added during create persists after save; linked reminders visible in edit form; all reminders appear in Settings → Reminders |
 
 ### Running the tests
 
@@ -819,6 +1130,7 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `
 ```
 unit ─────────────────────────────────────────────────────────────────────────┐
 build-chrome → e2e-chrome → build-firefox → e2e-firefox ──────────────────────┤
+docs ─────────────────────────────────────────────────────────────────────────┤
                                                                               ↓
                                                                            package (push)
                                                                               ↓
@@ -834,7 +1146,8 @@ build-chrome → e2e-chrome → build-firefox → e2e-firefox ──────
 | **e2e-chrome** | build-chrome | Downloads `dist-chrome`, installs Playwright Chromium, runs `npm run test:e2e` with `CI=true` |
 | **build-firefox** | e2e-chrome | `npm run build:firefox`; only starts if Chrome E2E passes; uploads `dist-firefox` artifact |
 | **e2e-firefox** | build-firefox | Downloads `dist-firefox`, installs Playwright Firefox, runs `npm run test:e2e` with `CI=true BROWSER=firefox` |
-| **package** | unit + e2e-firefox | Downloads both dist artifacts, zips them, names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
+| **docs** | — | Runs `npm run docs` and fails if the committed `docs/data-model.md` is stale |
+| **package** | unit + e2e-firefox + docs | Downloads both dist artifacts, zips them, names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
 | **attest** | package (tags only) | SLSA Build Level 2 provenance via `actions/attest-build-provenance@v2` for both zips |
 | **release** | attest (tags only) | Creates a GitHub Release; marks pre-release if tag contains a hyphen (e.g. `v1.0.0-beta.1`) |
 
@@ -884,6 +1197,32 @@ $env:BROWSER='firefox'; npm run test:e2e
 
 ## Architecture
 
+### Why a browser extension?
+
+This is a deliberate platform choice, not a default. The alternatives — a native desktop app, an Electron wrapper, a web app with a backend, a mobile app — were each considered and rejected for reasons that matter for a privacy-first, offline-first financial tool.
+
+**Cross-platform by default**
+
+The browser is the most widely deployed cross-platform runtime in existence. A browser extension runs identically on Windows, macOS, Linux, and ChromeOS — wherever a supported browser runs. There are no separate operating system builds, no platform-specific installers, no OS-level permission dialogs, and no code-signing certificates required for local development. The same TypeScript source and a single Vite build pipeline produce a working extension for both Chromium and Firefox with minimal per-target configuration.
+
+**A well-known, stable technology stack**
+
+HTML, CSS, and TypeScript are the most widely understood technologies in software development. The WebExtension API is a W3C-aligned standard implemented consistently across every major browser. The full tooling ecosystem — Vite, Playwright, npm, VS Code — is mature, well-documented, and available everywhere. This means the codebase is approachable to any web developer without learning platform-specific SDKs, and every dependency has a massive support community behind it.
+
+**A security model enforced by the browser itself**
+
+Browser extensions run in a sandboxed context. Permissions are declared explicitly in the manifest, visible to anyone who reads it, and enforced by the browser at runtime. Financial Finger declares exactly what it needs: `storage` (for the encrypted vault config) and nothing else. It cannot make arbitrary network requests, cannot access other tabs, and cannot read the filesystem. This isolation is structural — it does not depend on the application code being bug-free, it is enforced by the container.
+
+**Local storage without a server**
+
+IndexedDB is a full-featured, transactional, asynchronous database built into every browser. It persists across sessions, handles large datasets efficiently, and is never transmitted to a network unless the application code explicitly does so. Combined with the Web Crypto API and OpenPGP.js, the complete encryption and storage stack is available without any external service, server infrastructure, or cloud dependency. The extension has no backend. There is nothing to host, nothing to maintain, and no subscription to fund.
+
+**No Electron**
+
+The most common alternative for offline desktop tools with a web UI is Electron — which bundles a full Chromium runtime (~150 MB), requires platform-specific packaging, and introduces a large attack surface. Tauri reduces the binary size but requires Rust tooling and platform-specific webview integration. A browser extension is leaner, more transparent, and delegates its security model to a browser the user already trusts and keeps updated. The trade-off is that the user must have a browser installed — which, in practice, every user already does.
+
+---
+
 ### Extension structure
 
 ```
@@ -918,7 +1257,7 @@ The vault key is a random 32-byte `CryptoKey` generated at setup, encrypted to t
 
 ### Data layer
 
-All financial records are stored in **IndexedDB** via [`idb`](https://github.com/jakearchibald/idb) with a typed schema. Every value is an `EncryptedRecord` — the raw domain object is never written to disk.
+All financial records are stored in **IndexedDB** via [`idb`](https://github.com/jakearchibald/idb) with a typed schema. Every value is an `EncryptedRecord` — the raw domain object is never written to disk. For a full field-by-field reference, see the auto-generated [Data Model](docs/data-model.md).
 
 ```
 IndexedDB: "financial-finger" (v5)
@@ -991,13 +1330,15 @@ src/
 │   ├─ setup/              6-step onboarding wizard
 │   ├─ unlock/             Vault unlock screen
 │   ├─ dashboard/          Summary stats, reminders card, mascot briefing
-│   ├─ income/             Member chips, income source CRUD
+│   ├─ income/             Member chips, income source CRUD, pay type, hourly rate
+│   ├─ accounts/           Bank account CRUD, balance projection, balance chart
 │   ├─ expenses/           Categories, expense list, bill tracking, threshold entry
 │   ├─ budget/             Donut chart, category bars, cash flow chart
-│   ├─ debt/               Card CRUD, strategy tabs, amortization, what-if grid
+│   ├─ debt/               Debt CRUD, strategy tabs, amortization, what-if grid
 │   ├─ reports/            Date-range analytics, overage offenders
-│   ├─ insights/           10-card financial education with live calculators
-│   ├─ afford/             Affordability calculator
+│   ├─ insights/           Financial education with live calculators
+│   ├─ afford/             Scenario films — what-if budget overlays
+│   ├─ break-glass/        Emergency raw data editor and orphan scanner
 │   └─ settings/           Mascot, household, theme, security, export/import
 ├─ types/
 │   └─ index.ts            All domain types (no runtime code)
@@ -1005,9 +1346,10 @@ src/
     ├─ finance.ts          toMonthly, fmt, fmtCents, CATEGORY_COLORS
     ├─ billStatus.ts       computeBillStatus — paid / due-soon / past-due logic
     ├─ paymentStatus.ts    computePaymentStatus — debt payment tracking
-    └─ notifier.ts         Alert computation, badge updates, mascot callback
+    ├─ notifier.ts         Alert computation, badge updates, mascot callback
+    └─ notificationModal.ts  openAddNotificationModal, buildLinkedRemindersSection — shared reminder UI for all forms
 tests/
-├─ e2e/                    Playwright spec files (13 files)
+├─ e2e/                    Playwright spec files (33 files)
 └─ helpers/
     ├─ extension.ts        launchExtensionContext — isolated Chromium + extension
     └─ setup-wizard.ts     completeSetupWizard, navigateTo helpers

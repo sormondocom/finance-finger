@@ -210,6 +210,64 @@ test('clearing the budget removes it — re-opening shows an empty budget field'
   await page.click('[data-testid="modal-cancel"]');
 });
 
+// ── Tests 7a–7d: description field ───────────────────────────────────────────
+
+test('description textarea is visible in the New Category form', async () => {
+  await page.click('[data-testid="add-category-btn"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await expect(page.locator('#cat-desc')).toBeVisible();
+  await page.click('[data-testid="modal-cancel"]');
+});
+
+test('description textarea is visible in the Edit Category form', async () => {
+  await openEditModal('Bills');
+  await expect(page.locator('#cat-desc')).toBeVisible();
+  await page.click('[data-testid="modal-cancel"]');
+});
+
+test('saving a description persists it — re-opening the form shows the saved value', async () => {
+  await openEditModal('Bills');
+  await page.fill('#cat-desc', 'Monthly recurring bills');
+  await page.click('[data-testid="modal-submit"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+
+  await openEditModal('Bills');
+  const descVal = await page.locator('#cat-desc').inputValue();
+  expect(descVal).toBe('Monthly recurring bills');
+  await page.click('[data-testid="modal-cancel"]');
+});
+
+test('clearing the description removes it — re-opening shows empty description field', async () => {
+  await openEditModal('Bills');
+  await page.fill('#cat-desc', '');
+  await page.click('[data-testid="modal-submit"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+
+  await openEditModal('Bills');
+  const descVal = await page.locator('#cat-desc').inputValue();
+  expect(descVal).toBe('');
+  await page.click('[data-testid="modal-cancel"]');
+});
+
+test('category can be saved without a description (description is optional)', async () => {
+  await page.click('[data-testid="add-category-btn"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.fill('#cat-name', 'NoDesc');
+  // Leave #cat-desc blank
+  await page.click('[data-testid="modal-submit"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+  await expect(
+    page.locator('[data-testid="category-pill"]').filter({ hasText: 'NoDesc' }),
+  ).toBeVisible();
+
+  // Clean up
+  const pill = page.locator('[data-testid="category-pill"]').filter({ hasText: 'NoDesc' });
+  await pill.locator('[data-testid="category-remove"]').click();
+  await expect(
+    page.locator('[data-testid="category-pill"]').filter({ hasText: 'NoDesc' }),
+  ).toHaveCount(0);
+});
+
 // ── Test 7: duplicate-name validation during edit ─────────────────────────────
 
 test('renaming to an existing category name (same case) shows a duplicate error', async () => {
