@@ -17,13 +17,14 @@ import type { DebtAccount, PaymentCycle } from '@/types';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
 
-type Topic = 'debt' | 'budgeting' | 'credit' | 'savings';
+type Topic = 'debt' | 'budgeting' | 'credit' | 'savings' | 'security';
 
 const TOPIC_LABELS: Record<Topic, string> = {
   debt:      'Debt Basics',
   budgeting: 'Budgeting',
   credit:    'Credit',
   savings:   'Saving & Investing',
+  security:  'Privacy & Security',
 };
 
 export class InsightsPage {
@@ -55,7 +56,7 @@ export class InsightsPage {
     const header = document.createElement('div');
     header.className = 'insights-header';
     header.innerHTML = `
-      <h1 class="font-serif">Financial Education</h1>
+      <h1 class="font-serif">Education</h1>
       <blockquote class="insights-quote">
         "Figurin' out the basics never hurt nobody — and it might just change everything."
         <cite>— Buck &amp; Penny</cite>
@@ -102,6 +103,7 @@ export class InsightsPage {
       case 'budgeting': this.renderBudgetingCards(grid);  break;
       case 'credit':    this.renderCreditCards(grid);     break;
       case 'savings':   this.renderSavingsCards(grid);    break;
+      case 'security':  this.renderSecurityCards(grid);   break;
     }
   }
 
@@ -584,6 +586,143 @@ export class InsightsPage {
         <p>Every dollar you pay in credit card interest is a dollar that <strong>can't grow for you</strong> in savings or investments. If your card charges 22% APR and the market returns 8% historically, you're losing 14% every year you carry that balance instead of paying it off.</p>
         <p>That's why financial folks say: <strong>paying off high-interest debt is the best guaranteed return available to you</strong>. There's no investment that reliably beats a 22% savings rate with zero risk.</p>
         <p>Low-interest debt (under 4–5%) is a different conversation — you might genuinely come out ahead investing rather than paying it off aggressively. But credit card debt at current rates? Pay that down first.</p>
+      </div>
+    `;
+    return card;
+  }
+
+  // ── Security topic ─────────────────────────────────────────────────────
+
+  private renderSecurityCards(grid: HTMLElement): void {
+    grid.appendChild(this.cardKeyPairBasics());
+    grid.appendChild(this.cardHowFFUsesKeys());
+    grid.appendChild(this.cardPassphrase());
+    grid.appendChild(this.cardSecurityInTheWild());
+  }
+
+  private cardKeyPairBasics(): HTMLElement {
+    const card = this.makeCard('🔑', 'Public & Private Keys — The Lock and the Key');
+    card.innerHTML += `
+      <div class="edu-card-voice">
+        <p>Imagine a padlock you can hand to anyone. They can lock a box with it, but only <em>you</em> hold the key that opens it. That's the core idea behind <strong>asymmetric cryptography</strong> — and it's one of the most powerful ideas in computer security.</p>
+        <p>You have two mathematically linked pieces:</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div class="calc-result good" style="border-left-color:var(--ff-navy)">
+          <div style="font-weight:700;color:var(--ff-navy);margin-bottom:var(--space-2)">🔓 Public Key</div>
+          <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm);line-height:1.7">
+            <li>Safe to share with anyone</li>
+            <li>Encrypts data or verifies a signature</li>
+            <li>Cannot decrypt what it encrypted</li>
+          </ul>
+        </div>
+        <div class="calc-result" style="border-left-color:var(--ff-rust)">
+          <div style="font-weight:700;color:var(--ff-rust);margin-bottom:var(--space-2)">🔒 Private Key</div>
+          <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm);line-height:1.7">
+            <li>Never leaves your possession</li>
+            <li>Decrypts data or creates a signature</li>
+            <li>The only thing that can undo the lock</li>
+          </ul>
+        </div>
+      </div>
+      <div class="edu-card-voice">
+        <p>The magic: even if someone intercepts everything encrypted with your public key, they cannot read it. The math connecting the two keys is a one-way function — trivial in one direction, computationally impossible to reverse without the private key.</p>
+        <p>This asymmetry is what lets you prove identity, share secrets, and communicate privately without ever meeting in person to agree on a shared password first.</p>
+      </div>
+    `;
+    return card;
+  }
+
+  private cardHowFFUsesKeys(): HTMLElement {
+    const card = this.makeCard('🐷', 'How Financial Finger Uses Your Keys');
+    card.innerHTML += `
+      <div class="edu-card-voice">
+        <p>When you set up Financial Finger, it generates an <strong>OpenPGP key pair</strong> on your device and never transmits either key anywhere. Here's exactly what happens each time:</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4)">
+        <div style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <span style="font-size:1.4rem;flex-shrink:0">1️⃣</span>
+          <div class="text-sm"><strong>Setup:</strong> A random <em>vault key</em> is generated — a short, powerful AES symmetric key that encrypts all of your financial records. That vault key is then encrypted with your public key and stored in extension storage.</div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <span style="font-size:1.4rem;flex-shrink:0">2️⃣</span>
+          <div class="text-sm"><strong>Your private key</strong> is encrypted with your passphrase and stored locally. It never exists in plain form on disk — only in memory, briefly, while the vault is unlocked.</div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <span style="font-size:1.4rem;flex-shrink:0">3️⃣</span>
+          <div class="text-sm"><strong>Unlock:</strong> You enter your passphrase → it decrypts your private key → your private key decrypts the vault key → the vault key decrypts your financial records into memory for the session.</div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <span style="font-size:1.4rem;flex-shrink:0">4️⃣</span>
+          <div class="text-sm"><strong>Lock or close:</strong> The vault key is wiped from memory. Your data goes back to being encrypted blobs that are useless without the private key and passphrase.</div>
+        </div>
+      </div>
+      <div class="edu-card-voice">
+        <p>The result: <strong>no service, no server, no cloud account can read your data</strong> — because they never have your private key or passphrase. Even if someone grabbed every byte stored by this extension, they'd have an encrypted mess with no way in.</p>
+        <p>That's the whole point. Your financial life stays yours.</p>
+      </div>
+    `;
+    return card;
+  }
+
+  private cardPassphrase(): HTMLElement {
+    const card = this.makeCard('🛡️', 'Passphrases — The Key to Your Key');
+    card.innerHTML += `
+      <div class="edu-card-voice">
+        <p>A <strong>passphrase</strong> is the human-memorable secret that protects your private key when it's stored at rest. Think of it as the combination on the safe that holds the master key to your vault.</p>
+        <p>Why a <em>passphrase</em> and not a <em>password</em>? Length is the biggest factor in how hard something is to crack. Four random words strung together — <em>"correct horse battery staple"</em> — give you more entropy than a short jumble of symbols most people can barely remember.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div class="calc-result" style="border-left-color:var(--color-danger)">
+          <div style="font-weight:700;color:var(--color-danger);margin-bottom:var(--space-2)">❌ Weak approach</div>
+          <div class="text-sm text-muted" style="font-family:monospace">P@ssw0rd1!</div>
+          <div class="text-sm text-muted" style="margin-top:var(--space-1)">Short, predictable substitutions. Cracked in seconds by modern tools.</div>
+        </div>
+        <div class="calc-result good">
+          <div style="font-weight:700;color:var(--ff-green);margin-bottom:var(--space-2)">✓ Strong approach</div>
+          <div class="text-sm text-muted" style="font-family:monospace">purple-anvil-river-66</div>
+          <div class="text-sm text-muted" style="margin-top:var(--space-1)">Long, random words with a number. Orders of magnitude harder to crack.</div>
+        </div>
+      </div>
+      <div class="edu-card-voice">
+        <p>Under the hood, your passphrase isn't used directly — it's run through a <strong>key derivation function</strong> (KDF) like Argon2 or bcrypt, which is deliberately slow and memory-intensive to compute. Even if an attacker gets your encrypted private key file, each guess costs them real time and hardware. A strong passphrase makes that cost astronomical.</p>
+        <p><strong>The non-negotiable:</strong> write your passphrase down and keep it somewhere physically secure, separate from your device. Forgetting it means your private key — and everything it protects — is permanently inaccessible. There is no "reset password" for a key pair.</p>
+      </div>
+    `;
+    return card;
+  }
+
+  private cardSecurityInTheWild(): HTMLElement {
+    const card = this.makeCard('🌐', 'The Same Ideas, Everywhere You Look');
+    card.innerHTML += `
+      <div class="edu-card-voice">
+        <p>Once you understand public/private keys and passphrases, you start recognizing them everywhere in the technology you already use:</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div style="padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <div style="font-weight:700;margin-bottom:var(--space-1)">🔐 HTTPS / TLS (every website with a padlock)</div>
+          <div class="text-sm text-muted">When your browser connects to a secure site, the server presents a certificate containing its public key. Your browser uses it to negotiate a shared session key — all without ever transmitting that session key in the open. The padlock means your connection is encrypted end-to-end.</div>
+        </div>
+        <div style="padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <div style="font-weight:700;margin-bottom:var(--space-1)">💻 SSH Keys (connecting to servers)</div>
+          <div class="text-sm text-muted">Developers and sysadmins authenticate to remote servers using key pairs instead of passwords. You put your public key on the server; it challenges you to prove you hold the matching private key. No password ever travels over the network.</div>
+        </div>
+        <div style="padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <div style="font-weight:700;margin-bottom:var(--space-1)">✉️ PGP / GPG Email Encryption</div>
+          <div class="text-sm text-muted">The same OpenPGP standard this app uses. You publish your public key so others can send you encrypted email that only you can read. You sign outgoing messages with your private key so recipients can verify the message genuinely came from you.</div>
+        </div>
+        <div style="padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <div style="font-weight:700;margin-bottom:var(--space-1)">💬 End-to-End Encrypted Messaging (Signal, WhatsApp)</div>
+          <div class="text-sm text-muted">Each device generates a key pair. Messages are encrypted with the recipient's public key before leaving your phone. Even the app's own servers see only ciphertext. The company literally cannot read your messages — the keys are only on the devices.</div>
+        </div>
+        <div style="padding:var(--space-3);background:var(--color-bg-sunken);border-radius:var(--radius-md)">
+          <div style="font-weight:700;margin-bottom:var(--space-1)">🔏 Code Signing & Software Updates</div>
+          <div class="text-sm text-muted">When your OS installs an update, it verifies the package was signed with the software vendor's private key. That signature proves the code wasn't tampered with in transit. Your device already knew the vendor's public key and trusts it to verify the signature.</div>
+        </div>
+      </div>
+      <div class="edu-card-voice">
+        <p>The pattern is always the same: <strong>public key locks or verifies, private key unlocks or signs, passphrase protects the private key</strong>. Once you internalize that triangle, a huge swath of how the modern internet works — and why certain attacks succeed while others don't — snaps into focus.</p>
+        <p>You're not just protecting your budget. You're practicing the same discipline that secures banks, hospitals, and governments.</p>
       </div>
     `;
     return card;

@@ -1,4 +1,5 @@
 import './calendar.css';
+import { navigate } from '@/app/router';
 import { getExpenses, saveExpense, saveExpensePaidRecord, createExpensePaidRecord,
          getDebtAccounts, getDebtPayments, saveDebtPayment, createDebtPayment,
          getCategories, getIncomeSources, getMembers,
@@ -333,6 +334,12 @@ export class CalendarPage {
     this.container.appendChild(gridWrap);
   }
 
+  private chipNav(e: MouseEvent, sessionKey: string, id: string, route: '/expenses' | '/income' | '/debt'): void {
+    if ((e.target as HTMLElement).closest('a, button')) return;
+    sessionStorage.setItem(sessionKey, id);
+    navigate(route);
+  }
+
   private buildSummaryBar(bills: Expense[]): HTMLElement {
     const bar = document.createElement('div');
     bar.className = 'calendar-summary';
@@ -376,6 +383,7 @@ export class CalendarPage {
     chip.className = 'calendar-payday-chip';
     chip.setAttribute('data-testid', 'calendar-payday-chip');
     chip.setAttribute('data-source-id', source.id);
+    chip.style.cursor = 'pointer';
     chip.innerHTML = `
       <div class="cal-chip-title">
         <span class="cal-chip-icon">💰</span>
@@ -384,6 +392,7 @@ export class CalendarPage {
       ${member ? `<span class="cal-chip-type">${member.name}</span>` : ''}
       <span class="cal-chip-amount">${fmtCents.format(amount)}</span>
     `;
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-source', source.id, '/income'));
     return chip;
   }
 
@@ -393,6 +402,7 @@ export class CalendarPage {
     chip.className = 'calendar-payday-chip';
     chip.setAttribute('data-testid', 'calendar-one-time-income-chip');
     chip.setAttribute('data-source-id', source.id);
+    chip.style.cursor = 'pointer';
     chip.innerHTML = `
       <div class="cal-chip-title">
         <span class="cal-chip-icon">💵</span>
@@ -401,6 +411,7 @@ export class CalendarPage {
       <span class="cal-chip-type">${member ? member.name : 'One-time income'}</span>
       <span class="cal-chip-amount">${fmtCents.format(source.amount)}</span>
     `;
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-source', source.id, '/income'));
     return chip;
   }
 
@@ -420,6 +431,8 @@ export class CalendarPage {
     chip.setAttribute('data-testid', 'calendar-bill-chip');
     chip.setAttribute('data-expense-id', expense.id);
     chip.setAttribute('data-bill-status', chipStatus);
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-expense', expense.id, '/expenses'));
     chip.innerHTML = `
       <div class="cal-chip-title">
         ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
@@ -467,6 +480,8 @@ export class CalendarPage {
     chip.className = 'calendar-expense-chip';
     chip.setAttribute('data-testid', 'calendar-expense-chip');
     chip.setAttribute('data-expense-id', expense.id);
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-expense', expense.id, '/expenses'));
     chip.innerHTML = `
       <div class="cal-chip-title">
         <span class="cal-chip-dot-color" style="background:${categoryColor}"></span>
@@ -507,6 +522,8 @@ export class CalendarPage {
     chip.setAttribute('data-testid', 'calendar-debt-chip');
     chip.setAttribute('data-account-id', account.id);
     chip.setAttribute('data-debt-status', chipStatus);
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-account', account.id, '/debt'));
     chip.innerHTML = `
       <div class="cal-chip-title">
         ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
@@ -548,6 +565,8 @@ export class CalendarPage {
     chip.className = 'calendar-payment-chip';
     chip.setAttribute('data-testid', 'calendar-payment-chip');
     chip.setAttribute('data-payment-id', payment.id);
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-account', account.id, '/debt'));
     chip.innerHTML = `
       <div class="cal-chip-title">
         <span class="cal-chip-icon">💸</span>

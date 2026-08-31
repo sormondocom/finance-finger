@@ -65,6 +65,17 @@ export class IncomePage {
     // ── Source groups ────────────────────────────────────────────────────
     if (this.members.length > 0) {
       this.container.appendChild(this.buildSourcesCard());
+      const focusId = sessionStorage.getItem('cal-focus-source');
+      if (focusId) {
+        sessionStorage.removeItem('cal-focus-source');
+        requestAnimationFrame(() => {
+          const target = this.container.querySelector<HTMLElement>(`[data-source-id="${focusId}"]`);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('cal-focus-highlight');
+          }
+        });
+      }
     }
   }
 
@@ -96,8 +107,8 @@ export class IncomePage {
         const [allAccounts, allExpenses] = await Promise.all([getBankAccounts(), getExpenses()]);
         await Promise.all([
           ...toDelete.map((s) => deleteIncomeSource(s.id)),
-          ...allAccounts.filter((a) => a.memberId === m.id).map((a) => saveBankAccount({ ...a, memberId: undefined })),
-          ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: undefined })),
+          ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
+          ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
         ]);
         await deleteMember(m.id);
         await this.load();

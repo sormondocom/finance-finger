@@ -12,7 +12,7 @@ import {
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { fmt, fmtCents, sourceMonthly, toMonthly } from '@/utils/finance';
-import { buildLinkedRemindersSection } from '@/utils/notificationModal';
+import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { BankAccount, BankAccountType, BankAccountOwnership, DebtPayment, HouseholdMember, IncomeSource, Expense, ExpensePaidRecord } from '@/types';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
@@ -406,6 +406,17 @@ export class AccountsPage {
       actionsCell.appendChild(link);
     }
 
+    const notifBtn = document.createElement('button');
+    notifBtn.className = 'icon-btn';
+    notifBtn.setAttribute('data-action', 'notif');
+    notifBtn.setAttribute('data-testid', 'account-notif');
+    notifBtn.title = 'Add reminder';
+    notifBtn.textContent = '🔔';
+    notifBtn.addEventListener('click', () => {
+      openAddNotificationModal({ label: account.name, defaultTrigger: 'monthly-day' });
+    });
+    actionsCell.appendChild(notifBtn);
+
     const editBtn = document.createElement('button');
     editBtn.className = 'icon-btn';
     editBtn.setAttribute('data-action', 'edit');
@@ -430,10 +441,10 @@ export class AccountsPage {
         getDebtPayments(),
       ]);
       await Promise.all([
-        ...sources.filter((s) => s.bankAccountId === account.id).map((s) => saveIncomeSource({ ...s, bankAccountId: undefined })),
-        ...expenses.filter((e) => e.bankAccountId === account.id).map((e) => saveExpense({ ...e, bankAccountId: undefined })),
-        ...paidRecords.filter((r) => r.bankAccountId === account.id).map((r) => saveExpensePaidRecord({ ...r, bankAccountId: undefined })),
-        ...debtPayments.filter((p) => p.bankAccountId === account.id).map((p) => saveDebtPayment({ ...p, bankAccountId: undefined })),
+        ...sources.filter((s) => s.bankAccountId === account.id).map(({ bankAccountId: _, ...s }) => saveIncomeSource(s)),
+        ...expenses.filter((e) => e.bankAccountId === account.id).map(({ bankAccountId: _, ...e }) => saveExpense(e)),
+        ...paidRecords.filter((r) => r.bankAccountId === account.id).map(({ bankAccountId: _, ...r }) => saveExpensePaidRecord(r)),
+        ...debtPayments.filter((p) => p.bankAccountId === account.id).map(({ bankAccountId: _, ...p }) => saveDebtPayment(p)),
       ]);
       await deleteBankAccount(account.id);
       await this.load();

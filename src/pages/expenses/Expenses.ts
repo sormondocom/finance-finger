@@ -139,6 +139,17 @@ export class ExpensesPage {
     if (this.expenses.length > 0 || this.categories.length > 0) {
       this.container.appendChild(this.buildFilterBar());
       this.container.appendChild(this.buildExpenseList(visible));
+      const focusId = sessionStorage.getItem('cal-focus-expense');
+      if (focusId) {
+        sessionStorage.removeItem('cal-focus-expense');
+        requestAnimationFrame(() => {
+          const target = this.container.querySelector<HTMLElement>(`[data-expense-id="${focusId}"]`);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('cal-focus-highlight');
+          }
+        });
+      }
     }
   }
 
@@ -225,7 +236,7 @@ export class ExpensesPage {
         await Promise.all(
           this.categories
             .filter((c) => c.parentId === cat.id)
-            .map((c) => saveCategory({ ...c, parentId: undefined })),
+            .map((c) => saveCategory({ ...c, parentId: null })),
         );
         await deleteCategory(cat.id);
         if (this.activeCategoryId === cat.id) this.activeCategoryId = null;
@@ -910,9 +921,15 @@ export class ExpensesPage {
         const selectedCardId   = sourceVal.startsWith('card:') ? sourceVal.slice(5) : null;
         const selectedBankId   = sourceVal.startsWith('bank:') ? sourceVal.slice(5) : null;
 
-        const record: ExpensePaidRecord = isUpdate && existingRecord
-          ? { ...existingRecord, amount: paidAmount, date: paidDate, cardId: selectedCardId ?? undefined, bankAccountId: selectedBankId ?? undefined }
-          : { ...createExpensePaidRecord(expense.id, paidAmount, paidDate), cardId: selectedCardId ?? undefined, bankAccountId: selectedBankId ?? undefined };
+        const { cardId: _cid, bankAccountId: _bid, ...baseFields } =
+          isUpdate && existingRecord ? existingRecord : createExpensePaidRecord(expense.id, paidAmount, paidDate);
+        const record: ExpensePaidRecord = {
+          ...baseFields,
+          amount: paidAmount,
+          date: paidDate,
+          ...(selectedCardId ? { cardId: selectedCardId } : {}),
+          ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
+        };
         const ops: Promise<unknown>[] = [saveExpensePaidRecord(record)];
 
         // Update expense.date to signal last-paid for tracked bills
@@ -1437,12 +1454,13 @@ export class ExpensesPage {
 
     if (existing && existing.accountId === newCardId) {
       // Same card — update merchant/amount/date in place
+      const { categoryId: _cat, ...existingBase } = existing;
       await saveCardCharge({
-        ...existing,
+        ...existingBase,
         merchant: expense.description,
         amount: expense.amount,
         date: expense.date,
-        categoryId: expense.categoryId || undefined,
+        ...(expense.categoryId ? { categoryId: expense.categoryId } : {}),
       });
     } else {
       // New card (or first time) — remove old charge and create fresh

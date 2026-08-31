@@ -158,6 +158,17 @@ export class DebtPage {
 
     // ── Account list ─────────────────────────────────────────────────────
     this.container.appendChild(this.buildDebtList());
+    const calFocusAccount = sessionStorage.getItem('cal-focus-account');
+    if (calFocusAccount) {
+      sessionStorage.removeItem('cal-focus-account');
+      requestAnimationFrame(() => {
+        const target = this.container.querySelector<HTMLElement>(`[data-account-id="${calFocusAccount}"]`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('cal-focus-highlight');
+        }
+      });
+    }
 
     // ── Merchant spending summary ─────────────────────────────────────────
     if (this.charges.length > 0) {
@@ -441,9 +452,9 @@ export class DebtPage {
       await Promise.all([
         ...payments.map((p) => deleteDebtPayment(p.id)),
         ...charges.map((c) => deleteCardCharge(c.id)),
-        ...allExpenses.filter((e) => e.linkedCardId === a.id).map((e) => saveExpense({ ...e, linkedCardId: undefined })),
-        ...allCategories.filter((c) => c.defaultCardId === a.id).map((c) => saveCategory({ ...c, defaultCardId: undefined })),
-        ...allPaidRecords.filter((r) => r.cardId === a.id).map((r) => saveExpensePaidRecord({ ...r, cardId: undefined })),
+        ...allExpenses.filter((e) => e.linkedCardId === a.id).map(({ linkedCardId: _, ...e }) => saveExpense(e)),
+        ...allCategories.filter((c) => c.defaultCardId === a.id).map(({ defaultCardId: _, ...c }) => saveCategory(c)),
+        ...allPaidRecords.filter((r) => r.cardId === a.id).map(({ cardId: _, ...r }) => saveExpensePaidRecord(r)),
       ]);
       await deleteDebtAccount(a.id);
       if (this.selectedAccountId === a.id) this.selectedAccountId = null;
@@ -651,13 +662,14 @@ export class DebtPage {
           updatedAt: Date.now(),
         };
 
+        const { note: _n, bankAccountId: _b, ...pBase } = p;
         const updatedPayment: DebtPayment = {
-          ...p,
+          ...pBase,
           amount: newAmount,
           date: new Date(dateStr + 'T12:00:00').getTime(),
           type: typeVal,
-          note: note || undefined,
-          bankAccountId: bankAccountId,
+          ...(note ? { note } : {}),
+          ...(bankAccountId ? { bankAccountId } : {}),
         };
 
         await Promise.all([saveDebtPayment(updatedPayment), saveDebtAccount(updatedAccount)]);

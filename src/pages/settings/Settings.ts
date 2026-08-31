@@ -261,8 +261,8 @@ export class SettingsPage {
           const toDelete = sources.filter((s) => s.memberId === m.id);
           await Promise.all([
             ...toDelete.map((s) => deleteIncomeSource(s.id)),
-            ...allAccounts.filter((a) => a.memberId === m.id).map((a) => saveBankAccount({ ...a, memberId: undefined })),
-            ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: undefined })),
+            ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
+            ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
           ]);
           await deleteMember(m.id);
           this.members = this.members.filter((x) => x.id !== m.id);

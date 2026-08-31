@@ -818,7 +818,7 @@ export class BreakGlassPage {
       errEl.style.display = 'none';
       const result = collect();
       if ('error' in result) {
-        errEl.textContent = result.error;
+        errEl.textContent = result.error as string;
         errEl.style.display = '';
         return;
       }
