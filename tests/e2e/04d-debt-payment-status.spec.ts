@@ -21,10 +21,13 @@ const thisYear = today.getFullYear();
 const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 // 5 days before today (min day 1) — always a past-due date unless run on the 1st
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
-// Tomorrow, checked against the actual days in this month.
-// Only null on the last day of the month (no tomorrow exists this month).
+// Due-soon: tomorrow — but the debt form clamps dueDay to max 28, so due-soon is only
+// achievable when dayOfMonth ≤ 28 (otherwise Math.min(tomorrow, 28) < dayOfMonth → past-due).
+// Also guard that tomorrow is a valid date in this month.
 const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
-const DUE_SOON_DAY: number | null = dayOfMonth + 1 <= daysInMonth ? dayOfMonth + 1 : null;
+const rawDueSoonDay = dayOfMonth + 1;
+const DUE_SOON_DAY: number | null =
+  rawDueSoonDay <= daysInMonth && dayOfMonth <= 28 ? rawDueSoonDay : null;
 
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
@@ -72,7 +75,7 @@ test('sets minimum payment on past-due card via edit', async () => {
 });
 
 test('adds a credit card due within the week', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   await page.click('[data-testid="add-debt-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
@@ -80,7 +83,7 @@ test('adds a credit card due within the week', async () => {
   await page.fill('#da-balance', '1500');
   await page.fill('#da-apr', '19.99');
   await page.fill('#da-limit', '2000');
-  await page.fill('#da-duedate', thisMonthDate(DUE_SOON_DAY));
+  await page.fill('#da-duedate', thisMonthDate(DUE_SOON_DAY!));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' })).toBeVisible();
@@ -88,7 +91,7 @@ test('adds a credit card due within the week', async () => {
 });
 
 test('sets minimum payment on due-soon card via edit', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' });
   await row.locator('[data-testid="debt-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -142,7 +145,7 @@ test('past-due card row has red left-border styling', async () => {
 });
 
 test('due-soon card shows the due-soon badge with clock icon', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' });
   await expect(row.locator('.debt-badge--due-soon')).toBeVisible();
   await expect(row.locator('.debt-badge--due-soon')).toContainText('⏰');
@@ -150,7 +153,7 @@ test('due-soon card shows the due-soon badge with clock icon', async () => {
 });
 
 test('due-soon card row has amber left-border styling', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const wrap = page.locator('.debt-account-wrap--due-soon').filter({
     has: page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' }),
   });
@@ -160,7 +163,7 @@ test('due-soon card row has amber left-border styling', async () => {
 // ── Recording a qualifying payment ────────────────────────────────────────────
 
 test('recording a payment at the minimum changes status to paid', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' });
   await row.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -175,7 +178,7 @@ test('recording a payment at the minimum changes status to paid', async () => {
 });
 
 test('paid card row has green left-border styling', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const wrap = page.locator('.debt-account-wrap--paid').filter({
     has: page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' }),
   });
@@ -183,7 +186,7 @@ test('paid card row has green left-border styling', async () => {
 });
 
 test('payment history panel shows a paid chip for the current month', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
+  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day: debt form clamps dueDay to 28, impossible when dayOfMonth > 28');
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Due Soon Card' });
   const histBtn = row.locator('[data-testid="payment-history-btn"]');
   await expect(histBtn).toBeVisible();

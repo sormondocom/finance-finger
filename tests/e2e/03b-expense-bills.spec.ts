@@ -26,10 +26,9 @@ const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due: 5 days before today (min day 1)
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
-// Due-soon: tomorrow, checked against the actual days in this month.
-// Only null on the last day of the month (no tomorrow exists this month).
+// Due-soon: tomorrow if it still falls in this month; otherwise today (daysUntilDue=0 is ≤7).
 const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
-const DUE_SOON_DAY: number | null = dayOfMonth + 1 <= daysInMonth ? dayOfMonth + 1 : null;
+const DUE_SOON_DAY: number = dayOfMonth < daysInMonth ? dayOfMonth + 1 : dayOfMonth;
 
 // Build a YYYY-MM-DD string for the given day in the current month.
 // The form's "First due date" picker extracts dueDay + auto-sets expense.date
@@ -98,7 +97,6 @@ test('adds a past-due recurring bill (Electric Bill)', async () => {
 });
 
 test('adds a due-soon recurring bill (Water Bill)', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
@@ -107,7 +105,7 @@ test('adds a due-soon recurring bill (Water Bill)', async () => {
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY!));
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -139,7 +137,6 @@ test('past-due bill shows the Mark Paid button', async () => {
 // ── Due-soon badge and border ─────────────────────────────────────────────────
 
 test('due-soon bill shows the due-soon badge with clock icon', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await expect(row.locator('[data-testid="expense-bill-badge"]')).toBeVisible();
   await expect(row.locator('[data-testid="expense-bill-badge"]')).toContainText('⏰');
@@ -147,7 +144,6 @@ test('due-soon bill shows the due-soon badge with clock icon', async () => {
 });
 
 test('due-soon bill row has amber left-border styling', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const wrap = page.locator('.expense-bill-wrap--due-soon').filter({
     has: page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' }),
   });
@@ -155,7 +151,6 @@ test('due-soon bill row has amber left-border styling', async () => {
 });
 
 test('due-soon bill shows the Mark Paid button', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await expect(row.locator('[data-testid="expense-record-payment"]')).toBeVisible();
 });
@@ -163,7 +158,6 @@ test('due-soon bill shows the Mark Paid button', async () => {
 // ── Mark Paid ─────────────────────────────────────────────────────────────────
 
 test('clicking Mark Paid opens an amount dialog', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -175,7 +169,6 @@ test('clicking Mark Paid opens an amount dialog', async () => {
 });
 
 test('submitting the mark-paid dialog marks the Water Bill as paid', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   // Submit with the pre-filled default amount
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -189,7 +182,6 @@ test('submitting the mark-paid dialog marks the Water Bill as paid', async () =>
 });
 
 test('paid bill row has green left-border styling', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const wrap = page.locator('.expense-bill-wrap--paid').filter({
     has: page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' }),
   });
@@ -197,13 +189,11 @@ test('paid bill row has green left-border styling', async () => {
 });
 
 test('Mark Paid button is gone after the bill is paid', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await expect(row.locator('[data-testid="expense-record-payment"]')).not.toBeVisible();
 });
 
 test('paid bill date label starts with Paid', async () => {
-  test.skip(DUE_SOON_DAY === null, 'No valid due-soon day exists on the last day of the month');
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await expect(row.locator('.expense-row-date')).toContainText('Paid');
 });

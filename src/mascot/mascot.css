@@ -216,7 +216,7 @@
   transform: scale(0.97);
 }
 
-/* ── Bell Notification Overlay ─────────────────────────────────────── */
+/* ── Bell Notification Toast ───────────────────────────────────────── */
 
 @keyframes bell-ring {
   0%   { transform: rotate(0deg); }
@@ -229,106 +229,131 @@
   100% { transform: rotate(0deg); }
 }
 
-@keyframes bell-panel-in {
-  0%   { transform: translateY(28px) scale(0.94); opacity: 0; }
-  100% { transform: translateY(0)    scale(1);    opacity: 1; }
+@keyframes bell-toast-in {
+  0%   { transform: translateX(140px); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
 }
 
-@keyframes bell-panel-out {
-  0%   { transform: translateY(0)    scale(1);    opacity: 1; }
-  100% { transform: translateY(16px) scale(0.96); opacity: 0; }
+@keyframes bell-toast-out {
+  0%   { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(140px); opacity: 0; }
 }
 
-.bell-notif-overlay {
+.bell-notif-toast {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.68);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  bottom: var(--space-6);
+  right: var(--space-6);
   z-index: 10000;
-  animation: celebration-in 0.25s ease forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  pointer-events: all;
+  animation: bell-toast-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.bell-notif-overlay.bell-notif-out {
-  animation: celebration-out 0.3s ease forwards;
+.bell-notif-toast.bell-notif-out {
+  animation: bell-toast-out 0.35s ease-in forwards !important;
   pointer-events: none;
 }
 
-.bell-notif-panel {
+.bell-notif-toast-figure {
+  animation: mascot-idle 3.5s ease-in-out infinite;
+  transform-origin: bottom right;
+}
+
+.bell-notif-toast-figure svg {
+  width: 90px;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+}
+
+.bell-notif-toast-bubble {
   background: var(--color-bg-elevated);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-8) var(--space-10);
-  max-width: 420px;
-  width: 90%;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl);
+  box-shadow: var(--shadow-md), 0 0 0 3px rgba(201, 168, 76, 0.1);
+  padding: var(--space-4) var(--space-5);
+  max-width: 280px;
+  min-width: 180px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(201, 168, 76, 0.15);
-  animation: bell-panel-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  gap: var(--space-2);
+  position: relative;
+  animation: bubble-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-.bell-notif-header {
+.bell-notif-toast-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  right: 24px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 0 solid transparent;
+  border-top: 10px solid var(--color-border);
+}
+
+.bell-notif-toast-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  right: 25px;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 0 solid transparent;
+  border-top: 9px solid var(--color-bg-elevated);
+  z-index: 1;
+}
+
+.bell-notif-toast-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.bell-notif-bell {
-  font-size: 2.2rem;
+.bell-notif-toast-bell {
+  font-size: 1.1rem;
   display: inline-block;
-  animation: bell-ring 0.7s ease-in-out 0.15s;
+  animation: bell-ring 0.7s ease-in-out 0.2s;
   transform-origin: top center;
+  flex-shrink: 0;
 }
 
-.bell-notif-title {
-  font-family: var(--font-serif);
-  font-size: var(--text-xl);
-  font-weight: 800;
+.bell-notif-toast-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   color: var(--color-text);
   line-height: 1.25;
 }
 
-.bell-notif-mascot {
-  width: 88px;
-  flex-shrink: 0;
-}
-
-.bell-notif-mascot svg {
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
-}
-
-.bell-notif-canned {
-  font-size: var(--text-sm);
+.bell-notif-toast-canned {
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-style: italic;
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-.bell-notif-custom {
+.bell-notif-toast-custom {
   background: var(--color-bg-sunken);
   border-left: 3px solid var(--ff-gold);
   border-radius: var(--radius-sm);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   margin: 0;
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
-  line-height: 1.55;
-  text-align: left;
-  width: 100%;
-  box-sizing: border-box;
+  line-height: 1.5;
 }
 
-.bell-notif-btn {
-  margin-top: var(--space-2);
-  min-width: 200px;
+.bell-notif-toast-btn {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  width: 100%;
 }
 
 /* ── Debt Payoff Celebration ───────────────────────────────────────── */

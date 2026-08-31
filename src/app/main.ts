@@ -136,10 +136,22 @@ function launchApp(): void {
   // Replace the setup/unlock history entry so Back doesn't return to the gate.
   navigateReplace('/dashboard');
 
-  // Check for any due custom notifications after the dashboard has rendered
+  // Check for any due custom notifications after the dashboard has rendered, then
+  // align the repeating poll to the top of each clock minute so time-triggered
+  // notifications fire as close to HH:MM:00 as possible rather than at whatever
+  // fractional second the app happened to launch.
   setTimeout(() => {
     import('@/utils/notifications').then(({ checkAndFireNotifications }) => {
-      checkAndFireNotifications();
+      void checkAndFireNotifications();
+
+      // Wait until the next whole minute, then tick every 60 s from there.
+      const now = new Date();
+      const msUntilNextMinute =
+        (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      setTimeout(() => {
+        void checkAndFireNotifications();
+        setInterval(() => { void checkAndFireNotifications(); }, 60_000);
+      }, msUntilNextMinute);
     });
   }, 1500);
 }

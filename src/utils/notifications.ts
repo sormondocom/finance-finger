@@ -117,7 +117,8 @@ export async function checkAndFireNotifications(): Promise<void> {
     for (const notif of toFire) {
       await showBellNotification(notif);
     }
-  } catch {
-    // Notification failures must never crash the app
+  } catch (err) {
+    // Notification failures must never crash the app, but log so they aren't invisible
+    console.error('[FinancialFinger] checkAndFireNotifications error:', err);
   }
 }

@@ -1016,13 +1016,15 @@ export class SettingsPage {
         notif.triggerType = triggerType;
         notif.active = activeCheck.checked;
         notif.updatedAt = Date.now();
-        // Clear all optional trigger fields then set only the applicable ones
+        // Clear all optional trigger fields then set only the applicable ones.
+        // Also clear lastFiredAt so an edited notification is eligible to fire again today.
         delete notif.expenseId;
         delete notif.daysBefore;
         delete notif.monthlyDay;
         delete notif.triggerDate;
         delete notif.triggerTime;
         delete notif.customMessage;
+        delete notif.lastFiredAt;
         if (expenseId !== undefined) notif.expenseId = expenseId;
         if (daysBefore !== undefined) notif.daysBefore = daysBefore;
         if (monthlyDay !== undefined) notif.monthlyDay = monthlyDay;

@@ -477,7 +477,7 @@ export class IncomePage {
       const semi   = freq === 'semimonthly';
       const hourly = !once && getPayType() === 'hourly';
       paytypeRow.style.display      = once ? 'none' : '';
-      salaryRow.style.display       = (!once && !hourly) ? '' : 'none';
+      salaryRow.style.display       = !hourly ? '' : 'none';
       hourlyRow.style.display       = hourly ? '' : 'none';
       dateRow.style.display         = once ? '' : 'none';
       activeRow.style.display       = once ? 'none' : '';

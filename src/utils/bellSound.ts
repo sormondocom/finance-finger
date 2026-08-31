@@ -1,37 +1,44 @@
-export function playBellChime(): void {
+// Classic cowbell synthesis: two square oscillators at inharmonic frequencies
+// (TR-808-style 562 Hz + 845 Hz), shaped through a bandpass filter with a sharp
+// metallic attack and exponential decay. Two strikes give the "CLANG-clang" feel.
+export function playCowbell(): void {
   try {
     const ctx = new AudioContext();
 
-    const ringBell = (freq: number, startTime: number, gain: number) => {
+    const strike = (startTime: number, gainLevel: number) => {
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+      osc1.type = 'square';
+      osc2.type = 'square';
+      osc1.frequency.value = 562;   // fundamental
+      osc2.frequency.value = 845;   // ~1.5× — inharmonic upper partial
 
-      osc1.connect(gainNode);
-      osc2.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      const bpf = ctx.createBiquadFilter();
+      bpf.type = 'bandpass';
+      bpf.frequency.value = 1200;
+      bpf.Q.value = 0.7;
 
-      // Fundamental + inharmonic upper partial for bell timbre
-      osc1.type = 'sine';
-      osc1.frequency.value = freq;
-      osc2.type = 'sine';
-      osc2.frequency.value = freq * 2.756;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.001, startTime);
+      env.gain.linearRampToValueAtTime(gainLevel, startTime + 0.003); // sharp metallic attack
+      env.gain.exponentialRampToValueAtTime(0.001, startTime + 1.0);  // natural decay
 
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(gain, startTime + 0.004);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 2.6);
+      osc1.connect(bpf);
+      osc2.connect(bpf);
+      bpf.connect(env);
+      env.connect(ctx.destination);
 
       osc1.start(startTime);
-      osc1.stop(startTime + 2.8);
       osc2.start(startTime);
-      osc2.stop(startTime + 2.8);
+      osc1.stop(startTime + 1.2);
+      osc2.stop(startTime + 1.2);
     };
 
     const now = ctx.currentTime;
-    ringBell(880, now, 0.22);        // first chime — higher
-    ringBell(698, now + 0.5, 0.18);  // second chime — lower, slightly quieter
+    strike(now, 0.55);          // first hit — loud
+    strike(now + 0.28, 0.35);  // second hit — softer echo
 
-    setTimeout(() => ctx.close(), 6000);
+    setTimeout(() => ctx.close(), 4000);
   } catch {
     // Silent fallback — AudioContext unavailable or blocked
   }

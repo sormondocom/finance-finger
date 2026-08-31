@@ -71,9 +71,11 @@ test('adds a one-time income source', async () => {
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Tax Refund');
-  await page.fill('#sf-amount', '1200');
+  // Select 'once' first so the amount field visibility matches what a real user sees
   await page.selectOption('#sf-freq', 'once');
-  // Date row should appear — fill it
+  // Amount field must still be visible after switching to one-time
+  await expect(page.locator('#sf-amount')).toBeVisible();
+  await page.fill('#sf-amount', '1200');
   await page.fill('#sf-date', '2026-04-15');
 
   await page.click('[data-testid="modal-submit"]');
