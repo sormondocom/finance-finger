@@ -24,9 +24,10 @@ const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due: 5 days before today (min day 1)
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
-// Due-soon: tomorrow if it still falls in this month; otherwise today (daysUntilDue=0 is ≤7).
+// Due-soon: tomorrow. Null on the last day of the month (no valid tomorrow-in-month).
+// With the <= 0 past-due threshold, daysUntilDue=0 is past-due so today can't be due-soon.
 const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
-const DUE_SOON_DAY: number = dayOfMonth < daysInMonth ? dayOfMonth + 1 : dayOfMonth;
+const DUE_SOON_DAY: number | null = dayOfMonth < daysInMonth ? dayOfMonth + 1 : null;
 // "ok" bill: must be >7 days out (strictly outside the due-soon window).
 // Null when fewer than 8 days remain in the month (no valid day exists).
 const OK_DAY: number | null = dayOfMonth + 8 <= daysInMonth ? dayOfMonth + 8 : null;
@@ -76,13 +77,14 @@ test('adds a past-due recurring bill', async () => {
 });
 
 test('adds a due-soon recurring bill', async () => {
+  test.skip(DUE_SOON_DAY === null, 'No due-soon day on the last day of the month');
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-desc', 'Internet');
   await page.fill('#ef-amount', '75');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY));
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Internet' })).toBeVisible();
 });
@@ -132,6 +134,7 @@ test('past-due bill chip appears with past-due status', async () => {
 });
 
 test('due-soon bill chip appears with due-soon status', async () => {
+  test.skip(DUE_SOON_DAY === null, 'No due-soon day on the last day of the month');
   const chip = page.locator('[data-testid="calendar-bill-chip"][data-bill-status="due-soon"]');
   await expect(chip.first()).toBeVisible();
   await expect(chip.first()).toContainText('Internet');

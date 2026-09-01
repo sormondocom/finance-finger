@@ -1906,7 +1906,7 @@ export class DebtPage {
         const cycleEl = body.querySelector<HTMLSelectElement>('#da-cycle');
         const paymentCycle = ((cycleEl?.value ?? 'monthly') as PaymentCycle);
         const dueDateVal = body.querySelector<HTMLInputElement>('#da-duedate')?.value ?? '';
-        const dueDateMs = dueDateVal ? new Date(dueDateVal).getTime() : undefined;
+        const dueDateMs = dueDateVal ? new Date(dueDateVal + 'T00:00:00').getTime() : undefined;
         // Extract day-of-month from the picked date for cycle display (clamped 1–28)
         const dueDay = dueDateVal ? Math.min(parseInt(dueDateVal.split('-')[2]!), 28) : undefined;
         const nextDueDateMs = dueDateMs && !isNaN(dueDateMs) ? dueDateMs : undefined;

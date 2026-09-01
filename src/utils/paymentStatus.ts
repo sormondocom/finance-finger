@@ -108,7 +108,7 @@ export function computePaymentStatus(
       currentMonth = currentMonthTotal > 0 ? 'partial' : 'ok';
     } else {
       const daysUntilDue = effectiveDueDate.getDate() - today;
-      if (daysUntilDue < 0) {
+      if (daysUntilDue <= 0) {
         currentMonth = 'past-due';
       } else if (daysUntilDue <= 7) {
         currentMonth = currentMonthTotal > 0 ? 'partial' : 'due-soon';

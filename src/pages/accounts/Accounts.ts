@@ -13,6 +13,7 @@ import {
 import { openFormModal } from '@/components/Modal';
 import { fmt, fmtCents, sourceMonthly, toMonthly } from '@/utils/finance';
 import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/notificationModal';
+import { navigate } from '@/app/router';
 import type { BankAccount, BankAccountType, BankAccountOwnership, DebtPayment, HouseholdMember, IncomeSource, Expense, ExpensePaidRecord } from '@/types';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
@@ -272,10 +273,12 @@ export class AccountsPage {
     // One-time deposits falling in the selected month
     const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
     const monthEnd = new Date(this.viewYear, this.viewMonth + 1, 1).getTime();
-    const oneTimeIncome = this.incomeSources
-      .filter((s) => s.active && s.frequency === 'once' && s.bankAccountId === account.id
-        && s.date != null && s.date >= monthStart && s.date < monthEnd)
-      .reduce((sum, s) => sum + s.amount, 0);
+    const oneTimeSources = this.incomeSources.filter(
+      (s) => s.active && s.frequency === 'once' && s.bankAccountId === account.id
+        && s.date != null && s.date >= monthStart && s.date < monthEnd,
+    );
+    const oneTimeIncome = oneTimeSources.reduce((sum, s) => sum + s.amount, 0);
+
 
     // Recurring expenses linked to this account with no payment this month → use estimate
     const unpaidEstimates = this.expenses
@@ -370,11 +373,26 @@ export class AccountsPage {
     }
     nameCell.appendChild(nameBottom);
 
+    // Income items list — clickable entries below the balance
+    if (activeSources.length > 0 || oneTimeSources.length > 0) {
+      const incomeList = document.createElement('div');
+      incomeList.className = 'account-income-list';
+
+      activeSources.forEach((s) => {
+        incomeList.appendChild(this.buildIncomeItem(s, fmt.format(sourceMonthly(s)) + '/mo'));
+      });
+      oneTimeSources.forEach((s) => {
+        incomeList.appendChild(this.buildIncomeItem(s, fmt.format(s.amount)));
+      });
+
+      nameCell.appendChild(incomeList);
+    }
+
     row.appendChild(nameCell);
 
-    // Monthly summary — right-aligned, same line as the action buttons
+    // Right-side totals only
     const depositsCell = document.createElement('div');
-    depositsCell.style.cssText = 'text-align:right';
+    depositsCell.className = 'account-deposits-cell';
     const totalDeposits = monthlyIncome + oneTimeIncome;
     if (totalDeposits > 0) {
       const inc = document.createElement('div');
@@ -453,6 +471,32 @@ export class AccountsPage {
 
     row.appendChild(actionsCell);
     return row;
+  }
+
+  // ── Income item (clickable, navigates to Income page with focus) ──────
+
+  private buildIncomeItem(source: IncomeSource, amountLabel: string): HTMLElement {
+    const item = document.createElement('button');
+    item.className = 'account-income-item';
+    item.title = `View "${source.name}" in Income`;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'account-income-item-name';
+    nameSpan.textContent = source.name;
+
+    const amtSpan = document.createElement('span');
+    amtSpan.className = 'account-income-item-amount';
+    amtSpan.textContent = amountLabel;
+
+    item.appendChild(nameSpan);
+    item.appendChild(amtSpan);
+
+    item.addEventListener('click', () => {
+      sessionStorage.setItem('cal-focus-source', source.id);
+      navigate('/income');
+    });
+
+    return item;
   }
 
   // ── Account form modal ─────────────────────────────────────────────────

@@ -56,7 +56,7 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
 
     const daysUntilDue = clampedDay - today;
     const status: BillStatus =
-      daysUntilDue < 0  ? 'past-due'  :
+      daysUntilDue <= 0 ? 'past-due'  :
       daysUntilDue <= 7 ? 'due-soon'  : 'ok';
     return { status, dueDayThisMonth };
   }
@@ -73,7 +73,7 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
 
   const daysUntilDue = clampedDay - today;
   const status: BillStatus =
-    daysUntilDue < 0  ? 'past-due'  :
+    daysUntilDue <= 0 ? 'past-due'  :
     daysUntilDue <= 7 ? 'due-soon'  : 'ok';
   return { status, dueDayThisMonth };
 }

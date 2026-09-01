@@ -95,7 +95,7 @@ function presetRange(key: PresetKey): { start: Date; end: Date } {
   const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
   switch (key) {
     case 'this-week':  return { start: new Date(y, m, d - now.getDay()), end: now };
-    case 'this-month': return { start: new Date(y, m, 1), end: now };
+    case 'this-month': return { start: new Date(y, m, 1), end: new Date(y, m + 1, 0) };
     case 'last-month': return { start: new Date(y, m - 1, 1), end: new Date(y, m, 0) };
     case 'last-3':     return { start: new Date(y, m - 3, d), end: now };
     case 'last-6':     return { start: new Date(y, m - 6, d), end: now };

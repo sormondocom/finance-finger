@@ -218,6 +218,12 @@ test('accounts create form: add reminder then save — reminder persists in Sett
 
 test('income edit form shows Reminders section with linked reminder', async () => {
   await navigateTo(page, 'income');
+  // Dismiss notification toast if it's blocking interaction (reminder polling fires ~60s into test run)
+  const toast = page.locator('.bell-notif-toast');
+  await toast.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
+    await page.locator('.bell-notif-toast-btn').click();
+    await toast.waitFor({ state: 'hidden', timeout: 5000 });
+  });
   const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Freelance Work' });
   await row.locator('[data-testid="source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -230,6 +236,12 @@ test('income edit form shows Reminders section with linked reminder', async () =
 
 test('expense edit form shows Reminders section with linked reminder', async () => {
   await navigateTo(page, 'expenses');
+  // Dismiss notification toast if it's blocking interaction
+  const toast = page.locator('.bell-notif-toast');
+  await toast.waitFor({ state: 'hidden', timeout: 2000 }).catch(async () => {
+    await page.locator('.bell-notif-toast-btn').click();
+    await toast.waitFor({ state: 'hidden', timeout: 5000 });
+  });
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Monthly Rent' });
   await row.locator('[data-testid="expense-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
