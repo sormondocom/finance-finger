@@ -393,3 +393,83 @@ type NotifLinkedItemType = 'expense' | 'debt' | 'income' | 'account'
 | `text` | `string` |  |
 | `memberId?` | `string` | optional household member who wrote it |
 | `createdAt` | `number` |  |
+
+## Bank Transactions (imported)
+
+### `BankTransaction`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `bankAccountId` | `string` |  |
+| `description` | `string` |  |
+| `amount` | `number` | positive = credit (income to account), negative = debit (expense) |
+| `date` | `number` | timestamp |
+| `categoryId?` | `string` |  |
+| `note?` | `string` |  |
+| `importId?` | `string` | links to ImportRecord.id |
+| `createdAt` | `number` |  |
+
+## Import Records
+
+### `ImportRecord`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `checksum` | `string` | SHA-256 hex of raw file text |
+| `targetId` | `string` | bankAccountId or debtAccount.id |
+| `targetType` | `'bank-account' \| 'debt-card'` |  |
+| `targetName` | `string` |  |
+| `importedAt` | `number` |  |
+| `rowCount` | `number` |  |
+| `skippedCount` | `number` |  |
+| `dateRange` | `{ start: number; end: number } \| null` |  |
+
+## Import wizard
+
+### `ReviewAction`
+
+```typescript
+type ReviewAction = { type: 'expense'; expenseId: string; note?: string } | { type: 'debt-payment'; debtAccountId: string; note?: string } | { type: 'transfer'; toAccountId: string; note?: string } | { type: 'income'; note?: string } | { type: 'category'; categoryId?: string; note?: string } | { type: 'skip' }
+```
+
+## Transaction Rules (repeat detection)
+
+### `TransactionRuleAction`
+
+```typescript
+type TransactionRuleAction = { type: 'expense'; expenseId: string } | { type: 'debt-payment'; debtAccountId: string } | { type: 'transfer'; toAccountId: string } | { type: 'income' } | { type: 'category'; categoryId?: string }
+```
+
+### `TransactionRule`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `pattern` | `string` | normalized description key used for matching |
+| `displayName` | `string` | original description (truncated) for display |
+| `action` | `TransactionRuleAction` |  |
+| `appliedCount` | `number` | times this pattern was confirmed |
+| `autoManage` | `boolean` | true = auto-apply on future imports |
+| `createdAt` | `number` |  |
+| `lastUsedAt` | `number` |  |
+
+## Snapshots
+
+### `RawSnapshotEntry`
+
+| Field | Type | Notes |
+|---|---|---|
+| `key` | `string` |  |
+| `rec` | `{ iv: number[]; data: number[] }` |  |
+
+### `RawSnapshot`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `takenAt` | `number` |  |
+| `label` | `string` |  |
+| `snapshotType?` | `'manual' \| 'import'` | undefined = 'manual' for backward compat |
+| `stores` | `Record<string, RawSnapshotEntry[]>` |  |

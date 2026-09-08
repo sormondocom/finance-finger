@@ -74,7 +74,7 @@ export const SUPPORTED_CURRENCIES: Array<{ code: string; name: string }> = [
 // setCurrency() without touching any consumer.
 
 let _currency = 'USD';
-let _locale   = navigator.language || 'en-US';
+let _locale   = (typeof navigator !== 'undefined' ? navigator.language : null) || 'en-US';
 
 let _fmt = new Intl.NumberFormat(_locale, {
   style: 'currency',
