@@ -11,6 +11,7 @@ export type Route =
   | '/reports'
   | '/afford'
   | '/insights'
+  | '/help'
   | '/settings'
   | '/break-glass';
 

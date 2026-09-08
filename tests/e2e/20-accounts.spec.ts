@@ -102,7 +102,7 @@ test('Accounts nav link is positioned between Income and Expenses', async () => 
 
 test('Accounts page loads with empty state', async () => {
   await navigateTo(page, 'accounts');
-  await expect(page.locator('h1')).toContainText('Bank Accounts');
+  await expect(page.locator('h1')).toContainText('Accounts');
   await expect(page.locator('.empty-state')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-01-empty.png' });
 });
@@ -140,7 +140,7 @@ test('selecting Individual ownership reveals a member dropdown', async () => {
 test('adds Chase Checking as a household checking account', async () => {
   await page.fill('#ba-name', 'Chase Checking');
   await page.selectOption('#ba-type', 'checking');
-  await page.fill('#ba-balance', '3200');
+  await page.fill('#ba-balance', '3200.50');
   // ownership already household (reset above)
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -164,7 +164,8 @@ test('Chase Checking row shows the balance before the action buttons', async () 
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'Chase Checking' });
   const balance = row.locator('[data-testid="account-balance"]');
   await expect(balance).toBeVisible();
-  await expect(balance).toContainText('3,200');
+  // Cents preserved: $3,200.50 not $3,200 or $3,201
+  await expect(balance).toContainText('$3,200.50');
 });
 
 test('Chase Checking row shows a color swatch dot', async () => {
@@ -317,15 +318,15 @@ test('Income by Account card has a row for Main Checking', async () => {
 test('Income by Account row shows the monthly income amount', async () => {
   const card = page.locator('[data-testid="income-by-account-card"]');
   const row = card.locator('[data-testid="income-by-account-row"]').filter({ hasText: 'Main Checking' });
-  // Day Job is $4,000/month
-  await expect(row).toContainText('4,000');
+  // Day Job is $4,000/month; dashboard income-by-account uses fmt (rounded), no cents suffix
+  await expect(row).toContainText('$4,000');
 });
 
 test('Income by Account card has a Manage link that navigates to Accounts', async () => {
   const manageLink = page.locator('[data-testid="income-by-account-card"]').locator('a', { hasText: 'Manage' });
   await expect(manageLink).toBeVisible();
   await manageLink.click();
-  await expect(page.locator('h1')).toContainText('Bank Accounts');
+  await expect(page.locator('h1')).toContainText('Accounts');
 });
 
 // ── Deposits chart with data ──────────────────────────────────────────────────
@@ -346,9 +347,9 @@ test('Main Checking row shows current balance before the action buttons', async 
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'Main Checking' });
   const balance = row.locator('[data-testid="account-balance"]');
   await expect(balance).toBeVisible();
-  // startingBalance($3,200) + Day Job recurring income($4,000/mo) = $7,200
+  // startingBalance($3,200.50) + Day Job recurring income($4,000/mo) = $7,200.50
   // Internet expense is non-recurring so it is not subtracted
-  await expect(balance).toContainText('7,200');
+  await expect(balance).toContainText('$7,200.50');
 });
 
 test('Main Checking row shows monthly deposit income below the balance', async () => {

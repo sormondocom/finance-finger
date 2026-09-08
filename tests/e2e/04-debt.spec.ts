@@ -44,7 +44,10 @@ test('adds a credit card debt', async () => {
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Platinum' })).toBeVisible();
+  const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Platinum' });
+  await expect(visaRow).toBeVisible();
+  // Balance shown with cents via fmtCents
+  await expect(visaRow.locator('[data-testid="debt-row-balance"]')).toContainText('$4,500.00');
   await page.screenshot({ path: 'tests/screenshots/debt-02-card-added.png' });
 });
 
@@ -70,13 +73,16 @@ test('adds a medical debt', async () => {
 
   await page.selectOption('#da-type', 'medical');
   await page.fill('#da-name', 'ER Bill');
-  await page.fill('#da-balance', '2100');
+  await page.fill('#da-balance', '2100.75');
   // Medical allows 0% APR
   await page.fill('#da-apr', '0');
   await page.fill('#da-payment-fixed', '150');
 
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="debt-row"]').filter({ hasText: 'ER Bill' })).toBeVisible();
+  const erRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'ER Bill' });
+  await expect(erRow).toBeVisible();
+  // Verify trailing-zero fidelity: $2,100.75 not $2,100.8 or $2,101
+  await expect(erRow.locator('[data-testid="debt-row-balance"]')).toContainText('$2,100.75');
   await page.screenshot({ path: 'tests/screenshots/debt-04-medical-added.png' });
 });
 
@@ -98,8 +104,8 @@ test('adds an auto loan', async () => {
 
 test('debt total reflects all accounts', async () => {
   const total = await page.locator('[data-testid="debt-total-value"]').innerText();
-  // 4500 + 285000 + 2100 + 18500 = 310100
-  expect(total).toMatch(/\$310,100/);
+  // 4500 + 285000 + 2100.75 + 18500 = 310100.75 — cents shown via fmtCents
+  expect(total).toMatch(/\$310,100\.75/);
 });
 
 test('edits the credit card', async () => {

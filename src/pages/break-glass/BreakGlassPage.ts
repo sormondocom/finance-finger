@@ -1,4 +1,5 @@
 import './break-glass.css';
+import { computeBillStatus } from '@/utils/billStatus';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { navigate } from '@/app/router';
 import {
@@ -12,11 +13,12 @@ import {
   getExpensePaidRecords, saveExpensePaidRecord, deleteExpensePaidRecord,
   getBankAccounts, saveBankAccount, deleteBankAccount,
   getScenarios, saveScenario, deleteScenario,
+  getAllCalendarMemos, saveCalendarMemo, deleteCalendarMemo,
 } from '@/db';
 import type {
   MascotGender,
   HouseholdMember, IncomeSource, ExpenseCategory, Expense,
-  DebtAccount, DebtPayment, CardCharge, ExpensePaidRecord, BankAccount, Scenario,
+  DebtAccount, DebtPayment, CardCharge, ExpensePaidRecord, BankAccount, Scenario, CalendarMemo,
 } from '@/types';
 
 // ── Store registry ────────────────────────────────────────────────────────────
@@ -58,11 +60,12 @@ export const STORES: Record<string, StoreEntry> = {
   expense_categories:   storeOf('Expense Categories', getCategories,               saveCategory,         deleteCategory,         (r: ExpenseCategory)    => r.name),
   expenses:             storeOf('Expenses',           getExpenses,                 saveExpense,          deleteExpense,          (r: Expense)            => r.description),
   debt_accounts:        storeOf('Debt Accounts',      getDebtAccounts,             saveDebtAccount,      deleteDebtAccount,      (r: DebtAccount)        => r.name),
-  bank_accounts:        storeOf('Bank Accounts',      getBankAccounts,             saveBankAccount,      deleteBankAccount,      (r: BankAccount)        => r.name),
+  bank_accounts:        storeOf('Accounts',      getBankAccounts,             saveBankAccount,      deleteBankAccount,      (r: BankAccount)        => r.name),
   debt_payments:        storeOf('Debt Payments',      () => getDebtPayments(),     saveDebtPayment,      deleteDebtPayment,      (r: DebtPayment)        => `${fmtDate(r.date)} — ${fmt$(r.amount)}`),
   card_charges:         storeOf('Card Charges',       () => getCardCharges(),      saveCardCharge,       deleteCardCharge,       (r: CardCharge)         => `${r.merchant} (${fmt$(r.amount)})`),
   expense_paid_records: storeOf('Paid Records',       () => getExpensePaidRecords(), saveExpensePaidRecord, deleteExpensePaidRecord, (r: ExpensePaidRecord) => `${fmtDate(r.date)} — ${fmt$(r.amount)}`),
   scenarios:            storeOf('Scenarios',          getScenarios,                saveScenario,         deleteScenario,         (r: Scenario)           => r.name),
+  calendar_memos:       storeOf('Calendar Memos',     getAllCalendarMemos,          saveCalendarMemo,     deleteCalendarMemo,     (r: CalendarMemo)       => `${r.date} — ${r.text.slice(0, 40)}${r.text.length > 40 ? '…' : ''}`),
 };
 
 // ── Orphan scan definitions ───────────────────────────────────────────────────
@@ -93,6 +96,7 @@ const FK_CHECKS: FkCheck[] = [
   { sourceStore: 'card_charges',         field: 'categoryId',      fieldLabel: 'Category',        targetStore: 'expense_categories', nullable: true  },
   { sourceStore: 'card_charges',         field: 'sourceExpenseId', fieldLabel: 'Source Expense',  targetStore: 'expenses',           nullable: true  },
   { sourceStore: 'bank_accounts',        field: 'memberId',        fieldLabel: 'Member',          targetStore: 'members',            nullable: true  },
+  { sourceStore: 'calendar_memos',       field: 'memberId',        fieldLabel: 'Member',          targetStore: 'members',            nullable: true  },
 ];
 
 interface OrphanIssue {
@@ -103,6 +107,13 @@ interface OrphanIssue {
   missingValue: string;
   targetStore: string;
   type: 'dangling' | 'missing';
+}
+
+interface ConsistencyIssue {
+  sourceStore: string;
+  record: Rec;
+  description: string;
+  fix: () => Promise<void>;
 }
 
 // ── Field type inference ──────────────────────────────────────────────────────
@@ -901,11 +912,12 @@ export class BreakGlassPage {
       statusEl.textContent = '';
       results.innerHTML = '';
       try {
-        const issues = await this.runScan();
-        this.renderScanResults(results, issues);
-        statusEl.textContent = issues.length === 0
+        const { orphans, consistency } = await this.runScan();
+        this.renderScanResults(results, orphans, consistency);
+        const total = orphans.length + consistency.length;
+        statusEl.textContent = total === 0
           ? '✅ Clean'
-          : `⚠ ${issues.length} issue${issues.length !== 1 ? 's' : ''} found`;
+          : `⚠ ${total} issue${total !== 1 ? 's' : ''} found`;
       } catch (e) {
         results.innerHTML = `<p class="bg-scanner-err">Scan failed: ${(e as Error).message}</p>`;
       } finally {
@@ -916,10 +928,14 @@ export class BreakGlassPage {
 
     wrapper.appendChild(toolbar);
     wrapper.appendChild(results);
+
+    // Auto-run scan when the tab is shown
+    requestAnimationFrame(() => scanBtn.click());
+
     return wrapper;
   }
 
-  private async runScan(): Promise<OrphanIssue[]> {
+  private async runScan(): Promise<{ orphans: OrphanIssue[]; consistency: ConsistencyIssue[] }> {
     const storeData = new Map<string, Rec[]>();
     await Promise.all(
       Object.entries(STORES).map(async ([key, entry]) => {
@@ -932,7 +948,8 @@ export class BreakGlassPage {
       idSets.set(key, new Set(recs.map((r) => r.id)));
     });
 
-    const issues: OrphanIssue[] = [];
+    // ── FK reference checks ───────────────────────────────────────────────────
+    const orphans: OrphanIssue[] = [];
 
     for (const check of FK_CHECKS) {
       const sourceRecs = storeData.get(check.sourceStore) ?? [];
@@ -943,7 +960,7 @@ export class BreakGlassPage {
 
         if (fkValue === null || fkValue === undefined || fkValue === '') {
           if (!check.nullable) {
-            issues.push({
+            orphans.push({
               sourceStore: check.sourceStore, field: check.field, fieldLabel: check.fieldLabel,
               record: rec, missingValue: '', targetStore: check.targetStore, type: 'missing',
             });
@@ -952,7 +969,7 @@ export class BreakGlassPage {
         }
 
         if (!targetIds.has(fkValue as string)) {
-          issues.push({
+          orphans.push({
             sourceStore: check.sourceStore, field: check.field, fieldLabel: check.fieldLabel,
             record: rec, missingValue: fkValue as string, targetStore: check.targetStore, type: 'dangling',
           });
@@ -960,13 +977,73 @@ export class BreakGlassPage {
       }
     }
 
-    return issues;
+    // ── Semantic consistency checks ───────────────────────────────────────────
+    const consistency: ConsistencyIssue[] = [];
+    const paidRecs   = storeData.get('expense_paid_records') ?? [];
+    const expenses   = storeData.get('expenses') ?? [];
+    const charges    = storeData.get('card_charges') ?? [];
+    // Check 1: Bill expense shows as paid (via computeBillStatus) but has no paid records
+    for (const rec of expenses) {
+      if (!rec['recurring'] || !rec['dueDay']) continue;
+      const hasRecords = paidRecs.some((r) => r['expenseId'] === rec.id);
+      if (hasRecords) continue;
+      const expDate = rec['date'] as number ?? 0;
+      const billStatus = computeBillStatus(rec as unknown as Parameters<typeof computeBillStatus>[0]);
+      if (billStatus.status === 'paid') {
+        const resetDate = rec['createdAt'] as number ?? 0;
+        consistency.push({
+          sourceStore: 'expenses',
+          record: rec,
+          description: `"${rec['description']}" shows as paid (last date: ${fmtDate(expDate)}) but has no payment records — expense.date is stale`,
+          fix: async () => {
+            await saveExpense({ ...rec, date: resetDate } as unknown as Parameters<typeof saveExpense>[0]);
+          },
+        });
+      }
+    }
+
+    // Check 2: Card charge from an expense payment whose source expense or paid record is gone
+    const expenseIds = new Set(expenses.map((e) => e.id));
+    for (const charge of charges) {
+      const srcExpId = charge['sourceExpenseId'] as string | undefined;
+      if (!srcExpId) continue;
+
+      // Source expense was deleted entirely
+      if (!expenseIds.has(srcExpId)) {
+        consistency.push({
+          sourceStore: 'card_charges',
+          record: charge,
+          description: `Card charge "${charge['merchant']} (${fmt$(charge['amount'])})" was auto-created from expense "${srcExpId}" which no longer exists`,
+          fix: async () => { await deleteCardCharge(charge.id); },
+        });
+        continue;
+      }
+
+      // Source expense still exists but the paid record that created this charge is gone
+      const hasMatchingRecord = paidRecs.some(
+        (r) => r['expenseId'] === srcExpId && r['cardId'] === charge['accountId'],
+      );
+      if (!hasMatchingRecord) {
+        consistency.push({
+          sourceStore: 'card_charges',
+          record: charge,
+          description: `Card charge "${charge['merchant']} (${fmt$(charge['amount'])})" was auto-created from an expense payment but the payment record no longer exists`,
+          fix: async () => { await deleteCardCharge(charge.id); },
+        });
+      }
+    }
+
+    return { orphans, consistency };
   }
 
-  private renderScanResults(container: HTMLElement, issues: OrphanIssue[]): void {
+  private renderScanResults(
+    container: HTMLElement,
+    orphans: OrphanIssue[],
+    consistency: ConsistencyIssue[],
+  ): void {
     container.innerHTML = '';
 
-    if (issues.length === 0) {
+    if (orphans.length === 0 && consistency.length === 0) {
       const clean = document.createElement('div');
       clean.className = 'bg-scanner-clean';
       clean.innerHTML = '<span class="bg-scanner-clean-icon">✅</span> No orphaned records found. Your data is clean.';
@@ -974,43 +1051,91 @@ export class BreakGlassPage {
       return;
     }
 
-    const byStore = new Map<string, OrphanIssue[]>();
-    issues.forEach((issue) => {
-      const list = byStore.get(issue.sourceStore) ?? [];
-      list.push(issue);
-      byStore.set(issue.sourceStore, list);
-    });
+    // ── FK orphan issues (grouped by store) ──────────────────────────────────
+    if (orphans.length > 0) {
+      const byStore = new Map<string, OrphanIssue[]>();
+      orphans.forEach((issue) => {
+        const list = byStore.get(issue.sourceStore) ?? [];
+        list.push(issue);
+        byStore.set(issue.sourceStore, list);
+      });
 
-    byStore.forEach((storeIssues, storeKey) => {
-      const storeEntry = STORES[storeKey]!;
+      byStore.forEach((storeIssues, storeKey) => {
+        const storeEntry = STORES[storeKey]!;
+        const group = document.createElement('div');
+        group.className = 'bg-scanner-group';
 
+        const groupHeader = document.createElement('div');
+        groupHeader.className = 'bg-scanner-group-header';
+        groupHeader.innerHTML = `
+          <span class="bg-scanner-group-store">${storeEntry.label}</span>
+          <span class="bg-scanner-group-count">${storeIssues.length} issue${storeIssues.length !== 1 ? 's' : ''}</span>
+        `;
+        group.appendChild(groupHeader);
+
+        storeIssues.forEach((issue) => {
+          const targetLabel = STORES[issue.targetStore]?.label ?? issue.targetStore;
+          const row = document.createElement('div');
+          row.className = 'bg-scanner-issue';
+
+          const badge = document.createElement('span');
+          badge.className = `bg-issue-badge bg-issue-badge--${issue.type}`;
+          badge.textContent = issue.type === 'missing' ? 'Missing' : 'Dangling';
+
+          const desc = document.createElement('span');
+          desc.className = 'bg-issue-desc';
+          if (issue.type === 'missing') {
+            desc.innerHTML = `<strong>${issue.fieldLabel}</strong> is required but not set`;
+          } else {
+            desc.innerHTML = `<strong>${issue.fieldLabel}</strong> → <code>${issue.missingValue.slice(0, 12)}…</code> not found in ${targetLabel}`;
+          }
+
+          const recordName = document.createElement('span');
+          recordName.className = 'bg-issue-record';
+          recordName.textContent = storeEntry.getDisplay(issue.record);
+
+          const viewBtn = document.createElement('button');
+          viewBtn.className = 'btn btn-secondary bg-issue-view-btn';
+          viewBtn.type = 'button';
+          viewBtn.textContent = 'View in Browser →';
+          viewBtn.addEventListener('click', () => this.openInBrowser(storeKey, issue.record.id));
+
+          row.appendChild(badge);
+          row.appendChild(desc);
+          row.appendChild(recordName);
+          row.appendChild(viewBtn);
+          group.appendChild(row);
+        });
+
+        container.appendChild(group);
+      });
+    }
+
+    // ── Consistency issues ────────────────────────────────────────────────────
+    if (consistency.length > 0) {
       const group = document.createElement('div');
       group.className = 'bg-scanner-group';
 
       const groupHeader = document.createElement('div');
       groupHeader.className = 'bg-scanner-group-header';
       groupHeader.innerHTML = `
-        <span class="bg-scanner-group-store">${storeEntry.label}</span>
-        <span class="bg-scanner-group-count">${storeIssues.length} issue${storeIssues.length !== 1 ? 's' : ''}</span>
+        <span class="bg-scanner-group-store">Data Consistency</span>
+        <span class="bg-scanner-group-count">${consistency.length} issue${consistency.length !== 1 ? 's' : ''}</span>
       `;
       group.appendChild(groupHeader);
 
-      storeIssues.forEach((issue) => {
-        const targetLabel = STORES[issue.targetStore]?.label ?? issue.targetStore;
+      consistency.forEach((issue) => {
+        const storeEntry = STORES[issue.sourceStore]!;
         const row = document.createElement('div');
         row.className = 'bg-scanner-issue';
 
         const badge = document.createElement('span');
-        badge.className = `bg-issue-badge bg-issue-badge--${issue.type}`;
-        badge.textContent = issue.type === 'missing' ? 'Missing' : 'Dangling';
+        badge.className = 'bg-issue-badge bg-issue-badge--stale';
+        badge.textContent = 'Stale';
 
         const desc = document.createElement('span');
         desc.className = 'bg-issue-desc';
-        if (issue.type === 'missing') {
-          desc.innerHTML = `<strong>${issue.fieldLabel}</strong> is required but not set`;
-        } else {
-          desc.innerHTML = `<strong>${issue.fieldLabel}</strong> → <code>${issue.missingValue.slice(0, 12)}…</code> not found in ${targetLabel}`;
-        }
+        desc.textContent = issue.description;
 
         const recordName = document.createElement('span');
         recordName.className = 'bg-issue-record';
@@ -1019,17 +1144,37 @@ export class BreakGlassPage {
         const viewBtn = document.createElement('button');
         viewBtn.className = 'btn btn-secondary bg-issue-view-btn';
         viewBtn.type = 'button';
-        viewBtn.textContent = 'View in Browser →';
-        viewBtn.addEventListener('click', () => this.openInBrowser(storeKey, issue.record.id));
+        viewBtn.textContent = 'View →';
+        viewBtn.addEventListener('click', () => this.openInBrowser(issue.sourceStore, issue.record.id));
+
+        const fixBtn = document.createElement('button');
+        fixBtn.className = 'btn btn-primary bg-issue-fix-btn';
+        fixBtn.type = 'button';
+        fixBtn.textContent = 'Fix';
+        fixBtn.addEventListener('click', async () => {
+          if (!confirm(`Apply automatic fix?\n\n${issue.description}`)) return;
+          fixBtn.disabled = true;
+          fixBtn.textContent = 'Fixing…';
+          try {
+            await issue.fix();
+            row.style.opacity = '0.4';
+            fixBtn.textContent = '✓ Fixed';
+          } catch (e) {
+            fixBtn.disabled = false;
+            fixBtn.textContent = 'Fix';
+            alert(`Fix failed: ${(e as Error).message}`);
+          }
+        });
 
         row.appendChild(badge);
         row.appendChild(desc);
         row.appendChild(recordName);
         row.appendChild(viewBtn);
+        row.appendChild(fixBtn);
         group.appendChild(row);
       });
 
       container.appendChild(group);
-    });
+    }
   }
 }

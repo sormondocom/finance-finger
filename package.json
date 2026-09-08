@@ -1,6 +1,6 @@
 {
   "name": "financial-finger",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Figurin' out your finances — offline, encrypted, and yours.",
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
     "build:firefox": "vite build --mode firefox",
     "build": "npm run build:chrome && npm run build:firefox",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "zip:chrome": "web-ext build -s dist/chrome -a artifacts/chrome",
     "zip:firefox": "web-ext build -s dist/firefox -a artifacts/firefox",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@types/webextension-polyfill": "^0.12.5",
+    "@vitest/coverage-v8": "^4.1.10",
     "cross-env": "^10.1.0",
     "playwright-webextext": "^0.0.5",
     "sharp": "^0.35.3",

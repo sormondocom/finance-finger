@@ -39,7 +39,7 @@ test('adds monthly income of $4,000', async () => {
   await page.click('[data-testid="add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Day Job');
-  await page.fill('#sf-amount', '4000');
+  await page.fill('#sf-amount', '4000.50');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job' })).toBeVisible();
 });
@@ -90,10 +90,11 @@ test('buckets grid contains the Groceries bucket', async () => {
   await expect(bucket).toBeVisible();
 });
 
-test('to-assign counter shows $4,000 minus $600 = $3,400', async () => {
+test('to-assign counter shows $4,000.50 minus $600 = $3,400.50', async () => {
   const counter = page.locator('[data-testid="buckets-unassigned-value"]');
   await expect(counter).toBeVisible();
-  await expect(counter).toContainText('3,400');
+  // Trailing zero preserved: $3,400.50 not $3,400.5
+  await expect(counter).toContainText('$3,400.50');
 });
 
 test('Entertainment appears as an unbudgeted dashed pill', async () => {
@@ -131,9 +132,9 @@ test('setting $200 budget on Entertainment converts it to a bucket', async () =>
 });
 
 test('to-assign counter decreases after setting Entertainment budget', async () => {
-  // Was $3,400 — now $3,400 - $200 = $3,200
+  // Was $3,400.50 — now $3,400.50 - $200 = $3,200.50
   const counter = page.locator('[data-testid="buckets-unassigned-value"]');
-  await expect(counter).toContainText('3,200');
+  await expect(counter).toContainText('$3,200.50');
 });
 
 test('Entertainment no longer shows as an unbudgeted pill', async () => {
@@ -142,8 +143,8 @@ test('Entertainment no longer shows as an unbudgeted pill', async () => {
 });
 
 test('Groceries bucket reflects spending: 300 of 600 = 50%', async () => {
-  // The bucket SVG fill is visual but we can verify the amounts text
+  // The bucket SVG fill is visual but we can verify the amounts text with full cents
   const bucket = page.locator('[data-testid="bucket-item"]').filter({ hasText: 'Groceries' });
-  await expect(bucket).toContainText('300');
-  await expect(bucket).toContainText('600');
+  await expect(bucket).toContainText('$300.00');
+  await expect(bucket).toContainText('$600.00');
 });

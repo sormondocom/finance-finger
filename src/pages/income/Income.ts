@@ -1,4 +1,5 @@
 import './income.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   getMembers, saveMember, deleteMember, createMember,
   getIncomeSources, saveIncomeSource, deleteIncomeSource, createIncomeSource,
@@ -17,6 +18,8 @@ export class IncomePage {
   private sources: IncomeSource[] = [];
   private bankAccounts: BankAccount[] = [];
   private container!: HTMLElement;
+  private viewYear: number = new Date().getFullYear();
+  private viewMonth: number = new Date().getMonth();
 
   render(): HTMLElement {
     this.container = document.createElement('div');
@@ -38,9 +41,27 @@ export class IncomePage {
   }
 
   private paint(): void {
-    const monthlyTotal = this.sources
-      .filter((s) => s.active)
+    const now = new Date();
+    const isCurrentMonth = this.viewYear === now.getFullYear() && this.viewMonth === now.getMonth();
+
+    // Recurring monthly total (same for any viewed month)
+    const monthlyRecurring = this.sources
+      .filter((s) => s.active && s.frequency !== 'once')
       .reduce((sum, s) => sum + sourceMonthly(s), 0);
+
+    // One-time income scoped to the viewed month
+    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
+    const monthEnd   = new Date(this.viewYear, this.viewMonth + 1, 0, 23, 59, 59, 999).getTime();
+    const oneTimeSources = this.sources.filter(
+      (s) => s.frequency === 'once' && s.date != null && s.date >= monthStart && s.date <= monthEnd,
+    );
+    const oneTimeTotal  = oneTimeSources.reduce((sum, s) => sum + s.amount, 0);
+    const hasOneTime    = oneTimeSources.length > 0;
+    const combinedTotal = monthlyRecurring + oneTimeTotal;
+    const hasRecurring  = this.sources.some((s) => s.active && s.frequency !== 'once');
+
+    const monthLabel = new Date(this.viewYear, this.viewMonth, 1)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     this.container.innerHTML = '';
 
@@ -52,12 +73,56 @@ export class IncomePage {
         <h1 class="font-serif">Income</h1>
         <p class="text-muted text-sm">Manage household members and income sources.</p>
       </div>
-      <div class="income-total">
-        <div class="income-total-label">Monthly total</div>
-        <div class="income-total-value" data-testid="income-monthly-total">${this.sources.length ? fmt.format(monthlyTotal) : '—'}</div>
+      <div class="income-header-right">
+        <div class="income-month-nav">
+          <button class="income-nav-btn" data-action="prev">‹</button>
+          <span class="income-month-label">${monthLabel}</span>
+          <button class="income-nav-btn" data-action="next"${isCurrentMonth ? ' disabled' : ''}>›</button>
+        </div>
+        ${hasOneTime ? `
+        <div class="income-totals">
+          <div class="income-totals-row">
+            <span class="income-totals-label">Recurring</span>
+            <span class="income-totals-val">${fmt.format(monthlyRecurring)}<span class="income-totals-unit"> /mo</span></span>
+          </div>
+          <div class="income-totals-row">
+            <span class="income-totals-label">+ One-time</span>
+            <span class="income-totals-val income-totals-val--extra">${fmt.format(oneTimeTotal)}</span>
+          </div>
+          <div class="income-totals-row income-totals-row--total">
+            <span class="income-totals-label">Total</span>
+            <span class="income-totals-val income-totals-val--total" data-testid="income-monthly-total">${fmt.format(combinedTotal)}</span>
+          </div>
+        </div>
+        ` : `
+        <div class="income-total">
+          <div class="income-total-label">Monthly total</div>
+          <div class="income-total-value" data-testid="income-monthly-total">${hasRecurring ? fmt.format(monthlyRecurring) : '—'}</div>
+        </div>
+        `}
       </div>
     `;
+    header.querySelector('h1')?.appendChild(makeHelpBtn('income'));
+
+    header.querySelector('[data-action="prev"]')!.addEventListener('click', () => {
+      if (this.viewMonth === 0) { this.viewMonth = 11; this.viewYear--; }
+      else { this.viewMonth--; }
+      this.paint();
+    });
+    header.querySelector('[data-action="next"]')!.addEventListener('click', () => {
+      if (isCurrentMonth) return;
+      if (this.viewMonth === 11) { this.viewMonth = 0; this.viewYear++; }
+      else { this.viewMonth++; }
+      this.paint();
+    });
+
     this.container.appendChild(header);
+
+    // ── YTD / Projected bar (current month only) ────────────────────────
+    if (isCurrentMonth) {
+      const ytdPanel = this.buildYtdPanel();
+      if (ytdPanel) this.container.appendChild(ytdPanel);
+    }
 
     // ── Members card ────────────────────────────────────────────────────
     this.container.appendChild(this.buildMembersCard());
@@ -77,6 +142,74 @@ export class IncomePage {
         });
       }
     }
+  }
+
+  // ── YTD / Projected panel ──────────────────────────────────────────────
+
+  private buildYtdPanel(): HTMLElement | null {
+    const now = new Date();
+    const year = now.getFullYear();
+    const yearStart = new Date(year, 0, 1).getTime();
+    const yearEnd   = new Date(year, 11, 31, 23, 59, 59, 999).getTime();
+    const todayEnd  = new Date(year, now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+
+    const activeSources = this.sources.filter((s) => s.active && s.frequency !== 'once');
+    const oneTimeSources = this.sources.filter(
+      (s) => s.frequency === 'once' && s.date != null && s.date >= yearStart && s.date <= yearEnd,
+    );
+
+    if (activeSources.length === 0 && oneTimeSources.length === 0) return null;
+
+    // Months elapsed this year including partial current month
+    const completedMonths = now.getMonth(); // 0–11; equals full months before current
+    const daysInCurrentMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+    const monthsElapsed = completedMonths + now.getDate() / daysInCurrentMonth;
+
+    // YTD: recurring pro-rated + one-time payments already received
+    const ytdRecurring = activeSources.reduce((sum, s) => sum + sourceMonthly(s) * monthsElapsed, 0);
+    const ytdOneTime   = oneTimeSources
+      .filter((s) => s.date! <= todayEnd)
+      .reduce((sum, s) => sum + s.amount, 0);
+    const ytdTotal = ytdRecurring + ytdOneTime;
+
+    // Projected: recurring × 12 + all one-time payments entered for this year
+    const projRecurring = activeSources.reduce((sum, s) => sum + sourceMonthly(s) * 12, 0);
+    const projOneTime   = oneTimeSources.reduce((sum, s) => sum + s.amount, 0);
+    const projTotal     = projRecurring + projOneTime;
+
+    const todayLabel = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    const panel = document.createElement('div');
+    panel.className = 'income-ytd-bar';
+
+    const makeBlock = (label: string, value: number, sub: string): HTMLElement => {
+      const block = document.createElement('div');
+      block.className = 'income-ytd-block';
+      block.innerHTML = `
+        <div class="income-ytd-label">${label}</div>
+        <div class="income-ytd-value">${fmt.format(value)}</div>
+        <div class="income-ytd-sub">${sub}</div>
+      `;
+      return block;
+    };
+
+    panel.appendChild(makeBlock(
+      'Year-to-Date Income',
+      ytdTotal,
+      `Jan 1–${todayLabel}, ${year}`,
+    ));
+
+    const divider = document.createElement('div');
+    divider.className = 'income-ytd-divider';
+    panel.appendChild(divider);
+
+    panel.appendChild(makeBlock(
+      `Projected ${year}`,
+      projTotal,
+      'Full-year estimate · assumes no changes',
+    ));
+
+    return panel;
   }
 
   // ── Members ────────────────────────────────────────────────────────────
@@ -180,13 +313,33 @@ export class IncomePage {
       return card;
     }
 
-    this.members.forEach((member) => {
-      const memberSources = this.sources.filter((s) => s.memberId === member.id);
-      if (memberSources.length === 0) return;
+    // Bound the viewed month for one-time source filtering
+    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
+    const monthEnd   = new Date(this.viewYear, this.viewMonth + 1, 0, 23, 59, 59, 999).getTime();
 
-      const memberMonthly = memberSources
-        .filter((s) => s.active)
+    let anyVisible = false;
+
+    this.members.forEach((member) => {
+      // Recurring sources always show; one-time only when dated in the viewed month
+      const memberSources = this.sources.filter((s) => {
+        if (s.memberId !== member.id) return false;
+        if (s.frequency !== 'once') return true;
+        return s.date != null && s.date >= monthStart && s.date <= monthEnd;
+      });
+      if (memberSources.length === 0) return;
+      anyVisible = true;
+
+      const memberRecurring = memberSources
+        .filter((s) => s.active && s.frequency !== 'once')
         .reduce((sum, s) => sum + sourceMonthly(s), 0);
+      const memberOneTime = memberSources
+        .filter((s) => s.frequency === 'once')
+        .reduce((sum, s) => sum + s.amount, 0);
+      const memberTotal = memberRecurring + memberOneTime;
+
+      const totalLabel = memberOneTime > 0
+        ? `${fmt.format(memberRecurring)}<span class="text-xs text-muted">/mo</span> + ${fmt.format(memberOneTime)}`
+        : `${fmt.format(memberRecurring)}<span class="text-xs text-muted">/mo</span>`;
 
       const group = document.createElement('div');
       group.className = 'source-group';
@@ -195,7 +348,7 @@ export class IncomePage {
       groupHeader.className = 'source-group-header';
       groupHeader.innerHTML = `
         <span>${member.name}</span>
-        <span style="color:var(--ff-green)">${fmt.format(memberMonthly)}<span class="text-xs text-muted">/mo</span></span>
+        <span style="color:var(--ff-green)">${memberOneTime > 0 ? fmt.format(memberTotal) : totalLabel}</span>
       `;
       group.appendChild(groupHeader);
 
@@ -205,6 +358,14 @@ export class IncomePage {
 
       card.appendChild(group);
     });
+
+    if (!anyVisible) {
+      const empty = document.createElement('p');
+      empty.className = 'text-sm text-muted';
+      empty.style.padding = 'var(--space-2) 0';
+      empty.textContent = 'No one-time income recorded for this month.';
+      card.appendChild(empty);
+    }
 
     return card;
   }
@@ -283,7 +444,8 @@ export class IncomePage {
     ).join('');
 
     const initFreq = existing?.frequency ?? 'monthly';
-    const today = new Date().toISOString().split('T')[0]!;
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     const existingDate = existing?.date
       ? new Date(existing.date).toISOString().split('T')[0]!
       : today;

@@ -260,6 +260,8 @@ test('submitting a valid charge closes modal and persists the charge', async () 
   await expect(visaWrap.locator('.charges-item')).toContainText('Amazon');
   await expect(visaWrap.locator('.charges-item')).toContainText('$49.99');
   await expect(visaWrap.locator('.charges-item')).toContainText('Laptop stand');
+  // Charge increases account balance: $3,000 + $49.99 = $3,049.99
+  await expect(visaRow.locator('[data-testid="debt-row-balance"]')).toContainText('$3,049.99');
   await page.screenshot({ path: 'tests/screenshots/dc-08-first-charge.png' });
 });
 
@@ -366,8 +368,8 @@ test('recording a debt payment reduces the balance', async () => {
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // $3,000 – $150 = $2,850
-  await expect(visaRow.locator('[data-testid="debt-row-balance"]')).toContainText('$2,850');
+  // $3,000 + $49.99 + $19.99 + $34.50 − $49.99 (oldest charge deleted) − $150 = $2,904.49
+  await expect(visaRow.locator('[data-testid="debt-row-balance"]')).toContainText('$2,904.49');
   await page.screenshot({ path: 'tests/screenshots/dc-12-after-payment.png' });
 });
 

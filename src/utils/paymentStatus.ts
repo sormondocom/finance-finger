@@ -12,6 +12,7 @@ export interface HistoricalMonth {
   key: string;        // "2026-07"
   label: string;      // "Jul 2026"
   total: number;
+  extra: number;      // sum of 'extra' type payments
   minimumMet: boolean;
 }
 
@@ -21,6 +22,7 @@ export interface AccountPaymentStatus {
   dueDayThisMonth: Date | null;
   minimumPayment: number | undefined;
   currentMonthTotal: number;
+  currentMonthExtra: number;  // sum of 'extra' type payments in the current billing window
   historicalMonths: HistoricalMonth[];
 }
 
@@ -58,14 +60,7 @@ export function computePaymentStatus(
   const today = now.getDate();
   const currentKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-  // Payments recorded in this calendar month
-  const thisMonthPayments = payments.filter((p) => {
-    const d = new Date(p.date);
-    return d.getFullYear() === year && d.getMonth() === month;
-  });
-  const currentMonthTotal = thisMonthPayments.reduce((s, p) => s + p.amount, 0);
-
-  // Compute the effective next due date.
+  // Compute the effective next due date FIRST so the payment window can use it.
   // If nextDueDateMs is stored, advance it forward by the payment cycle until it
   // reaches the current month or a future month. This prevents a newly-added card
   // from immediately showing past-due when the day-of-month has already passed.
@@ -82,6 +77,23 @@ export function computePaymentStatus(
     const maxDay = new Date(year, month + 1, 0).getDate();
     effectiveDueDate = new Date(year, month, Math.min(account.dueDay, maxDay));
   }
+
+  // Billing cycle window: 14 days before the due date through end of current month.
+  // This captures early payments (e.g., paying Aug 31 for a Sep 9 due date).
+  // Falls back to calendar-month start when no due date is configured.
+  const windowEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const windowStart = effectiveDueDate
+    ? new Date(effectiveDueDate.getTime() - 14 * 24 * 60 * 60 * 1000)
+    : new Date(year, month, 1);
+
+  const thisMonthPayments = payments.filter((p) => {
+    const d = new Date(p.date);
+    return d >= windowStart && d <= windowEnd;
+  });
+  const currentMonthTotal = thisMonthPayments.reduce((s, p) => s + p.amount, 0);
+  const currentMonthExtra = thisMonthPayments
+    .filter((p) => p.type === 'extra')
+    .reduce((s, p) => s + p.amount, 0);
 
   // dueDayThisMonth is only populated when the effective due date falls in the current month
   let dueDayThisMonth: Date | null = null;
@@ -118,29 +130,35 @@ export function computePaymentStatus(
     }
   }
 
-  const historicalMonths = buildHistoricalMonths(payments, minPay, currentKey);
+  const historicalMonths = buildHistoricalMonths(payments, minPay, currentKey, windowStart);
 
-  return { accountId: account.id, currentMonth, dueDayThisMonth, minimumPayment: minPay, currentMonthTotal, historicalMonths };
+  return { accountId: account.id, currentMonth, dueDayThisMonth, minimumPayment: minPay, currentMonthTotal, currentMonthExtra, historicalMonths };
 }
 
 function buildHistoricalMonths(
   payments: DebtPayment[],
   minimumPayment: number | undefined,
   currentKey: string,
+  currentWindowStart: Date,
 ): HistoricalMonth[] {
-  const byMonth = new Map<string, number>();
+  const byMonth = new Map<string, { total: number; extra: number }>();
   for (const p of payments) {
     const d = new Date(p.date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     if (key === currentKey) continue;
-    byMonth.set(key, (byMonth.get(key) ?? 0) + p.amount);
+    // Skip payments that fall in the current billing window (already counted in current month)
+    if (d >= currentWindowStart) continue;
+    const existing = byMonth.get(key) ?? { total: 0, extra: 0 };
+    existing.total += p.amount;
+    if (p.type === 'extra') existing.extra += p.amount;
+    byMonth.set(key, existing);
   }
   return [...byMonth.entries()]
     .sort(([a], [b]) => b.localeCompare(a))
-    .map(([key, total]) => {
+    .map(([key, { total, extra }]) => {
       const [yearStr, monthStr] = key.split('-');
       const label = new Date(Number(yearStr), Number(monthStr) - 1, 1)
         .toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      return { key, label, total, minimumMet: minimumPayment != null ? total >= minimumPayment : false };
+      return { key, label, total, extra, minimumMet: minimumPayment != null ? total >= minimumPayment : false };
     });
 }

@@ -18,6 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT       = resolve(__dirname, '..');
 const node       = process.execPath;
 const vite       = resolve(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
+const vitest     = resolve(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
 const playwright = resolve(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
 
 const skipTests =
@@ -43,6 +44,10 @@ async function main() {
 
   console.log('\nGenerating data model documentation…');
   await run(node, [resolve(__dirname, 'generate-data-model.js')]);
+
+  console.log('\nRunning unit tests and generating coverage report…');
+  await run(node, [vitest, 'run', '--coverage']);
+  console.log('✓ Unit tests passed. Coverage report: coverage/index.html');
 
   console.log('\nBuilding Chrome distribution…');
   await run(node, [vite, 'build', '--mode', 'chrome']);

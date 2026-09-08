@@ -59,14 +59,17 @@ test('adds a recurring expense', async () => {
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#ef-desc', 'Whole Foods Run');
-  await page.fill('#ef-amount', '320');
+  await page.fill('#ef-amount', '319.90');
   await page.selectOption('#ef-cat', { label: 'Groceries' });
   // Check recurring — new expenses default to one-time (unchecked)
   await page.check('#ef-recurring');
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Whole Foods Run' })).toBeVisible();
+  const expRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Whole Foods Run' });
+  await expect(expRow).toBeVisible();
+  // Row displays with full cents via fmtCents — trailing zero preserved: $319.90 not $319.9
+  await expect(expRow).toContainText('$319.90');
   await page.screenshot({ path: 'tests/screenshots/expenses-03-expense-added.png' });
 });
 
@@ -86,6 +89,7 @@ test('adds a one-time expense', async () => {
 
 test('monthly total reflects recurring expenses only', async () => {
   const total = await page.locator('[data-testid="expenses-monthly-total"]').innerText();
+  // Monthly total uses fmt (rounds to whole dollars): $319.90 → $320
   expect(total).toMatch(/\$320/);
 });
 

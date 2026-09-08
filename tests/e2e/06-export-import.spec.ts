@@ -49,6 +49,56 @@ test.beforeAll(async () => {
     pageA.locator('[data-testid="settings-member-row"]').filter({ hasText: 'Alice Export Test' }),
   ).toBeVisible({ timeout: 8_000 });
 
+  // Add income source so income data is included in the export
+  await navigateTo(pageA, 'income');
+  await pageA.click('[data-testid="add-source-btn"]');
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await pageA.fill('#sf-name', 'Export Test Salary');
+  await pageA.fill('#sf-amount', '3500');
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+
+  // Add an expense so expense data is included in the export
+  await navigateTo(pageA, 'expenses');
+  await pageA.click('[data-testid="add-category-btn"]');
+  await pageA.fill('#cat-name', 'Export Test Cat');
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="category-pill"]').filter({ hasText: 'Export Test Cat' })).toBeVisible({ timeout: 8_000 });
+  await pageA.click('[data-testid="add-expense-btn"]');
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await pageA.fill('#ef-desc', 'Export Test Rent');
+  await pageA.fill('#ef-amount', '1200');
+  await pageA.selectOption('#ef-cat', { label: 'Export Test Cat' });
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+
+  // Add bank accounts and a transfer so those data structures are covered in the export
+  await navigateTo(pageA, 'accounts');
+  await pageA.click('[data-testid="add-account-btn"]');
+  await pageA.fill('#ba-name', 'Export Checking');
+  await pageA.fill('#ba-balance', '1000');
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="account-row"]').filter({ hasText: 'Export Checking' })).toBeVisible({ timeout: 8_000 });
+
+  await pageA.click('[data-testid="add-account-btn"]');
+  await pageA.fill('#ba-name', 'Export Savings');
+  await pageA.fill('#ba-balance', '500');
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="account-row"]').filter({ hasText: 'Export Savings' })).toBeVisible({ timeout: 8_000 });
+
+  // Transfer $250 from Export Checking → Export Savings
+  const checkingRow = pageA.locator('[data-testid="account-row"]').filter({ hasText: 'Export Checking' });
+  await checkingRow.locator('[data-testid="account-transfer"]').click();
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await pageA.selectOption('#tr-to-account', { label: 'Export Savings' });
+  await pageA.fill('#tr-amount', '250');
+  await pageA.click('[data-testid="modal-submit"]');
+  await expect(pageA.locator('[data-testid="modal-dialog"]')).not.toBeVisible({ timeout: 8_000 });
+  await expect(pageA.locator('[data-testid="account-row"]')).toHaveCount(2, { timeout: 8_000 });
+
+  // Return to Settings for the export
+  await navigateTo(pageA, 'settings');
+
   // Open export modal (no saved sharing keys → key textarea shown directly)
   await pageA.click('[data-testid="settings-export-btn"]');
   await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -200,4 +250,52 @@ test('imported member appears in Context B after page reload', async () => {
     pageB.locator('[data-testid="settings-member-row"]').filter({ hasText: 'Alice Export Test' }),
   ).toBeVisible({ timeout: 8_000 });
   await pageB.screenshot({ path: 'tests/screenshots/ei-04-imported-member-visible.png' });
+});
+
+// ── Full roundtrip: income and expenses also imported ────────────────────────
+
+test('income source created in Context A appears in Context B after import', async () => {
+  await navigateTo(pageB, 'income');
+  await expect(
+    pageB.locator('[data-testid="source-row"]').filter({ hasText: 'Export Test Salary' }),
+  ).toBeVisible({ timeout: 8_000 });
+  await expect(
+    pageB.locator('[data-testid="source-row"]').filter({ hasText: 'Export Test Salary' }),
+  ).toContainText('3,500');
+  await pageB.screenshot({ path: 'tests/screenshots/ei-05-income-roundtrip.png' });
+});
+
+test('expense created in Context A appears in Context B after import', async () => {
+  await navigateTo(pageB, 'expenses');
+  await expect(
+    pageB.locator('[data-testid="expense-row"]').filter({ hasText: 'Export Test Rent' }),
+  ).toBeVisible({ timeout: 8_000 });
+  await expect(
+    pageB.locator('[data-testid="expense-row"]').filter({ hasText: 'Export Test Rent' }),
+  ).toContainText('1,200');
+  await pageB.screenshot({ path: 'tests/screenshots/ei-06-expense-roundtrip.png' });
+});
+
+test('expense category created in Context A appears in Context B after import', async () => {
+  await expect(
+    pageB.locator('[data-testid="category-pill"]').filter({ hasText: 'Export Test Cat' }),
+  ).toBeVisible({ timeout: 8_000 });
+});
+
+test('bank accounts created in Context A appear in Context B after import', async () => {
+  await navigateTo(pageB, 'accounts');
+  await expect(
+    pageB.locator('[data-testid="account-row"]').filter({ hasText: 'Export Checking' }),
+  ).toBeVisible({ timeout: 8_000 });
+  await expect(
+    pageB.locator('[data-testid="account-row"]').filter({ hasText: 'Export Savings' }),
+  ).toBeVisible({ timeout: 8_000 });
+  await pageB.screenshot({ path: 'tests/screenshots/ei-07-account-roundtrip.png' });
+});
+
+test('account transfer survives the export/import roundtrip: Export Checking balance reflects the $250 transfer out', async () => {
+  // Export Checking initial balance $1,000 minus the $250 transfer = $750
+  const checkingRow = pageB.locator('[data-testid="account-row"]').filter({ hasText: 'Export Checking' });
+  await expect(checkingRow.locator('[data-testid="account-balance"]')).toContainText('750');
+  await pageB.screenshot({ path: 'tests/screenshots/ei-08-transfer-roundtrip.png' });
 });

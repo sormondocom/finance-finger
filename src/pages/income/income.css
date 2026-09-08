@@ -15,6 +15,49 @@
   gap: var(--space-4);
 }
 
+.income-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.income-month-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.income-nav-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  transition: color var(--ease-default), border-color var(--ease-default);
+}
+
+.income-nav-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.income-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.income-month-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  min-width: 130px;
+  text-align: center;
+}
+
 .income-total {
   text-align: right;
 }
@@ -32,6 +75,103 @@
   font-size: var(--text-3xl);
   font-weight: var(--weight-bold);
   color: var(--ff-green);
+}
+
+/* ── Recurring + one-time breakdown ─────────────────────────────────────── */
+
+.income-totals {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.income-totals-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.income-totals-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.income-totals-val {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--ff-green);
+  min-width: 110px;
+  text-align: right;
+}
+
+.income-totals-unit {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-muted);
+}
+
+.income-totals-val--extra {
+  color: var(--color-text-muted);
+}
+
+.income-totals-row--total {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.income-totals-val--total {
+  font-size: var(--text-2xl);
+}
+
+/* ── YTD / Projected bar ────────────────────────────────────────────────── */
+
+.income-ytd-bar {
+  display: flex;
+  gap: var(--space-6);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.income-ytd-block {
+  flex: 1;
+}
+
+.income-ytd-divider {
+  width: 1px;
+  background: var(--color-border);
+  align-self: stretch;
+}
+
+.income-ytd-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.income-ytd-value {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--ff-green);
+}
+
+.income-ytd-sub {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
 }
 
 /* ── Members section ────────────────────────────────────────────────────── */

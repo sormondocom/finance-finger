@@ -370,15 +370,25 @@ export async function showMascot(
   const bubble = buildBubble(name, gender, lines, () => dismiss(root), items);
   const figure = buildFigure(gender, () => dismiss(root));
 
+  // When alert items are shown the figure is decorative — dismiss is handled by
+  // the explicit "Git along" button. Disabling pointer events on the figure prevents
+  // its idle-animation hit area from overlapping the bubble's bottom edge and
+  // accidentally triggering the react/dismiss sequence on item clicks.
+  if (items && items.length > 0) {
+    figure.style.pointerEvents = 'none';
+  }
+
   root.appendChild(bubble);
   root.appendChild(figure);
 
-  // Switch to idle bob after mosey-in completes
-  figure.addEventListener('animationend', () => {
-    if (!figure.classList.contains('leaving')) {
-      figure.classList.add('idle');
-    }
-  }, { once: true });
+  // Guard on animationName so a bubbled child-element animationend doesn't
+  // trigger idle prematurely before mosey-in has actually finished.
+  const onMoseyInEnd = (e: AnimationEvent) => {
+    if (e.animationName !== 'mosey-in') return;
+    figure.removeEventListener('animationend', onMoseyInEnd);
+    if (!figure.classList.contains('leaving')) figure.classList.add('idle');
+  };
+  figure.addEventListener('animationend', onMoseyInEnd);
 
   if (autoDismissMs > 0) {
     dismissTimer = setTimeout(() => dismiss(root), autoDismissMs);
@@ -409,9 +419,12 @@ export async function showTip(): Promise<void> {
   root.appendChild(bubble);
   root.appendChild(figure);
 
-  figure.addEventListener('animationend', () => {
+  const onMoseyInEnd = (e: AnimationEvent) => {
+    if (e.animationName !== 'mosey-in') return;
+    figure.removeEventListener('animationend', onMoseyInEnd);
     if (!figure.classList.contains('leaving')) figure.classList.add('idle');
-  }, { once: true });
+  };
+  figure.addEventListener('animationend', onMoseyInEnd);
 
   // Tips auto-dismiss after 12 seconds
   dismissTimer = setTimeout(() => dismiss(root), 12000);
@@ -440,9 +453,39 @@ function renderItemsIntoList(list: HTMLElement, items: NotifierItem[]): void {
   items.forEach((item) => {
     const li = document.createElement('li');
     const btn = document.createElement('button');
-    btn.className = `mascot-item-link mascot-item-link--${item.severity}`;
-    btn.textContent = item.text;
-    btn.addEventListener('click', () => navigate(item.route));
+    btn.className = `mascot-item-btn mascot-item-btn--${item.severity}`;
+    btn.title = `Go to ${item.label}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'mascot-item-icon';
+    icon.textContent = [...item.text][0] ?? '';
+
+    const name = document.createElement('span');
+    name.className = 'mascot-item-name';
+    name.textContent = item.label;
+
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `mascot-item-status mascot-item-status--${item.severity}`;
+    statusBadge.textContent = item.statusLabel;
+
+    btn.appendChild(icon);
+    btn.appendChild(name);
+    btn.appendChild(statusBadge);
+
+    if (item.dueDate) {
+      const dateEl = document.createElement('span');
+      dateEl.className = 'mascot-item-date';
+      dateEl.textContent = item.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      btn.appendChild(dateEl);
+    }
+
+    btn.addEventListener('click', () => {
+      if (item.focus) sessionStorage.setItem(item.focus.key, item.focus.id);
+      navigate(item.route);
+      // Mascot stays visible — user must explicitly dismiss via the "Git along" button.
+      // Items auto-remove via updateMascotItems() as alerts are resolved.
+    });
+
     li.appendChild(btn);
     list.appendChild(li);
   });
@@ -511,6 +554,9 @@ export function updateMascotItems(items: NotifierItem[]): void {
     else bubble.appendChild(list);
   }
   renderItemsIntoList(list, items);
+
+  const fig = root.querySelector<HTMLElement>('.mascot-figure');
+  if (fig) fig.style.pointerEvents = 'none';
 }
 
 // ── Bell Notification Overlay ─────────────────────────────────────────────────

@@ -71,17 +71,15 @@ test.afterAll(async () => {
 
 // ── Priority / APR badges ─────────────────────────────────────────────────────
 
-test('Chase Freedom shows ⚡ Priority badge (APR ≥ 20% and balance ≥ $5k)', async () => {
+test('Chase Freedom shows High APR badge (APR ≥ 20%)', async () => {
   const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
-  await expect(chaseWrap.locator('.debt-badge--priority')).toBeVisible();
-  // When Priority badge is shown, High APR badge should NOT also appear
-  await expect(chaseWrap.locator('.debt-badge--high-apr')).not.toBeVisible();
-  await page.screenshot({ path: 'tests/screenshots/dp-01-priority-badge.png' });
+  await expect(chaseWrap.locator('.debt-badge--high-apr')).toBeVisible();
+  await page.screenshot({ path: 'tests/screenshots/dp-01-high-apr-badge.png' });
 });
 
-test('Chase Freedom shows Pay first badge as highest-APR account', async () => {
+test('Chase Freedom has a priority selector for manual payoff ordering', async () => {
   const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
-  await expect(chaseWrap.locator('.debt-badge--focus')).toBeVisible();
+  await expect(chaseWrap.locator('.priority-select')).toBeVisible();
 });
 
 test('Discover Card shows High APR badge but not Priority (balance under $5k)', async () => {
@@ -138,14 +136,14 @@ test('records a regular payment and reduces the balance', async () => {
   await chaseRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#pay-amount', '200');
+  await page.fill('#pay-amount', '199.90');
   await page.fill('#pay-note', 'March statement');
   // Type defaults to "regular" — no change needed
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // $6,500 – $200 = $6,300
-  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$6,300');
+  // $6,500 – $199.90 = $6,300.10 — verifies cent-precise deduction
+  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$6,300.10');
   await page.screenshot({ path: 'tests/screenshots/dp-05-after-regular-payment.png' });
 });
 
@@ -170,7 +168,8 @@ test('expanding history shows the regular payment entry', async () => {
   await expect(items).toHaveCount(1);
 
   const first = items.first();
-  await expect(first).toContainText('$200.00');
+  // Trailing zero preserved: $199.90 not $199.9
+  await expect(first).toContainText('$199.90');
   await expect(first.locator('.payment-history-type--regular')).toBeVisible();
   await expect(first).toContainText('March statement');
   await page.screenshot({ path: 'tests/screenshots/dp-06-history-expanded.png' });
@@ -203,8 +202,8 @@ test('records an extra payment and reduces balance further', async () => {
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // $6,300 – $350 = $5,950
-  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$5,950');
+  // $6,300.10 – $350 = $5,950.10
+  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$5,950.10');
   await page.screenshot({ path: 'tests/screenshots/dp-07-after-extra-payment.png' });
 });
 
@@ -229,8 +228,8 @@ test('history lists extra payment first (newest-first) with correct badge', asyn
   await expect(items.nth(0).locator('.payment-history-type--extra')).toBeVisible();
   await expect(items.nth(0)).toContainText('Tax refund windfall');
 
-  // Second (older): regular $200
-  await expect(items.nth(1)).toContainText('$200.00');
+  // Second (older): regular $199.90
+  await expect(items.nth(1)).toContainText('$199.90');
   await expect(items.nth(1).locator('.payment-history-type--regular')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dp-08-history-two-payments.png' });
 });
@@ -250,8 +249,8 @@ test('deleting extra payment restores balance', async () => {
   page.once('dialog', (d) => d.accept());
   await items.first().locator('[data-testid="payment-history-delete"]').click();
 
-  // $5,950 + $350 restored = $6,300
-  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$6,300');
+  // $5,950.10 + $350 restored = $6,300.10
+  await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$6,300.10');
   await page.screenshot({ path: 'tests/screenshots/dp-09-payment-deleted.png' });
 });
 
@@ -291,18 +290,19 @@ test('cancelling payment modal leaves balance unchanged', async () => {
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
   const discoverRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Discover Card' });
-  await expect(discoverRow.locator('[data-testid="debt-row-balance"]')).toContainText('$1,800');
+  // Balance unchanged and displayed with full cents
+  await expect(discoverRow.locator('[data-testid="debt-row-balance"]')).toContainText('$1,800.00');
 });
 
 // ── Debt total reflects payments ──────────────────────────────────────────────
 
 test('debt total is correct after payment activity', async () => {
-  // Chase: $6,300 (regular $200 paid; extra $350 paid then deleted)
+  // Chase: $6,300.10 (regular $199.90 paid; extra $350 paid then deleted)
   // Discover: $1,800 (unchanged)
   // Student Loan: $12,000 (unchanged)
-  // Total: $20,100
+  // Total: $20,100.10 — cents displayed via fmtCents
   const total = await page.locator('[data-testid="debt-total-value"]').innerText();
-  expect(total).toMatch(/\$20,100/);
+  expect(total).toMatch(/\$20,100\.10/);
   await page.screenshot({ path: 'tests/screenshots/dp-11-total.png' });
 });
 
@@ -319,8 +319,8 @@ test('deleting a debt account with payments removes cleanly', async () => {
     page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' }),
   ).not.toBeVisible();
 
-  // Total: $1,800 + $12,000 = $13,800
+  // Total: $1,800 + $12,000 = $13,800.00 — cents displayed via fmtCents
   const total = await page.locator('[data-testid="debt-total-value"]').innerText();
-  expect(total).toMatch(/\$13,800/);
+  expect(total).toMatch(/\$13,800\.00/);
   await page.screenshot({ path: 'tests/screenshots/dp-12-cascade-delete.png' });
 });

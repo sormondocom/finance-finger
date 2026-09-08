@@ -73,17 +73,33 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Start of month (1st–5th)](#start-of-month-1st5th)
   - [End of month: review and plan](#end-of-month-review-and-plan)
   - [Quarterly: big-picture planning](#quarterly-big-picture-planning)
+- [Importing transactions](#importing-transactions)
+  - [Supported file formats](#supported-file-formats)
+  - [The import wizard](#the-import-wizard)
+  - [Column mapping](#column-mapping)
+  - [Duplicate detection](#duplicate-detection)
+  - [Snapshot and rollback](#snapshot-and-rollback)
+- [Snapshots](#snapshots)
+  - [How snapshots work](#how-snapshots-work)
+  - [Taking a manual snapshot](#taking-a-manual-snapshot)
+  - [Restoring from a snapshot](#restoring-from-a-snapshot)
 - [Troubleshooting](#troubleshooting)
   - [Break Glass](#break-glass)
   - [Orphan Record Scanner](#orphan-record-scanner)
 - [FAQ](#faq)
   - [Why can't I connect my bank or financial services directly via API?](#why-cant-i-connect-my-bank-or-financial-services-directly-via-api)
   - [Why can't Financial Finger email me or text my phone when a reminder fires?](#why-cant-financial-finger-email-me-or-text-my-phone-when-a-reminder-fires)
+- [Financial Finger in the Classroom](#financial-finger-in-the-classroom)
+  - [The Financial Universe model](#the-financial-universe-model)
+  - [Teacher setup](#teacher-setup)
+  - [Student onboarding](#student-onboarding)
+  - [Classroom exercises](#classroom-exercises)
 - [Testing](#testing)
   - [Approach](#approach)
   - [What is covered](#what-is-covered)
   - [Running the tests](#running-the-tests)
   - [Unit tests](#unit-tests)
+  - [Code coverage](#code-coverage)
 - [CI / CD](#ci--cd)
   - [Pipeline overview](#pipeline-overview)
   - [Creating a release](#creating-a-release)
@@ -208,6 +224,12 @@ On subsequent launches the **vault unlock screen** appears. Paste your private k
 
 **Income sources** — Each member can have multiple income sources. The pay type can be **salary** (enter the amount at any frequency) or **hourly** (enter an hourly rate and hours per period — the app computes the per-period pay and shows a preview). Frequencies: hourly, weekly, biweekly, semi-monthly, monthly, annual, or one-time. Semi-monthly sources support unequal paychecks — different amounts on the 1st and 15th of the month. Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them. Income sources can optionally be linked to a bank account to feed the Accounts page balance projection.
 
+**Month navigation** — The Income page has **‹ / ›** arrows that let you browse any past month. The displayed income sources and totals adjust to the viewed month: recurring sources always appear (they apply to every month), while one-time sources only appear when their recorded date falls inside the viewed month. Navigating forward past the current month is disabled.
+
+**Monthly total breakdown** — When one-time income is present in the viewed month, the header expands from a single "Monthly total" into a three-line breakdown: **Recurring** (the per-month recurring amount), **+ One-time** (the sum of one-time payments dated in the viewed month), and **Total** (the combined figure). When no one-time income exists for the viewed month, only the recurring monthly total is shown.
+
+**Year-to-date and projected income** — When viewing the current month, a summary panel below the header shows two figures side by side: **Year-to-Date Income** (recurring sources pro-rated to today's date, plus any one-time payments already received this year) and **Projected [Year]** (recurring sources × 12 plus all one-time payments entered for the current year, whether past or future). This panel is hidden when browsing past months.
+
 ---
 
 ### Custom Reminders
@@ -236,15 +258,23 @@ Custom reminders let you schedule personal bell notifications for any item in yo
 
 ### Accounts
 
-**Bank accounts** — Track every deposit account in your household: checking, savings, money market, or other. Each account can be set as individual (assigned to one household member), joint, or household-level.
+**Bank accounts** — Track every deposit account in your household: checking, savings, money market, cash, or other. Each account can be set as individual (assigned to one household member), joint, or household-level. The **Cash** type is useful for tracking physical currency you keep on hand — a petty-cash envelope, a cash wallet, or an allowance jar.
 
-**Balance projection** — The Accounts page calculates a running balance for each account by starting from an optional **starting balance** you provide, then adding income deposits and subtracting expenses and debt payments that are linked to that account. Navigate forward and backward through months to see projected balances over time.
+**Dual balance display** — Each account row shows two labeled balances side by side:
+- **Actual** — computed from your recorded transactions (expense payments, income deposits, and debt payments actually logged against that account). This reflects what your records say you currently have.
+- **Projected** — starting balance plus all linked recurring income minus recurring expenses and debt payments for the viewed month. This reflects what your budget plan predicts.
 
-**Balance chart** — A stacked bar chart shows all accounts side by side across recent months. Each account gets its own color, chosen from a custom color picker when adding or editing the account.
+Both are visible at a glance on the account row. The Actual balance turns red when it goes negative.
+
+**Running ledger** — Expand any account to reveal a chronological transaction ledger: every income deposit, expense payment, and debt payment recorded against that account, with a running balance column. The panel header shows your opening balance and current actual balance so you can spot discrepancies at a glance.
+
+**Balance projection** — Use the **‹ / ›** arrows on the Accounts page to navigate forward and backward through months and see how the projected balance shifts. The stacked bar chart at the top shows all accounts side by side across recent months.
 
 **Dashboard "Income by Account" card** — When at least one account has an active income source linked to it, the Dashboard shows a breakdown card listing each account alongside the income flowing into it. The card is hidden when no accounts have linked income.
 
 **Cross-form hints** — The income source form and expense form both show a "No bank accounts" hint (with a direct link to the Accounts page) when no accounts exist yet, so you can add one without losing your place.
+
+**CSV import** — Download a statement from your bank as a CSV (or TSV / delimited text) file and import it directly into an account's transaction ledger. Click the **⬆** button on any account row to open the import wizard. See [Importing transactions](#importing-transactions) for the full workflow.
 
 ---
 
@@ -270,6 +300,16 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–28). 
 
 **Mark Paid** — The Mark Paid button on a due or overdue bill opens a dialog asking for the **actual amount paid** (pre-filled with the bill's usual amount). This lets variable bills — electricity, water, gas — record what the bill actually was, not just what you expected. Submitting saves a payment record and resets the bill's paid status for the month.
 
+**Billing cycle selector** — If you are recording a payment outside the normal 14-day window (for example, paying a bill a few days early or catching up on a missed month), the Mark Paid dialog shows a **billing cycle selector** — two pill buttons: this month's due date and last month's. Select the cycle the payment covers. If the selected cycle is already paid, an error shows before you can submit. Cycles already covered by an existing payment record are visually struck through to prevent accidental double-entry.
+
+**Catch-up checkbox** — When the previous billing cycle was missed and is now overdue, a checkbox appears below the cycle pills: **"Covers additional billing cycle (date)"**. Checking it records an extra payment record for the missed cycle at the same amount and source, so both months show as covered in a single submission.
+
+**Payment ledger** — Every bill has a payment history ledger accessible by clicking the 📋 icon on the expense row. The ledger lists every recorded payment with its date, amount, and source. Each row has:
+- **✏️ Edit** — reopens the payment dialog pre-filled with the original amount, date, and source so you can correct any of them. The billing cycle selector appears in edit mode too, letting you move a payment to a different cycle if needed.
+- **🗑️ Delete** — removes the payment record. The bill's paid status and `expense.date` roll back automatically to reflect only remaining records. If a card charge was created alongside the payment, it is also deleted.
+
+**Stale payment status** — If a payment record is deleted but the bill's internal date was not rolled back (a data inconsistency that can arise from interrupted saves), the bill will show a gold **⚠ Sync issue** badge instead of the normal paid/due badge. A **↺ Reset Status** button appears on the row. Clicking it clears the stale date so the bill reflects its true payment state.
+
 ---
 
 ### Bill cost thresholds
@@ -291,11 +331,24 @@ Any recurring expense can have a **monthly threshold** — the maximum you expec
 The Budget page shows a real-time picture of where your money goes:
 
 - **Summary bar** — total income, total recurring expenses, and surplus/deficit for the month
+- **Spending buckets** — wooden-bucket SVG icons representing each expense category, sized and colored by how full the budget is (sage → amber → rust → red as spending approaches the category limit); click any bucket to open the budget editor
 - **Donut chart** — spending share by category; click a slice to filter the breakdown
 - **Category breakdown** — horizontal bars showing each category's monthly total
 - **Cash flow bar** — single bar comparing income to total spending
 
 The mascot fires automatically on the Budget page if you are running a deficit (spending exceeds income in the current scenario).
+
+**Spending category ledger** — When you open the budget editor for a category (by clicking a bucket or breakdown bar), a spending ledger appears below the category form if you have recorded payments for that category. The ledger is laid out in four columns: date, item name, source account/card, and amount. It has two groups:
+
+| Group | What it contains |
+|---|---|
+| **Expenses** | Recurring expense payments recorded against this category and linked to a bank account |
+| **Charges** | Card charges (from any debt account) categorized here |
+
+**Clickable navigation from the ledger** — Both the item name and the source pill on each ledger row are interactive:
+
+- **Click the item name** — closes the modal, navigates to the Accounts or Debt page, opens the ledger or charges panel for the relevant account, and highlights the specific transaction with a **golden pulse animation**
+- **Click the source pill** — closes the modal, navigates to the Accounts or Debt page, and highlights just the account or card row with the same golden pulse
 
 ---
 
@@ -326,7 +379,7 @@ When a card is paid off, its full minimum payment **rolls over** to the next foc
 
 **Utilization bars** — Visual color gradient on each card from gold (healthy, under 30%) through rust (warning, 30–89%) to red (over-limit or above 90%).
 
-**Card charges** — Log individual purchases against any card account to track spending at the merchant level. Charges appear in the Reports page as a separate spending category.
+**Card charges** — Log individual purchases against any card account to track spending at the merchant level. Charges appear in the Reports page as a separate spending category. You can also bulk-import charges from a credit card statement — click **⬆ Import CSV** in any card's charges panel. See [Importing transactions](#importing-transactions) for the full workflow.
 
 **Payment history** — Every payment you record is stored with a date, amount, and type (regular or extra). The Reports page uses this history to reconstruct balance trends over time.
 
@@ -391,6 +444,7 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 - **Security** — PGP fingerprint display and public key export
 - **Data Sharing** — store household members' public keys and export your database encrypted to any recipient; import a `.ffx` file received from another installation
 - **Export / Import** — back up your database encrypted to your own key, or receive a file from another household member and merge or replace your local data
+- **Snapshots** — automatic point-in-time backups every 30 minutes; restore any snapshot from Settings to recover from accidental data changes (see [Snapshots](#snapshots))
 - **Danger zone** — full vault wipe and IndexedDB reset
 - **Break Glass** — emergency direct-access panel for reading, editing, and deleting raw database records; includes an Orphan Scanner for finding broken references (see [Troubleshooting → Break Glass](#break-glass))
 
@@ -465,9 +519,42 @@ Click the gold tip card at the bottom to have Buck or Penny deliver today's fina
 - Click the pencil icon on a source to edit its name, amount, or frequency.
 - Toggle **Active** to exclude a source from calculations without deleting it — useful for seasonal income or a job that has temporarily paused.
 
+**Browsing past months**
+
+Use the **‹ / ›** arrows in the top-right of the Income page to step through months. The source list and totals update to show only what is relevant to that month:
+
+- **Recurring sources** — always visible, since they apply to every month. The recurring monthly total shown is the same regardless of which month you view.
+- **One-time sources** — only appear when their recorded date falls within the viewed month. Navigating away from that month hides them; they reappear when you return to their month.
+- **Member group totals** — the amount shown next to each member's name reflects their recurring monthly income plus any one-time income in the viewed month.
+
+If you navigate to a month where no one-time income was recorded and no recurring sources exist, a note appears in the sources card.
+
+**Monthly total breakdown**
+
+When one-time income is present in the viewed month, the header shows a three-line breakdown instead of a single number:
+
+| Line | What it shows |
+|---|---|
+| **Recurring** | Sum of all active recurring sources, normalized to monthly |
+| **+ One-time** | Sum of one-time payments dated in the viewed month |
+| **Total** | Combined figure for the month |
+
+When there is no one-time income for the viewed month, only the recurring monthly total is shown (same as before).
+
+**Year-to-date and projected income**
+
+When viewing the current month, a panel below the header shows two year-level figures:
+
+| Figure | How it is calculated |
+|---|---|
+| **Year-to-Date Income** | Recurring sources pro-rated to today's date + one-time payments already received this calendar year |
+| **Projected [Year]** | Recurring sources × 12 + all one-time payments entered for this year (past or future dates) |
+
+This panel is hidden when browsing past months — it is always a current-year view.
+
 **One-time income**
 
-Sources with frequency **once** appear in the Monthly Activity widget on the Dashboard for the month matching their date. You can also log them directly from the Dashboard without going to the Income page.
+Sources with frequency **once** also appear in the Monthly Activity widget on the Dashboard for the month matching their date. You can log one-time income directly from the Dashboard without going to the Income page.
 
 **Reminders on income sources**
 
@@ -480,7 +567,7 @@ A **Reminders** section appears at the bottom of the Add and Edit income source 
 **Adding a bank account**
 
 1. Click **+ Add Account** on the Accounts page.
-2. Choose the account type: **Checking**, **Savings**, **Money Market**, or **Other**.
+2. Choose the account type: **Checking**, **Savings**, **Money Market**, **Cash**, or **Other**. Use **Cash** for physical currency you keep on hand — a petty-cash envelope, a wallet, or an allowance jar.
 3. Choose ownership: **Individual** (select a household member), **Joint**, or **Household**.
 4. Enter an optional starting balance — this is the known balance at a point in time that the projection builds forward from.
 5. Choose a chart color to identify this account in the balance chart.
@@ -490,9 +577,20 @@ A **Reminders** section appears at the bottom of the Add and Edit income source 
 
 Open any income source (Income page → pencil icon) and select the account from the **Deposit to** dropdown. Income linked this way is added to the account's projected balance each month.
 
-**Reading the balance**
+**Reading the balances**
 
-The Accounts page shows a balance card for each account. The balance is calculated as: starting balance + all linked income deposits − all linked expense payments − linked debt payments for the current month being viewed. Use the **‹ / ›** arrows to step through months.
+Each account row shows two labeled balances side by side:
+
+| Balance | How it's calculated |
+|---|---|
+| **Actual** | Computed from your recorded transactions — expense payments, income deposits, and debt payments actually logged against this account |
+| **Projected** | Starting balance + linked recurring income − linked recurring expenses and debt payments for the viewed month |
+
+Use the **‹ / ›** arrows to step through months and see how the projected balance shifts over time. A negative Actual balance appears in red.
+
+**Running ledger**
+
+Click the expand toggle on any account row to open its **transaction ledger** — a chronological list of every recorded income deposit, expense payment, and debt payment against that account, with a running balance column on the right. The panel header shows your opening balance and current actual balance. This ledger is also the target when you click an item name in the Budget category ledger: the app navigates here and highlights the specific transaction with a golden pulse animation.
 
 **Reminders on accounts**
 
@@ -542,7 +640,10 @@ A **Reminders** section appears at the bottom of the Add and Edit expense forms.
 1. Find a bill showing the ⏰ (due soon) or ⚠ (past due) badge and click **Mark Paid**.
 2. The dialog pre-fills the bill's usual amount. Change it to what you actually paid — important for variable bills like electricity or gas.
 3. If the amount exceeds your threshold, an inline warning shows the overage immediately before you confirm.
-4. Click **Mark as Paid**. The badge updates to ✓ Paid and the notifier refreshes automatically.
+4. For tracked bills, a **billing cycle selector** shows two pill buttons — this month and last month. Select the cycle the payment covers. If you're catching up on a missed previous cycle, check the **"Covers additional billing cycle"** checkbox to record both months in one submission.
+5. Click **Mark as Paid**. The badge updates to ✓ Paid and the notifier refreshes automatically.
+
+To correct a recorded payment, click the 📋 icon on the bill row to open the **payment ledger**, then click ✏️ on the entry. The same dialog opens pre-filled with the existing amount, date, and source — and with the billing cycle selector pre-set to the cycle the original payment covered. To remove a payment entirely, click 🗑️; the bill's paid status and linked card charge are rolled back automatically.
 
 ---
 
@@ -579,6 +680,14 @@ The Budget page shows a real-time visual breakdown of your monthly spending.
 
 The top bar shows total monthly income, total recurring expenses, and the surplus or deficit. These numbers match the Income and Expenses summary cards on the Dashboard.
 
+**Spending buckets**
+
+Wooden-bucket SVG icons represent each expense category. The fill level and color reflect how much of the category's monthly budget has been used: sage (under budget), amber (approaching the limit), rust (close to or at limit), and red (over). Click any bucket to open the **budget editor** for that category.
+
+**To-assign counter**
+
+The header shows how much monthly income is still unbudgeted. Assign it to categories until the counter reaches zero for true zero-based budgeting. Categories with expenses but no budget set appear as dashed **unbudgeted pills** below the bucket grid.
+
 **Donut chart**
 
 Each slice represents a category. Click a slice to filter the category breakdown below it to that category only. Click the center or the same slice again to clear the filter.
@@ -592,6 +701,26 @@ Horizontal bars showing each category's monthly total as a proportion of total s
 A single bar that compares total income to total spending at a glance.
 
 If total spending exceeds income, your mascot slides in automatically with a heads-up about the deficit.
+
+**Spending category ledger**
+
+When you open the budget editor (by clicking a bucket or a breakdown bar), a **spending ledger** appears below the category's budget form if you have recorded payments in that category. The ledger is wider than the standard modal to comfortably display four columns:
+
+| Column | Content |
+|---|---|
+| Date / freq | When the charge occurred or the expense frequency |
+| Item name | The expense description or merchant name — **click to navigate to the transaction** |
+| Source | The bank account or debt card it came from — **click to navigate to the account** |
+| Amount | The dollar amount |
+
+Rows are grouped into **Expenses** (recorded expense payments from bank accounts) and **Charges** (card charges from debt accounts).
+
+**Navigating from the ledger to a transaction**
+
+- **Click the item name** — the modal closes, the app navigates to the Accounts or Debt page, opens the ledger or charges panel for the relevant account, and highlights the exact transaction with a **golden pulse** (a glowing ring that fades over two seconds).
+- **Click the source pill** — the modal closes, the app navigates to the account or debt page, and highlights the account or card row itself with the same golden pulse.
+
+This makes it easy to cross-reference a budget total with its underlying transactions without manual searching.
 
 ---
 
@@ -757,6 +886,7 @@ The Learn page provides plain-language financial education with interactive calc
 | **Sharing keys** | Store a household member's or spouse's public key here so you can quickly encrypt exports to them without pasting their key every time. |
 | **Export** | Encrypts your database and downloads a `.ffx` file. You choose a recipient: a saved sharing key, a one-time paste, or your own key (for a personal backup). Only the holder of the matching private key can open the file. |
 | **Import** | Decrypts a `.ffx` file shared from another Financial Finger installation using your private key and passphrase. Choose **Merge** to add incoming records alongside your existing data, or **Replace** to wipe your database first. |
+| **Snapshots** | Lists automatic and manual point-in-time snapshots of your data. Click **Snapshot now** to capture immediately. Click **Restore** on any row to roll back to that point — your current data is safety-snapshotted first, then the selected snapshot is applied, and the app reloads. See [Snapshots](#snapshots). |
 | **Danger zone** | Wipes the vault completely. All data, settings, and the vault key are deleted. The extension returns to the first-run setup wizard. This is permanent and irreversible. |
 | **Break Glass** | Emergency direct-access panel. Opens the Break Glass data browser where you can read, edit, or delete any raw record in the database. Also contains the Orphan Scanner for finding records with broken FK references. See [Troubleshooting → Break Glass](#break-glass) for full details. |
 
@@ -988,8 +1118,11 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 
 1. Find the bill on the **Calendar** or **Expenses** page — ⏰ due soon or ⚠ past due.
 2. Click **Mark Paid**. Enter the actual amount paid.
-3. If the amount is over your threshold, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern and suggest adjusting the threshold.
-4. The chip on the Calendar updates to ✓ Paid. The notifier refreshes. If that was the last open alert, the mascot dismisses itself automatically.
+3. Select the billing cycle the payment covers using the pill buttons. If you're catching up on a missed previous month, check **Covers additional billing cycle** to record both in one go.
+4. If the amount is over your threshold, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern and suggest adjusting the threshold.
+5. The chip on the Calendar updates to ✓ Paid. The notifier refreshes. If that was the last open alert, the mascot dismisses itself automatically.
+
+If a bill shows a gold **⚠ Sync issue** badge instead of a normal status, click **↺ Reset Status** on the row to clear the stale paid date. For a full audit, open **Break Glass → Orphan Scanner** — the scan runs automatically when you switch to the tab and will surface any orphaned card charges alongside the stale date.
 
 ### When you make a debt payment
 
@@ -1023,6 +1156,143 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 
 ---
 
+## Importing transactions
+
+Financial Finger can import bank statements and credit card statements from any delimited text file (CSV, TSV, pipe-separated, etc.). All data stays local — no cloud upload, no third-party connection required.
+
+### Supported file formats
+
+| Format | Typical extension | Notes |
+|---|---|---|
+| Comma-separated | `.csv` | Most US banks |
+| Semicolon-separated | `.csv` | Common in European bank exports |
+| Tab-separated | `.tsv`, `.txt` | Some accounting software |
+| Pipe-separated | `.txt`, `.dat` | Legacy bank formats |
+
+Maximum file size: **20 MB**. Files above this limit should be split into smaller date ranges before importing.
+
+The delimiter is auto-detected from the first few lines. You can override it manually in both Step 1 and Step 2 of the wizard.
+
+### The import wizard
+
+**Opening the wizard:**
+- **Bank account** — go to **Accounts**, find the account row, click the **⬆** icon.
+- **Credit card** — go to **Debt**, expand the card, click **⬆ Import CSV** in the charges panel header.
+
+**Step 1 — Load file:** Drag a file onto the drop zone or click to browse. The detected delimiter is highlighted automatically. A raw text preview appears so you can confirm the file looks right before proceeding. You can also adjust the quote character (double, single, or none) if your file uses non-standard quoting.
+
+**Step 2 — Map columns:** The full file is rendered in a scrollable table. Each column header has a dropdown — assign a role to every column you want to import:
+
+| Role | Used for |
+|---|---|
+| `Date` | Transaction date (required) |
+| `Description` / `Merchant` | Payee or memo |
+| `Amount` | Single amount column |
+| `Debit` | Money-out column (when your bank splits debit/credit) |
+| `Credit` | Money-in column |
+| `Note` | Free-text note to attach to the record |
+| `(skip)` | Ignore this column |
+
+For bank accounts, if your export shows debits as **positive** numbers, enable **Invert sign** before proceeding. You can re-parse with a different delimiter here without going back to Step 1.
+
+**Step 3 — Row-by-row review:** The wizard shows one transaction at a time. For each you choose what it represents:
+
+- **Expense payment** — link to an existing expense, or create one inline
+- **Card / debt payment** — link to a debt account to update its balance
+- **Transfer** — a move between two of your bank accounts
+- **Income / deposit** — credits that aren't transfers
+- **Skip / uncategorized** — import without categorizing
+
+The wizard **pre-selects the most likely category** for you: it checks your repeat-transaction rules first, then matches the description against existing expense and debt account names, and finally applies keyword inference (e.g. "Payroll" → Income, "Zelle" → Transfer, "Web Pmt" → Debt payment). Override any pre-selection before confirming.
+
+- **Inline edit:** click **✏ Edit** on any transaction card to correct the date, description, or amount before saving.
+- **Navigation:** Prev / Confirm / Skip, or "Skip remaining →" to jump to the summary.
+- **Re-map columns:** click this footer button to return to Step 2 without losing your reviewed rows (useful if you spot a mapping error mid-review).
+- **Repeat detection:** after confirming the same pattern several times, the wizard prompts to create an auto-manage rule for future imports.
+- **Backdrop click protection:** the modal cannot be closed by clicking outside it — use the Cancel button or ✕ to exit deliberately.
+
+**Step 4 — Snapshot & import:** Review the summary (row count, date range, totals, categorization breakdown). A duplicate warning appears if this file was imported before. Click **Take snapshot & import** — a snapshot is saved automatically before any data is written.
+
+### Column mapping
+
+Column roles are auto-detected from common header names (`Date`, `Amount`, `Debit`, `Credit`, `Description`, `Merchant`, `Memo`, `Payee`, `Note`, etc.). If your file uses non-standard names, change each dropdown manually. The table updates live when you switch the delimiter.
+
+Rows where the **date or amount cannot be parsed** are skipped. The count of skipped rows is shown in the summary so you know exactly what was left out.
+
+**Supported date formats:**
+
+| Format | Example |
+|---|---|
+| ISO 8601 | `2026-09-06`, `2026/09/06` |
+| US | `09/06/2026`, `9/6/26` |
+| US with dashes | `09-06-2026` |
+| Compact ISO | `20260906` |
+| Long month | `Sep 6, 2026`, `September 6, 2026` |
+| Day-month-year | `6 Sep 2026`, `6-Sep-2026` |
+
+**Supported amount formats:**
+
+| Format | Example |
+|---|---|
+| Plain decimal | `1234.56` |
+| With thousand separator | `1,234.56` |
+| With currency symbol | `$1,234.56`, `€1234.56` |
+| Accounting negative | `(1,234.56)`, `($99.50)` |
+| European decimal comma | `1.234,56` |
+
+### Duplicate detection
+
+Every import is fingerprinted with a **SHA-256 checksum** of the raw file content. If you try to import the same file again (even against a different account), the wizard shows a yellow warning banner with the date of the previous import. You can still proceed — the warning is informational only.
+
+Import records are stored in your encrypted vault and included in snapshots, so the deduplication history survives vault restores.
+
+### Snapshot and rollback
+
+Before any data is written, the wizard takes a **mandatory snapshot** named:
+
+```
+Import - [Account Name] - Sep 6, 2026 3:00 PM
+```
+
+This snapshot:
+- Is saved to **Settings → Snapshots** in a dedicated **Import snapshots** subsection
+- Is **never auto-pruned** (regular snapshots are kept for 24 hours with a minimum of 5; import snapshots persist until you delete them manually)
+- Can be restored at any time to undo the import entirely
+
+To roll back an import: go to **Settings → Snapshots**, find the relevant import snapshot (labeled `Import - [Account Name] - ...`), and click **Restore**.
+
+---
+
+## Snapshots
+
+Financial Finger takes an automatic point-in-time snapshot of your data every 30 minutes in the background. Snapshots let you roll back to a known-good state if you accidentally delete data, run a bad import, or just want to undo a batch of changes.
+
+### How snapshots work
+
+- The background service worker captures a copy of every encrypted record in your database and stores it locally in IndexedDB under a `snapshots` store.
+- Snapshots are taken automatically every 30 minutes once setup is complete, and manually on demand.
+- Retention policy: snapshots older than **24 hours** are pruned. The **5 most recent** snapshots are always kept regardless of age.
+- Snapshot data is stored as the same encrypted blobs that protect your live data — no additional encryption or decryption is needed to take or prune a snapshot.
+
+### Taking a manual snapshot
+
+Go to **Settings → Snapshots** and click **Snapshot now**. This is useful before:
+- Running a large data import
+- Making bulk edits
+- Experimenting with scenarios you might want to undo
+
+### Restoring from a snapshot
+
+1. Go to **Settings → Snapshots**.
+2. Find the snapshot you want to restore (newest first; each row shows its label and timestamp).
+3. Click **Restore**.
+4. Confirm the dialog. A safety snapshot of your current data is saved automatically before the restore runs.
+5. The app reloads. Re-enter your private key and passphrase to unlock the vault and see your restored data.
+
+> **Note:** Restoring replaces all current data with the snapshot contents. The auto-saved safety snapshot lets you reverse a bad restore by immediately restoring the "Before restore" entry that appears at the top of the list.
+
+---
+
 ## Troubleshooting
 
 ### Break Glass
@@ -1034,6 +1304,7 @@ The **Break Glass** tool is an emergency access panel that gives you direct read
 - A record contains a bad value that the app UI will not let you correct
 - You need to verify a specific field (e.g. a linked ID) while debugging unexpected behavior
 - You want to manually inspect what is actually stored vs. what the UI is showing
+- You see a **⚠ Sync issue** badge on a bill (stale paid-date) and want to scan for related orphaned charges in the same operation
 
 **Opening Break Glass**
 
@@ -1063,22 +1334,24 @@ The Orphan Scanner lives inside the Break Glass tool. Switch to the **Orphan Sca
 
 **What it does**
 
-It scans every inter-store relationship in the database — income sources referencing members, expenses referencing categories, debt payments referencing accounts, and so on — and surfaces any record where the referenced record no longer exists. These are called *orphans* or *dangling FKs*. They can appear if a record was hard-deleted unexpectedly, if data was surgically edited via Break Glass, or if a vault backup was imported from a database at a different point in time.
+The scanner has two passes:
 
-Orphans are harmless in most cases, but they can cause records to silently disappear from lists (because the app filters by a member or category that no longer exists) or produce unexpected totals on the Budget and Reports pages.
+1. **FK integrity** — scans every inter-store relationship (income sources referencing members, expenses referencing categories, debt payments referencing accounts, etc.) and surfaces any record where the referenced record no longer exists. These are called *orphans* or *dangling FKs*. They can appear if a record was hard-deleted unexpectedly, if data was surgically edited via Break Glass, or if a vault backup was imported from a database at a different point in time. Orphans are harmless in most cases but can cause records to silently disappear from filtered lists or produce unexpected totals on Budget and Reports.
+
+2. **Semantic consistency** — checks for data states that are structurally valid but semantically wrong:
+   - **Stale bill dates** — a tracked bill's `expense.date` indicates it was paid this cycle, but no `ExpensePaidRecord` exists for that cycle. This can happen when a payment was recorded and then deleted without rolling back the bill's paid date. The scanner detects this regardless of how long ago the stale date was set.
+   - **Orphaned card charges** — an auto-generated card charge (created when recording an expense payment charged to a card) whose linked payment record was later deleted. The charge shows up in card spending but no longer has a matching payment behind it.
 
 **Running a scan**
 
-1. Open Break Glass and click the **Orphan Scanner** tab.
-2. Click **Run Scan**.
+The scan runs automatically whenever you click the **Orphan Scanner** tab — no extra click required. You can also click **Run Scan** at any time to re-scan. Switching to another tab and back triggers a fresh scan.
 
-A clean database shows a ✅ Clean result. If orphans are found, the scanner groups them by relationship and shows:
+A clean database shows a ✅ Clean result. If issues are found, the scanner groups them by type and shows:
 
-- The store and record name that has the broken reference
-- Which field is broken and what value it points to
-- A **View in Browser** button that jumps directly to the orphaned record in the Data Browser
+- **Dangling FK issues** — the store, record name, broken field, and what it points to. A **View in Browser** button jumps directly to the orphaned record in the Data Browser.
+- **Consistency issues** — a description of the semantic problem and a **Fix** button. Clicking Fix runs an automatic correction (e.g. resets the bill's paid date to "never paid", or deletes the orphaned charge) after a confirmation prompt.
 
-**Fixing orphans**
+**Fixing orphans manually**
 
 With the orphaned record open in the Data Browser:
 
@@ -1121,9 +1394,67 @@ So: do you really need your email address and phone number winding up on the dar
 
 ---
 
-## Testing
+## Financial Finger in the Classroom
 
-### Approach
+Financial Finger is purpose-built for households that want to manage their finances privately and without a cloud account — which also makes it an ideal tool for financial literacy education. Every student works with realistic data in a fully isolated environment. Nothing is shared with a server, no account is required, and there is no subscription to pay.
+
+### The Financial Universe model
+
+A teacher sets up one installation as the **Financial Universe** — a master household that defines the shared structure (expense categories, template bills, a realistic income scenario) that all students will start from. Each student then runs their own completely separate installation and imports the teacher's template as a starting point. From there, every student manages their own independent household.
+
+Because Financial Finger uses PGP encryption for exports, the teacher controls exactly what students receive. Students cannot read each other's data. Each vault is locked to its own key pair.
+
+---
+
+### Teacher setup
+
+1. **Complete the six-step setup wizard.** Name the household something descriptive (e.g. "Dollar Farm — Class Template"). Generate a key pair for the master installation; save the private key and passphrase somewhere you can retrieve for student imports.
+
+2. **Create the shared expense categories.** These will appear in every student's installation after import: Housing, Food, Transportation, Utilities, Healthcare, Personal, Entertainment, Savings — or whatever categories fit your curriculum.
+
+3. **Add template recurring expenses.** Model a realistic household: rent or mortgage, utilities (electric, water, gas), groceries, a car payment, insurance, streaming subscriptions. Set due days and monthly thresholds on the variable ones. This gives students a ready-made bill-tracking environment on day one.
+
+4. **Add income sources.** Create two or three members with income sources at different pay frequencies — one biweekly salary, one hourly part-time, one semi-monthly — so students can immediately see how the normalization to monthly works.
+
+5. **Optionally add debt accounts.** A credit card balance at a high APR and a vehicle loan with several years remaining are useful for the Avalanche/Snowball exercises in the Learn tab.
+
+6. **Export the database.** Go to **Settings → Export**, select your own public key as the recipient (for a self-backup), and download the `.ffx` file. This is the file you distribute to students. It is encrypted — only someone with the matching private key can open it.
+
+7. **Provide the private key and passphrase to students.** Since this is a classroom template (not a real personal vault), it is fine to share these. Treat them like a course handout — they only unlock the template, not any private financial data.
+
+---
+
+### Student onboarding
+
+1. **Install Financial Finger** in Chrome, Edge, or Firefox following the Quick Start instructions.
+
+2. **Complete the six-step setup wizard.** Each student generates their own key pair and names their own household. Their vault is completely separate from the template and from every other student's installation.
+
+3. **Import the teacher's template.** Go to **Settings → Import**, load the `.ffx` file, and enter the teacher's private key and passphrase (shared by the teacher). Choose **Merge** mode (never Replace — that would wipe their own setup). Click **Decrypt & Import**. The categories, template expenses, and income sources now appear in their installation.
+
+4. **Personalize the household.** Students add or edit members to match their assigned scenario (a single adult, a couple, a family with dependents), adjust income to their assigned amounts, and begin tracking bills.
+
+5. **Explore.** Students open the Budget page to see their starting surplus or deficit, the Debt page to run Avalanche vs. Snowball projections, and the What If? page to model life decisions.
+
+---
+
+### Classroom exercises
+
+**Budget baseline exercise** — Give each student a different income scenario and have them set up their household from the shared template. Compare Budget page surpluses: who has the most financial flexibility? What is the DTI chip showing? What would need to change to get it under 36%?
+
+**Debt payoff comparison** — Assign the same two debt accounts (e.g. a $3,200 credit card at 24% APR and a $9,000 car loan at 6.9%) to every student. Have half use Avalanche and half use Snowball. Compare the amortization schedules: how many months does each strategy take? How much interest is paid overall?
+
+**What If? decision modeling** — Pose a scenario: "You have a job offer in another city that pays $8,000 more per year, but rent is $400/month higher." Students create a scenario film in What If? with both changes active. Is it a ✅ Yes, ⚠️ Tight, or ❌ red budget? What other factors would you add?
+
+**Emergency fund target** — Using the Emergency Fund calculator in the Learn tab, students calculate their 3-month and 6-month targets based on their actual recurring expenses. How many months would it take to reach the target saving $100, $200, or $300/month?
+
+**Overage threshold exercise** — Mark the electric bill's threshold at a modest $120. Over two or three class sessions, record payments that sometimes go over. Open Reports → Common Overage Offenders and discuss what a seasonal pattern means for annual budgeting.
+
+**Compound interest discussion** — Open the Learn tab → Saving & Investing → Compound Interest. Drag the slider to 20 years. What is the difference between $5,000 growing at 8% vs. festering at 22% APR? At what point does the investment line overtake the debt line on the chart?
+
+**Data export as a deliverable** — At the end of the unit, students export their completed vault encrypted to their own key (Settings → Export → Your own key) and submit the `.ffx` file as their project deliverable. The teacher cannot open it without the student's private key — which reinforces the privacy model as a lived experience, not just a talking point.
+
+---
 
 Financial Finger uses **Playwright** for end-to-end tests that load the actual built Chromium extension into a real browser. There is no mocking — tests interact with the live extension UI from the outside, the same way a user would.
 
@@ -1170,6 +1501,7 @@ Every meaningful step takes a **screenshot**, stored in `tests/screenshots/`. Sc
 | `26-expense-payment-display.spec.ts` | Expense payment display and edit: actual-amount row visibility after payment, under/over threshold sub-labels, edit payment flow |
 | `27-break-glass.spec.ts` | Break Glass tool: warning overlay, data browser (columnar view, field editor, raw JSON editor, store switching), FK navigation links, orphan scanner (clean pass + dangling FK detection + View in Browser), record deletion, refresh |
 | `28-custom-reminders.spec.ts` | Custom reminders: Reminders section visible in create and edit forms for Income, Expenses, Debt, and Accounts; reminder added during create persists after save; linked reminders visible in edit form; all reminders appear in Settings → Reminders |
+| `29-bill-ledger-and-stale.spec.ts` | Billing cycle pill selector (new and edit payment), catch-up checkbox for missed cycles, ledger edit button, ledger delete cascade (expense.date rollback), stale-status detection (⚠ Sync issue badge + ↺ Reset Status), Break Glass scanner auto-run on tab switch |
 
 ### Running the tests
 
@@ -1196,12 +1528,37 @@ On CI, `--headless=new` is applied automatically via the `CI` environment variab
 
 ### Unit tests
 
-The amortization engine (`src/engine/amortize.ts`) has **Vitest** unit tests covering the core math in isolation (no browser, no IndexedDB):
+Pure business-logic modules have **Vitest** unit tests that run in Node — no browser, no IndexedDB, no extension context required:
+
+| File | What's tested |
+|---|---|
+| `src/engine/amortize.test.ts` | `amortizeSingleCard`, `amortizeMultiCard` (avalanche/snowball/rollover), `detectMinimumPaymentTrap`, `comparePayoffScenarios` |
+| `src/utils/billStatus.test.ts` | `computeBillStatus` (paid/due-soon/past-due/ok), `computeNextDue` |
+| `src/utils/paymentStatus.test.ts` | `computeMinPayment` (fixed/percentage/floor), `computePaymentStatus` |
+| `src/utils/paydays.test.ts` | `getPaydaysInMonth` (monthly/biweekly/weekly/semimonthly) |
+| `src/utils/finance.test.ts` | `toMonthly`, `sourceMonthly`, `MONTHLY_FACTORS` correctness |
 
 ```bash
 npm test           # run once
 npm run test:watch # watch mode
 ```
+
+### Code coverage
+
+Coverage is generated with [Vitest's V8 provider](https://vitest.dev/guide/coverage) and written to `coverage/` (git-ignored). `npm run setup` runs it automatically as part of the build pipeline — look for the summary in the terminal and open the report in a browser for line-level detail:
+
+```bash
+# Generate the report manually
+npm run coverage
+
+# Open the HTML report (macOS / Linux)
+open coverage/index.html
+
+# Open the HTML report (Windows)
+start coverage/index.html
+```
+
+The report covers all `src/**/*.ts` files excluding test files. Add a test file co-located with a source file (`*.test.ts` alongside the module) to bring any new pure-logic module under coverage.
 
 ---
 

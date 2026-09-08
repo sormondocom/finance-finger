@@ -4,7 +4,13 @@
   position: fixed;
   bottom: var(--space-6);
   right: var(--space-6);
-  z-index: 9999;
+  z-index: 2147483647;
+  /* Promote the entire mascot subtree to a single GPU compositing layer.
+     This keeps the bubble's paint (button hover/active) and the figure's
+     CSS animation on the same GPU surface, eliminating the CPU→GPU boundary
+     that causes a one-frame animation stutter on click. */
+  transform: translateZ(0);
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -55,6 +61,7 @@
   cursor: pointer;
   animation: mosey-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   transform-origin: bottom right;
+  will-change: transform;
 }
 
 .mascot-figure.idle {
@@ -88,8 +95,8 @@
   border-radius: var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl);
   box-shadow: var(--shadow-md);
   padding: var(--space-4) var(--space-5);
-  max-width: 280px;
-  min-width: 180px;
+  max-width: 340px;
+  min-width: 200px;
   pointer-events: all;
   animation: bubble-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   position: relative;
@@ -143,48 +150,83 @@
 
 .mascot-items-list {
   list-style: none;
-  margin: var(--space-2) 0 0;
-  padding: var(--space-2) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  background: var(--color-bg-sunken);
+  margin: var(--space-3) 0 0;
+  padding: 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
+  overflow: hidden;
+  background: var(--color-bg-sunken);
 }
 
-.mascot-items-list li {
-  font-size: var(--text-xs);
-  line-height: 1.4;
+.mascot-items-list li + li {
+  border-top: 1px solid var(--color-border);
 }
 
-/* ── Item navigation links ──────────────────────────────────────────────── */
+/* ── Item navigation buttons ────────────────────────────────────────────── */
 
-.mascot-item-link {
-  display: block;
+.mascot-item-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   width: 100%;
-  text-align: left;
+  padding: var(--space-2) var(--space-3);
   background: none;
   border: none;
-  padding: var(--space-1) 0;
-  font-size: var(--text-xs);
-  font-family: var(--font-body);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  transition: opacity var(--ease-default);
+  text-align: left;
+  font-family: var(--font-body);
+  transition: background var(--ease-default);
 }
 
-.mascot-item-link:hover {
-  opacity: 0.75;
+.mascot-item-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.mascot-item-link--critical {
+.mascot-item-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.mascot-item-name {
+  flex: 1;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mascot-item-status {
+  font-size: 0.6rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mascot-item-status--critical {
+  background: rgba(220, 38, 38, 0.12);
   color: var(--color-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
 }
 
-.mascot-item-link--warning {
+.mascot-item-status--warning {
+  background: rgba(180, 83, 9, 0.12);
   color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+}
+
+.mascot-item-date {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── "Git!" dismiss button ──────────────────────────────────────────────── */
@@ -244,7 +286,7 @@
   position: fixed;
   bottom: var(--space-6);
   right: var(--space-6);
-  z-index: 10000;
+  z-index: 2147483647;
   display: flex;
   flex-direction: column;
   align-items: flex-end;

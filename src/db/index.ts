@@ -1,5 +1,6 @@
 import { getDB } from './schema';
 import { encryptRecord, decryptRecord } from '@/crypto/vault';
+import type { RawSnapshot } from '@/types';
 import type {
   HouseholdMember,
   AvatarType,
@@ -16,8 +17,14 @@ import type {
   BankAccount,
   BankAccountType,
   BankAccountOwnership,
+  AccountTransfer,
   CustomNotification,
   NotificationTriggerType,
+  CalendarMark,
+  CalendarMemo,
+  BankTransaction,
+  ImportRecord,
+  TransactionRule,
 } from '@/types';
 
 function uuid(): string {
@@ -279,6 +286,11 @@ export async function findChargeByExpenseId(expenseId: string): Promise<CardChar
   return all.find((c) => c.sourceExpenseId === expenseId) ?? null;
 }
 
+export async function findChargesByExpenseId(expenseId: string): Promise<CardCharge[]> {
+  const all = await getCardCharges();
+  return all.filter((c) => c.sourceExpenseId === expenseId);
+}
+
 export function createCardCharge(
   accountId: string,
   merchant: string,
@@ -419,6 +431,43 @@ export function createBankAccount(
   return { id: uuid(), name, accountType, ownership, createdAt: now, updatedAt: now };
 }
 
+// ── Account Transfers ─────────────────────────────────────────────────────────
+
+export async function saveAccountTransfer(transfer: AccountTransfer): Promise<void> {
+  const db = await getDB();
+  await db.put('account_transfers', await encryptRecord(transfer), transfer.id);
+}
+
+export async function getAccountTransfers(): Promise<AccountTransfer[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('account_transfers');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('account_transfers', k);
+      return decryptRecord<AccountTransfer>(rec!);
+    }),
+  );
+  return all.sort((a, b) => b.date - a.date);
+}
+
+export async function deleteAccountTransfer(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('account_transfers', id);
+}
+
+export function createAccountTransfer(
+  fromAccountId: string,
+  toAccountId: string,
+  amount: number,
+  date: number,
+  note?: string,
+): AccountTransfer {
+  const now = Date.now();
+  const transfer: AccountTransfer = { id: uuid(), fromAccountId, toAccountId, amount, date, createdAt: now };
+  if (note) transfer.note = note;
+  return transfer;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export async function saveSetting<T>(key: string, value: T): Promise<void> {
@@ -433,6 +482,23 @@ export async function getSetting<T>(key: string): Promise<T | null> {
   return decryptRecord<T>(rec);
 }
 
+export async function getAllSettings(): Promise<Array<{ key: string; value: unknown }>> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('settings');
+  return Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('settings', k);
+      const value = await decryptRecord<unknown>(rec!);
+      return { key: k, value };
+    }),
+  );
+}
+
+export async function deleteSetting(key: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('settings', key);
+}
+
 export async function getTheme(): Promise<ThemeSettings> {
   return (
     (await getSetting<ThemeSettings>('theme')) ?? {
@@ -440,6 +506,84 @@ export async function getTheme(): Promise<ThemeSettings> {
       accentColor: '#C9A84C',
     }
   );
+}
+
+// ── Calendar Marks ────────────────────────────────────────────────────────────
+
+export async function saveCalendarMark(mark: CalendarMark): Promise<void> {
+  const db = await getDB();
+  await db.put('calendar_marks', await encryptRecord(mark), mark.date);
+}
+
+export async function getAllCalendarMarks(): Promise<CalendarMark[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('calendar_marks');
+  return Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('calendar_marks', k);
+      return decryptRecord<CalendarMark>(rec!);
+    }),
+  );
+}
+
+export async function getCalendarMarksForMonth(year: number, month: number): Promise<CalendarMark[]> {
+  const db = await getDB();
+  const m = String(month + 1).padStart(2, '0');
+  const range = IDBKeyRange.bound(`${year}-${m}-01`, `${year}-${m}-31`);
+  const keys = await db.getAllKeys('calendar_marks', range);
+  return Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('calendar_marks', k);
+      return decryptRecord<CalendarMark>(rec!);
+    }),
+  );
+}
+
+export async function deleteCalendarMark(date: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('calendar_marks', date);
+}
+
+export async function deleteCalendarMarksForMonth(year: number, month: number): Promise<void> {
+  const db = await getDB();
+  const m = String(month + 1).padStart(2, '0');
+  const range = IDBKeyRange.bound(`${year}-${m}-01`, `${year}-${m}-31`);
+  const keys = await db.getAllKeys('calendar_marks', range);
+  await Promise.all(keys.map((k) => db.delete('calendar_marks', k)));
+}
+
+// ── Calendar Memos ────────────────────────────────────────────────────────────
+
+export function createCalendarMemo(date: string, text: string, memberId?: string): CalendarMemo {
+  return { id: uuid(), date, text, ...(memberId ? { memberId } : {}), createdAt: Date.now() };
+}
+
+export async function saveCalendarMemo(memo: CalendarMemo): Promise<void> {
+  const db = await getDB();
+  await db.put('calendar_memos', await encryptRecord(memo), memo.id);
+}
+
+export async function getAllCalendarMemos(): Promise<CalendarMemo[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('calendar_memos');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('calendar_memos', k);
+      return decryptRecord<CalendarMemo>(rec!);
+    }),
+  );
+  return all.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function getCalendarMemosForMonth(year: number, month: number): Promise<CalendarMemo[]> {
+  const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+  const all = await getAllCalendarMemos();
+  return all.filter((m) => m.date.startsWith(prefix));
+}
+
+export async function deleteCalendarMemo(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('calendar_memos', id);
 }
 
 // ── Custom Notifications ──────────────────────────────────────────────────────
@@ -468,4 +612,106 @@ export async function deleteCustomNotification(id: string): Promise<void> {
 export function createCustomNotification(label: string, triggerType: NotificationTriggerType): CustomNotification {
   const now = Date.now();
   return { id: crypto.randomUUID(), label, triggerType, active: true, createdAt: now, updatedAt: now };
+}
+
+// ── Bank Transactions ─────────────────────────────────────────────────────────
+
+export async function saveBankTransaction(tx: BankTransaction): Promise<void> {
+  const db = await getDB();
+  await db.put('bank_transactions', await encryptRecord(tx), tx.id);
+}
+
+export async function getBankTransactions(bankAccountId?: string): Promise<BankTransaction[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('bank_transactions');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('bank_transactions', k);
+      return decryptRecord<BankTransaction>(rec!);
+    }),
+  );
+  const filtered = bankAccountId ? all.filter((t) => t.bankAccountId === bankAccountId) : all;
+  return filtered.sort((a, b) => b.date - a.date || b.createdAt - a.createdAt);
+}
+
+export async function deleteBankTransaction(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('bank_transactions', id);
+}
+
+export async function deleteBankTransactionsByAccount(bankAccountId: string): Promise<void> {
+  const all = await getBankTransactions(bankAccountId);
+  const db = await getDB();
+  await Promise.all(all.map((t) => db.delete('bank_transactions', t.id)));
+}
+
+// ── Import Records ────────────────────────────────────────────────────────────
+
+export async function saveImportRecord(record: ImportRecord): Promise<void> {
+  const db = await getDB();
+  await db.put('import_records', await encryptRecord(record), record.id);
+}
+
+export async function getImportRecords(): Promise<ImportRecord[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('import_records');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('import_records', k);
+      return decryptRecord<ImportRecord>(rec!);
+    }),
+  );
+  return all.sort((a, b) => b.importedAt - a.importedAt);
+}
+
+export async function deleteImportRecord(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('import_records', id);
+}
+
+// ── Transaction Rules ─────────────────────────────────────────────────────────
+
+export async function saveTransactionRule(rule: TransactionRule): Promise<void> {
+  const db = await getDB();
+  await db.put('transaction_rules', await encryptRecord(rule), rule.id);
+}
+
+export async function getTransactionRules(): Promise<TransactionRule[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('transaction_rules');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('transaction_rules', k);
+      return decryptRecord<TransactionRule>(rec!);
+    }),
+  );
+  return all.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+}
+
+export async function deleteTransactionRule(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('transaction_rules', id);
+}
+
+export async function clearAllTransactionRules(): Promise<void> {
+  const db = await getDB();
+  await db.clear('transaction_rules');
+}
+
+// ── Snapshots ─────────────────────────────────────────────────────────────────
+
+export async function saveSnapshot(snapshot: RawSnapshot): Promise<void> {
+  const db = await getDB();
+  await db.put('snapshots', snapshot, snapshot.id);
+}
+
+export async function getSnapshots(): Promise<RawSnapshot[]> {
+  const db = await getDB();
+  const all = await db.getAll('snapshots');
+  return all.sort((a, b) => b.takenAt - a.takenAt);
+}
+
+export async function deleteSnapshot(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('snapshots', id);
 }

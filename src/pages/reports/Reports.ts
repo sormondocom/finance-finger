@@ -1,4 +1,5 @@
 import './reports.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import browser from 'webextension-polyfill';
 import {
   Chart,
@@ -228,6 +229,7 @@ export class ReportsPage {
         <p class="text-muted text-sm">Analyze spending patterns, income trends, and debt progress.</p>
       </div>
     `;
+    wrap.querySelector('h1')?.appendChild(makeHelpBtn('reports'));
 
     const presets = document.createElement('div');
     presets.className = 'reports-presets';

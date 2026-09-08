@@ -1,4 +1,5 @@
 import './afford.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   getIncomeSources,
   getExpenses,
@@ -62,6 +63,7 @@ export class AffordPage {
       <h1 class="font-serif">Can I Afford This?</h1>
       <p class="afford-intro">Build "scenario films" — overlays of hypothetical income and expenses — and layer them on top of your real budget to see what would happen. Your actual data is never touched. Save films for long-term planning, layer multiple at once, or remove them entirely.</p>
     `;
+    hdr.querySelector('h1')?.appendChild(makeHelpBtn('whatif'));
     this.container.appendChild(hdr);
     this.container.appendChild(this.buildRealityPanel());
 
@@ -78,6 +80,7 @@ export class AffordPage {
     const hasData  = this.realIncome > 0;
     const el       = document.createElement('div');
     el.className   = 'reality-panel';
+    el.setAttribute('data-testid', 'reality-panel');
     el.innerHTML   = `
       <div class="reality-panel-label">Your Reality (Baseline)</div>
       <div class="reality-stats">
@@ -125,6 +128,7 @@ export class AffordPage {
 
     const el = document.createElement('div');
     el.className = 'projection-panel';
+    el.setAttribute('data-testid', 'projection-panel');
     el.innerHTML = `
       <div class="projection-label">🎬 With ${active.length} active film${active.length !== 1 ? 's' : ''}: ${nameList}</div>
       <div class="projection-stats">
@@ -179,6 +183,7 @@ export class AffordPage {
 
     const newBtn = document.createElement('button');
     newBtn.className = 'btn btn-primary';
+    newBtn.setAttribute('data-testid', 'new-film-btn');
     newBtn.textContent = '+ New Film';
     newBtn.addEventListener('click', () => this.openNewScenarioModal());
 
@@ -189,6 +194,7 @@ export class AffordPage {
     if (this.scenarios.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'afford-empty';
+      empty.setAttribute('data-testid', 'scenarios-empty');
       empty.innerHTML = `
         <span class="afford-empty-icon">🎬</span>
         <h3 style="margin-bottom:var(--space-2)">No scenario films yet</h3>
@@ -218,6 +224,7 @@ export class AffordPage {
 
     const card = document.createElement('div');
     card.className = 'scenario-card';
+    card.setAttribute('data-testid', 'scenario-card');
     card.setAttribute('data-active',   String(s.active));
     card.setAttribute('data-expanded', String(isExpanded));
     card.style.setProperty('--scenario-color', s.color);
@@ -240,6 +247,7 @@ export class AffordPage {
     // Toggle switch
     const toggleLabel = document.createElement('label');
     toggleLabel.className = 'scenario-toggle';
+    toggleLabel.setAttribute('data-testid', 'scenario-toggle');
     toggleLabel.title = s.active ? 'Remove from projection' : 'Layer onto your budget';
     toggleLabel.innerHTML = `
       <input type="checkbox" ${s.active ? 'checked' : ''} />
@@ -259,6 +267,7 @@ export class AffordPage {
     chevron.textContent = '▼';
 
     header.append(dot, info, toggleLabel, chevron);
+    header.setAttribute('data-testid', 'scenario-header');
     header.addEventListener('click', () => {
       this.expandedId = isExpanded ? null : s.id;
       if (!isExpanded) this.adding = null;
@@ -295,6 +304,7 @@ export class AffordPage {
 
         const row = document.createElement('div');
         row.className = 'scenario-item-row';
+        row.setAttribute('data-testid', 'scenario-item-row');
         row.innerHTML = `
           <span class="item-type-tag ${tagKey}">${tagLabel}</span>
           <span class="scenario-item-desc">${item.description}</span>
@@ -360,6 +370,7 @@ export class AffordPage {
     const mkAddBtn = (type: 'income' | 'expense') => {
       const btn = document.createElement('button');
       btn.className = 'btn btn-secondary';
+      btn.setAttribute('data-testid', type === 'income' ? 'add-income-item-btn' : 'add-expense-item-btn');
       btn.style.fontSize = 'var(--text-xs)';
       btn.style.color = type === 'income' ? 'var(--ff-green)' : 'var(--ff-rust)';
       btn.style.borderColor = type === 'income' ? 'var(--ff-green)' : 'var(--ff-rust)';

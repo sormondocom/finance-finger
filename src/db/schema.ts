@@ -1,7 +1,15 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { EncryptedRecord } from '@/types';
+import type { EncryptedRecord, RawSnapshot } from '@/types';
 
 interface FinancialFingerDB extends DBSchema {
+  bank_transactions: {
+    key: string;
+    value: EncryptedRecord;
+  };
+  import_records: {
+    key: string;
+    value: EncryptedRecord;
+  };
   notifications: {
     key: string;
     value: EncryptedRecord;
@@ -52,6 +60,26 @@ interface FinancialFingerDB extends DBSchema {
     key: string;
     value: EncryptedRecord;
   };
+  calendar_marks: {
+    key: string; // 'YYYY-MM-DD'
+    value: EncryptedRecord;
+  };
+  calendar_memos: {
+    key: string; // UUID
+    value: EncryptedRecord;
+  };
+  account_transfers: {
+    key: string;
+    value: EncryptedRecord;
+  };
+  snapshots: {
+    key: string;
+    value: RawSnapshot;
+  };
+  transaction_rules: {
+    key: string;
+    value: EncryptedRecord;
+  };
 }
 
 export type AppDB = IDBPDatabase<FinancialFingerDB>;
@@ -61,7 +89,7 @@ let db: AppDB | null = null;
 export async function getDB(): Promise<AppDB> {
   if (db) return db;
 
-  db = await openDB<FinancialFingerDB>('financial-finger', 7, {
+  db = await openDB<FinancialFingerDB>('financial-finger', 13, {
     upgrade(database, oldVersion) {
       if (oldVersion < 1) {
         database.createObjectStore('members');
@@ -93,6 +121,25 @@ export async function getDB(): Promise<AppDB> {
       }
       if (oldVersion < 7) {
         database.createObjectStore('notifications');
+      }
+      if (oldVersion < 8) {
+        database.createObjectStore('calendar_marks');
+      }
+      if (oldVersion < 9) {
+        database.createObjectStore('calendar_memos');
+      }
+      if (oldVersion < 10) {
+        database.createObjectStore('account_transfers');
+      }
+      if (oldVersion < 11) {
+        database.createObjectStore('snapshots');
+      }
+      if (oldVersion < 12) {
+        database.createObjectStore('bank_transactions');
+        database.createObjectStore('import_records');
+      }
+      if (oldVersion < 13) {
+        database.createObjectStore('transaction_rules');
       }
     },
   });

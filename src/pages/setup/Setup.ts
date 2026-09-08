@@ -402,7 +402,7 @@ export class SetupWizard {
           We don't store it and can't help you get it back.
         </div>
       </div>
-      ${isGenerated ? `<div class="key-display" id="key-display">${privKey}</div>` : '<p style="color:var(--color-text-muted);font-size:var(--text-sm)">You imported your own key — make sure it\'s already backed up.</p>'}
+      ${isGenerated ? `<div class="key-display" id="key-display">${privKey}</div>` : ''}
     `;
 
     const nav = this.renderNav({

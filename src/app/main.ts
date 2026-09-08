@@ -20,20 +20,22 @@ function buildNav(): HTMLElement {
     </div>
     <nav class="nav-links" role="navigation" aria-label="Main">
       <a href="#/dashboard" class="nav-link" data-route="/dashboard" data-testid="nav-dashboard">Dashboard</a>
+      <a href="#/calendar"  class="nav-link" data-route="/calendar"  data-testid="nav-calendar">Calendar</a>
       <a href="#/income"    class="nav-link" data-route="/income"    data-testid="nav-income">Income</a>
       <a href="#/accounts"  class="nav-link" data-route="/accounts"  data-testid="nav-accounts">Accounts</a>
       <a href="#/expenses"  class="nav-link" data-route="/expenses"  data-testid="nav-expenses">Expenses</a>
-      <a href="#/calendar"  class="nav-link" data-route="/calendar"  data-testid="nav-calendar">Calendar</a>
-      <a href="#/budget"    class="nav-link" data-route="/budget"    data-testid="nav-budget">Budget</a>
       <a href="#/debt"      class="nav-link" data-route="/debt"      data-testid="nav-debt">Debt</a>
+      <a href="#/budget"    class="nav-link" data-route="/budget"    data-testid="nav-budget">Budget</a>
       <a href="#/reports"   class="nav-link" data-route="/reports"   data-testid="nav-reports">Reports</a>
       <a href="#/afford"    class="nav-link" data-route="/afford"    data-testid="nav-afford">What If?</a>
       <a href="#/insights"  class="nav-link" data-route="/insights"  data-testid="nav-insights">Learn</a>
+      <a href="#/help"      class="nav-link" data-route="/help"      data-testid="nav-help">Help</a>
     </nav>
     <div class="nav-footer">
       <a href="#/settings" class="nav-link" data-route="/settings" data-testid="nav-settings">Settings</a>
       <button class="nav-lock-btn" id="nav-lock-btn" data-testid="nav-lock-btn">🔒 Lock Vault</button>
       <a href="https://buymeacoffee.com/sormondocom" target="_blank" rel="noopener noreferrer" class="nav-coffee">☕ buy me a coffee</a>
+      <div class="nav-version">v${browser.runtime.getManifest().version}</div>
     </div>
   `;
 
@@ -118,6 +120,10 @@ function launchApp(): void {
     const { InsightsPage } = await import('@/pages/insights/Insights');
     return new InsightsPage().render();
   });
+  register('/help', async () => {
+    const { HelpPage } = await import('@/pages/help/HelpPage');
+    return new HelpPage().render();
+  });
   register('/settings', async () => {
     const { SettingsPage } = await import('@/pages/settings/Settings');
     return new SettingsPage().render();
@@ -157,6 +163,13 @@ function launchApp(): void {
 }
 
 async function boot(): Promise<void> {
+  // Clear per-session mascot flags on every page boot (reload or popup re-open)
+  // so the mascot re-appears with fresh alerts. In-session navigation suppression
+  // still works because these keys are re-set when the mascot fires, and boot()
+  // doesn't run again during client-side route changes.
+  sessionStorage.removeItem('ff-payment-alerted');
+  sessionStorage.removeItem('ff-greeted');
+
   await Promise.all([applyTheme(), applyCurrency()]);
   const config = await getVaultConfig();
 

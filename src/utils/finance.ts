@@ -1,7 +1,9 @@
 import type { IncomeFrequency } from '@/types';
 
 export const MONTHLY_FACTORS: Record<IncomeFrequency, number> = {
-  hourly:      160,
+  // Legacy fallback only — 'hourly' is not a selectable frequency in the UI.
+  // Assumes a 40-hour work week: 40h × 52 weeks ÷ 12 months ≈ 173.33 h/month.
+  hourly:      40 * 52 / 12,
   weekly:      4.333,
   biweekly:    2.167,
   semimonthly: 2,

@@ -8,9 +8,12 @@ import type { Route } from '@/app/router';
 
 export interface NotifierItem {
   text: string;
+  label: string;
+  statusLabel: string;
   route: Extract<Route, '/debt' | '/expenses'>;
   severity: 'critical' | 'warning';
   dueDate?: Date | null;
+  focus?: { key: string; id: string };
 }
 
 type AlertsCallback = (items: NotifierItem[]) => void;
@@ -55,9 +58,9 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
       const payments = allPayments.filter((p) => p.accountId === c.id);
       const { currentMonth, dueDayThisMonth } = computePaymentStatus(c, payments);
       if (currentMonth === 'past-due') {
-        items.push({ text: `💳 ${c.name} — PAST DUE`, route: '/debt', severity: 'critical', dueDate: dueDayThisMonth });
+        items.push({ text: `💳 ${c.name} — PAST DUE`, label: c.name, statusLabel: 'PAST DUE', route: '/debt', severity: 'critical', dueDate: dueDayThisMonth, focus: { key: 'cal-focus-account', id: c.id } });
       } else if (currentMonth === 'due-soon') {
-        items.push({ text: `💳 ${c.name} — DUE SOON`, route: '/debt', severity: 'warning', dueDate: dueDayThisMonth });
+        items.push({ text: `💳 ${c.name} — DUE SOON`, label: c.name, statusLabel: 'DUE SOON', route: '/debt', severity: 'warning', dueDate: dueDayThisMonth, focus: { key: 'cal-focus-account', id: c.id } });
       }
     });
 
@@ -67,9 +70,9 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
     .forEach((e) => {
       const { status, dueDayThisMonth } = computeBillStatus(e);
       if (status === 'past-due') {
-        items.push({ text: `🧾 ${e.description} — PAST DUE`, route: '/expenses', severity: 'critical', dueDate: dueDayThisMonth });
+        items.push({ text: `🧾 ${e.description} — PAST DUE`, label: e.description, statusLabel: 'PAST DUE', route: '/expenses', severity: 'critical', dueDate: dueDayThisMonth, focus: { key: 'cal-focus-expense', id: e.id } });
       } else if (status === 'due-soon') {
-        items.push({ text: `🧾 ${e.description} — DUE SOON`, route: '/expenses', severity: 'warning', dueDate: dueDayThisMonth });
+        items.push({ text: `🧾 ${e.description} — DUE SOON`, label: e.description, statusLabel: 'DUE SOON', route: '/expenses', severity: 'warning', dueDate: dueDayThisMonth, focus: { key: 'cal-focus-expense', id: e.id } });
       }
     });
 
@@ -88,8 +91,11 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
         const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
         items.push({
           text: `📈 ${e.description} — over ${fmt.format(e.amount)} target ${overCount}× recently`,
+          label: e.description,
+          statusLabel: 'Over budget',
           route: '/expenses',
           severity: 'warning',
+          focus: { key: 'cal-focus-expense', id: e.id },
         });
       }
     });

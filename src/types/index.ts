@@ -116,9 +116,21 @@ export interface ExpensePaidRecord {
   createdAt: number;
 }
 
+// ── Account Transfers ─────────────────────────────────────────────────────────
+
+export interface AccountTransfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: number;      // timestamp
+  note?: string;
+  createdAt: number;
+}
+
 // ── Bank Accounts ─────────────────────────────────────────────────────────────
 
-export type BankAccountType = 'checking' | 'savings' | 'money-market' | 'other';
+export type BankAccountType = 'checking' | 'savings' | 'money-market' | 'cash' | 'other';
 export type BankAccountOwnership = 'individual' | 'joint' | 'household';
 
 export interface BankAccount {
@@ -151,6 +163,7 @@ export interface DebtAccount {
   paymentCycle: PaymentCycle;
   dueDay?: number;            // day of month extracted from nextDueDateMs for ongoing cycle display
   nextDueDateMs?: number;     // timestamp of the actual next payment due date; status computation advances this forward by paymentCycle
+  priority?: number | null;   // user-assigned payoff priority (1 = first); null/undefined = no preference
   url?: string;               // optional billing portal / website link
   createdAt: number;
   updatedAt: number;
@@ -287,4 +300,94 @@ export interface CustomNotification {
   lastFiredAt?: string;      // 'YYYY-MM-DD' — prevents double-fire on the same calendar day
   createdAt: number;
   updatedAt: number;
+}
+
+// ── Calendar marks ────────────────────────────────────────────────────────────
+
+export interface CalendarMark {
+  date: string;   // 'YYYY-MM-DD'
+  color: string;  // hex color string
+}
+
+// ── Calendar memos ────────────────────────────────────────────────────────────
+
+export interface CalendarMemo {
+  id: string;
+  date: string;       // 'YYYY-MM-DD'
+  text: string;
+  memberId?: string;  // optional household member who wrote it
+  createdAt: number;
+}
+
+// ── Bank Transactions (imported) ──────────────────────────────────────────────
+
+export interface BankTransaction {
+  id: string;
+  bankAccountId: string;
+  description: string;
+  amount: number;       // positive = credit (income to account), negative = debit (expense)
+  date: number;         // timestamp
+  categoryId?: string;
+  note?: string;
+  importId?: string;    // links to ImportRecord.id
+  createdAt: number;
+}
+
+// ── Import Records ────────────────────────────────────────────────────────────
+
+export interface ImportRecord {
+  id: string;
+  checksum: string;     // SHA-256 hex of raw file text
+  targetId: string;     // bankAccountId or debtAccount.id
+  targetType: 'bank-account' | 'debt-card';
+  targetName: string;
+  importedAt: number;
+  rowCount: number;
+  skippedCount: number;
+  dateRange: { start: number; end: number } | null;
+}
+
+// ── Import wizard ─────────────────────────────────────────────────────────────
+
+export type ReviewAction =
+  | { type: 'expense';      expenseId: string;     note?: string }
+  | { type: 'debt-payment'; debtAccountId: string; note?: string }
+  | { type: 'transfer';     toAccountId: string;   note?: string }
+  | { type: 'income';       note?: string }
+  | { type: 'category';     categoryId?: string;   note?: string }
+  | { type: 'skip' };
+
+// ── Transaction Rules (repeat detection) ─────────────────────────────────────
+
+export type TransactionRuleAction =
+  | { type: 'expense';      expenseId: string }
+  | { type: 'debt-payment'; debtAccountId: string }
+  | { type: 'transfer';     toAccountId: string }
+  | { type: 'income' }
+  | { type: 'category';     categoryId?: string };
+
+export interface TransactionRule {
+  id: string;
+  pattern: string;           // normalized description key used for matching
+  displayName: string;       // original description (truncated) for display
+  action: TransactionRuleAction;
+  appliedCount: number;      // times this pattern was confirmed
+  autoManage: boolean;       // true = auto-apply on future imports
+  createdAt: number;
+  lastUsedAt: number;
+}
+
+// ── Snapshots ─────────────────────────────────────────────────────────────────
+
+export interface RawSnapshotEntry {
+  key: string;
+  rec: { iv: number[]; data: number[] };
+}
+
+export interface RawSnapshot {
+  id: string;
+  takenAt: number;
+  label: string;
+  snapshotType?: 'manual' | 'import'; // undefined = 'manual' for backward compat
+  stores: Record<string, RawSnapshotEntry[]>;
 }

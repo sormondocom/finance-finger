@@ -22,10 +22,10 @@
  * Balance expectations by scenario:
  *   No linked data                  → placeholder hint, no number
  *   $3,000/mo income, no start bal  → $3,000.00
- *   $3,000/mo income + $5k start    → $8,000.00
- *   + $1,000 one-time this month    → $9,000.00
- *   Previous month (no one-time)    → $8,000.00
- *   Current month (back via ›)      → $9,000.00
+ *   $3,000/mo income + $5,000.50 start → $8,000.50
+ *   + $1,000 one-time this month    → $9,000.50
+ *   Previous month (no one-time)    → $8,000.50
+ *   Current month (back via ›)      → $9,000.50
  */
 import { test, expect } from '@playwright/test';
 import { launchExtensionContext } from '../helpers/extension';
@@ -122,8 +122,8 @@ test('River Bank balance is $3,000 when no starting balance and $3,000/mo income
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'River Bank' });
   const balance = row.locator('[data-testid="account-balance"]');
   await expect(balance).toBeVisible();
-  // (null ?? 0) + 3000 = 3,000.00
-  await expect(balance).toContainText('3,000');
+  // (null ?? 0) + 3000 = $3,000.00 — full cents displayed
+  await expect(balance).toContainText('$3,000.00');
   // Hint should no longer be visible now that there is linked data
   await expect(row.locator('[data-testid="account-balance-hint"]')).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-04-derived-balance.png' });
@@ -137,13 +137,13 @@ test('setting a starting balance of $5,000 updates the displayed balance to $8,0
   await row.locator('[data-testid="account-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#ba-balance', '5000');
+  await page.fill('#ba-balance', '5000.50');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
   const balance = row.locator('[data-testid="account-balance"]');
-  // 5000 + 3000 = 8,000.00
-  await expect(balance).toContainText('8,000');
+  // 5000.50 + 3000 = $8,000.50 — starting balance cents carried through
+  await expect(balance).toContainText('$8,000.50');
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-05-starting-balance.png' });
 });
 
@@ -199,8 +199,8 @@ test('current month balance includes the one-time income ($9,000)', async () => 
   // Month nav resets to current month on page load
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'River Bank' });
   const balance = row.locator('[data-testid="account-balance"]');
-  // 5000 + 3000 + 1000 = 9,000.00
-  await expect(balance).toContainText('9,000');
+  // 5000.50 + 3000 + 1000 = $9,000.50
+  await expect(balance).toContainText('$9,000.50');
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-09-onetime-current.png' });
 });
 
@@ -209,8 +209,8 @@ test('previous month balance excludes the one-time income (back to $8,000)', asy
 
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'River Bank' });
   const balance = row.locator('[data-testid="account-balance"]');
-  // One-time income is dated this month, so previous month gets 5000 + 3000 + 0 = 8,000
-  await expect(balance).toContainText('8,000');
+  // One-time income is dated this month, so previous month gets 5000.50 + 3000 + 0 = $8,000.50
+  await expect(balance).toContainText('$8,000.50');
   await expect(balance).not.toContainText('9,000');
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-10-onetime-prev-month.png' });
 });
@@ -220,6 +220,6 @@ test('navigating back to current month restores the one-time income in the balan
 
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'River Bank' });
   const balance = row.locator('[data-testid="account-balance"]');
-  await expect(balance).toContainText('9,000');
+  await expect(balance).toContainText('$9,000.50');
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-11-back-to-current.png' });
 });

@@ -66,21 +66,38 @@
   background: var(--color-bg-elevated);
 }
 
-.card-row-info { min-width: 0; }
+.card-row-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 
 .card-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.card-row-name-text {
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .card-row-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-1);
+}
+
+.debt-setup-btn {
+  align-self: flex-start;
 }
 
 .card-row-apr {
@@ -120,6 +137,8 @@
   color: var(--color-danger);
   white-space: nowrap;
   text-align: right;
+  min-width: 110px;
+  flex-shrink: 0;
 }
 
 .card-row-balance--zero {
@@ -140,6 +159,90 @@
   border-radius: var(--radius-full);
   border: 1px solid rgba(201, 168, 76, 0.4);
   font-weight: var(--weight-medium);
+}
+
+/* ── Priority selector ──────────────────────────────────────────────────── */
+
+.priority-select {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color var(--ease-default), background var(--ease-default), color var(--ease-default);
+  min-width: 38px;
+}
+
+.priority-select[data-has-priority="1"] {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--ff-gold-dark);
+  border-color: rgba(201, 168, 76, 0.5);
+}
+
+.priority-select:hover {
+  border-color: var(--ff-gold);
+}
+
+.priority-select:focus {
+  outline: none;
+  border-color: var(--ff-gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
+}
+
+/* ── Debt list sort bar ──────────────────────────────────────────────────── */
+
+.debt-list-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.debt-list-title-row h2 {
+  flex-shrink: 0;
+}
+
+.debt-sort-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.debt-sort-btn {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  font-family: var(--font-ui);
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--ease-default), background var(--ease-default), color var(--ease-default);
+}
+
+.debt-sort-btn.active {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--ff-gold-dark);
+  border-color: rgba(201, 168, 76, 0.5);
+}
+
+.debt-sort-btn:hover:not(.active) {
+  border-color: var(--ff-gold);
+  color: var(--color-text);
+}
+
+.debt-sort-btn:focus {
+  outline: none;
+  border-color: var(--ff-gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
 }
 
 /* ── Priority / interest badges ─────────────────────────────────────────── */
@@ -253,6 +356,14 @@
 .payment-month-chip-icon {
   font-size: 11px;
   font-weight: var(--weight-bold);
+}
+
+.payment-month-chip-extra {
+  font-size: 9px;
+  font-weight: var(--weight-semibold);
+  color: var(--ff-green);
+  opacity: 0.8;
+  letter-spacing: 0.02em;
 }
 
 .payment-month-chip--paid {

@@ -64,7 +64,7 @@ test('clicking income form "No bank accounts" link closes the modal and navigate
   const link = page.locator('[data-testid="modal-dialog"]').locator('a', { hasText: 'Add one in Accounts' });
   await link.click();
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible({ timeout: 4000 });
-  await expect(page.locator('h1')).toContainText('Bank Accounts');
+  await expect(page.locator('h1')).toContainText('Accounts');
   await page.screenshot({ path: 'tests/screenshots/hints-02-income-link-navigated.png' });
 });
 
@@ -97,7 +97,7 @@ test('clicking expense form "No bank accounts" link closes the modal and navigat
   const link = page.locator('[data-testid="modal-dialog"]').locator('a', { hasText: 'Add one in Accounts' });
   await link.click();
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible({ timeout: 4000 });
-  await expect(page.locator('h1')).toContainText('Bank Accounts');
+  await expect(page.locator('h1')).toContainText('Accounts');
   await page.screenshot({ path: 'tests/screenshots/hints-04-expense-acct-link-navigated.png' });
 });
 

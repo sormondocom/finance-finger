@@ -1,17 +1,19 @@
 import './calendar.css';
 import { navigate } from '@/app/router';
-import { getExpenses, saveExpense, saveExpensePaidRecord, createExpensePaidRecord,
-         getDebtAccounts, getDebtPayments, saveDebtPayment, createDebtPayment,
-         getCategories, getIncomeSources, getMembers,
-         saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId } from '@/db';
-import { openFormModal } from '@/components/Modal';
+import { makeHelpBtn } from '@/utils/helpNav';
+import { getExpenses, getDebtAccounts, getDebtPayments,
+         getCategories, getIncomeSources, getMembers, getExpensePaidRecords, getBankAccounts,
+         saveCalendarMark, getCalendarMarksForMonth, deleteCalendarMark, deleteCalendarMarksForMonth,
+         getCalendarMemosForMonth, saveCalendarMemo, createCalendarMemo, deleteCalendarMemo } from '@/db';
+import { openDebtPaymentModal } from '@/components/DebtPaymentModal';
+import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
+import { openModal } from '@/components/Modal';
 import { computeBillStatus } from '@/utils/billStatus';
 import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
 import type { AccountPaymentStatus } from '@/utils/paymentStatus';
 import { getPaydaysInMonth } from '@/utils/paydays';
-import { refreshNotifier } from '@/utils/notifier';
 import { fmtCents } from '@/utils/finance';
-import type { Expense, DebtAccount, DebtPayment, ExpenseCategory, DebtAccountType, IncomeSource, HouseholdMember } from '@/types';
+import type { Expense, DebtAccount, DebtPayment, ExpenseCategory, ExpensePaidRecord, BankAccount, DebtAccountType, IncomeSource, HouseholdMember, CalendarMark, CalendarMemo } from '@/types';
 
 const DEBT_TYPE_LABEL: Record<DebtAccountType, string> = {
   card: 'Credit Card',
@@ -46,7 +48,17 @@ export class CalendarPage {
   private cardAccounts: DebtAccount[] = [];
   private allDebtPayments: DebtPayment[] = [];
   private debtAccounts: DebtAccount[] = [];
+  private expensePaidRecords: ExpensePaidRecord[] = [];
+  private bankAccounts: BankAccount[] = [];
+  private memos: Map<string, CalendarMemo[]> = new Map();
   private container!: HTMLElement;
+  private marks: Map<string, string> = new Map();
+  private paintMode = false;
+  private activeColor = '#22c55e';
+  private isPainting = false;
+  private paintAction: 'paint' | 'erase' = 'paint';
+  private muHandler: (() => void) | null = null;
+  private activeFilter: 'past-due' | 'due-soon' | 'paid' | 'ok' | null = null;
 
   constructor() {
     const now = new Date();
@@ -62,19 +74,24 @@ export class CalendarPage {
   }
 
   private async load(): Promise<void> {
-    const [expenses, accounts, allPayments, categories, sources, members] = await Promise.all([
+    const [expenses, accounts, allPayments, categories, sources, members, paidRecords, bankAccounts, memoList] = await Promise.all([
       getExpenses(),
       getDebtAccounts(),
       getDebtPayments(),
       getCategories(),
       getIncomeSources(),
       getMembers(),
+      getExpensePaidRecords(),
+      getBankAccounts(),
+      getCalendarMemosForMonth(this.year, this.month),
     ]);
     this.categories = categories;
     this.expenses = expenses;
     this.members = members;
     this.debtAccounts = accounts;
     this.allDebtPayments = allPayments;
+    this.expensePaidRecords = paidRecords;
+    this.bankAccounts = bankAccounts;
     this.cardAccounts = accounts.filter((a) => a.type === 'card');
     // Include all active recurring sources. For sources without an explicit
     // paydayRef (created before the income form started defaulting it), use
@@ -90,10 +107,36 @@ export class CalendarPage {
         account: a,
         status: computePaymentStatus(a, allPayments.filter((p) => p.accountId === a.id)),
       }));
+    this.memos = new Map();
+    for (const m of memoList) {
+      const arr = this.memos.get(m.date) ?? [];
+      arr.push(m);
+      this.memos.set(m.date, arr);
+    }
+    await this.loadMarks();
     this.paint();
   }
 
+  private async loadMemos(): Promise<void> {
+    const list = await getCalendarMemosForMonth(this.year, this.month);
+    this.memos = new Map();
+    for (const m of list) {
+      const arr = this.memos.get(m.date) ?? [];
+      arr.push(m);
+      this.memos.set(m.date, arr);
+    }
+  }
+
+  private async loadMarks(): Promise<void> {
+    const markList = await getCalendarMarksForMonth(this.year, this.month);
+    this.marks = new Map(markList.map((m: CalendarMark) => [m.date, m.color]));
+  }
+
   private paint(): void {
+    if (this.muHandler) {
+      document.removeEventListener('mouseup', this.muHandler);
+      this.muHandler = null;
+    }
     this.container.innerHTML = '';
 
     // For quarterly bills, only include them in the month they're actually due.
@@ -160,6 +203,16 @@ export class CalendarPage {
       paymentsByDay.set(day, arr);
     });
 
+    // Most recent payment date per account in a 45-day window (captures pre-due-date payments from prior month)
+    const debtBillingWindowStart = monthStart - 14 * 24 * 60 * 60 * 1000;
+    const debtPaymentDateMap = new Map<string, number>();
+    this.allDebtPayments
+      .filter((p) => p.date >= debtBillingWindowStart && p.date < monthEnd)
+      .forEach((p) => {
+        const ex = debtPaymentDateMap.get(p.accountId);
+        if (ex == null || p.date > ex) debtPaymentDateMap.set(p.accountId, p.date);
+      });
+
     const hasAny = bills.length > 0 || this.debtEntries.length > 0 ||
                    paydaysByDay.size > 0 || oneTimeExpenses.length > 0 ||
                    oneTimeIncomeThisMonth.length > 0 || paymentsByDay.size > 0;
@@ -173,6 +226,7 @@ export class CalendarPage {
       <h1 class="font-serif">Payment Calendar</h1>
       <p class="text-muted text-sm">See when your recurring bills and debt payments land each month.</p>
     `;
+    titleWrap.querySelector('h1')?.appendChild(makeHelpBtn('calendar'));
     header.appendChild(titleWrap);
 
     // Month navigation
@@ -184,9 +238,10 @@ export class CalendarPage {
     prevBtn.setAttribute('aria-label', 'Previous month');
     prevBtn.setAttribute('data-testid', 'cal-prev');
     prevBtn.innerHTML = '&#8249;';
-    prevBtn.addEventListener('click', () => {
+    prevBtn.addEventListener('click', async () => {
       if (this.month === 0) { this.month = 11; this.year--; }
       else { this.month--; }
+      await Promise.all([this.loadMarks(), this.loadMemos()]);
       this.paint();
     });
 
@@ -201,9 +256,10 @@ export class CalendarPage {
     nextBtn.setAttribute('aria-label', 'Next month');
     nextBtn.setAttribute('data-testid', 'cal-next');
     nextBtn.innerHTML = '&#8250;';
-    nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener('click', async () => {
       if (this.month === 11) { this.month = 0; this.year++; }
       else { this.month++; }
+      await Promise.all([this.loadMarks(), this.loadMemos()]);
       this.paint();
     });
 
@@ -238,18 +294,20 @@ export class CalendarPage {
         <p>Add expenses to see them here. Set a due day on a recurring expense or debt account to enable payment tracking.</p>
       `;
       this.container.appendChild(empty);
-      return;
-    }
+    } else {
+      // ── Status summary bar ─────────────────────────────────────────────
+      this.container.appendChild(this.buildSummaryBar(bills));
 
-    // ── Status summary bar ───────────────────────────────────────────────
-    this.container.appendChild(this.buildSummaryBar(bills));
+      // ── Paint toolbar ──────────────────────────────────────────────────
+      this.container.appendChild(this.buildPaintToolbar());
+    }
 
     // ── Calendar grid ────────────────────────────────────────────────────
     const gridWrap = document.createElement('div');
     gridWrap.className = 'calendar-grid-wrap';
 
     const grid = document.createElement('div');
-    grid.className = 'calendar-grid';
+    grid.className = `calendar-grid${this.paintMode ? ' calendar-grid--paint-mode' : ''}`;
     grid.setAttribute('data-testid', 'calendar-grid');
 
     // Weekday headers
@@ -275,10 +333,12 @@ export class CalendarPage {
       billsByDay.set(dueDay, arr);
     });
 
-    // Group debt accounts by clamped due day
+    // Group debt accounts by effective due day — skip debts not due this calendar month
+    // (e.g. nextDueDateMs already advanced to a future month means no payment owed now)
     const debtByDay = new Map<number, DebtEntry[]>();
     this.debtEntries.forEach((entry) => {
-      const dueDay = Math.min(entry.account.dueDay!, daysInMonth);
+      if (!entry.status.dueDayThisMonth) return;
+      const dueDay = entry.status.dueDayThisMonth.getDate();
       const arr = debtByDay.get(dueDay) ?? [];
       arr.push(entry);
       debtByDay.set(dueDay, arr);
@@ -307,6 +367,26 @@ export class CalendarPage {
       dayNum.textContent = String(day);
       cell.appendChild(dayNum);
 
+      // Paint mark
+      const dateKey = `${this.year}-${String(this.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const markColor = this.marks.get(dateKey);
+      if (markColor) {
+        cell.classList.add('calendar-cell--marked');
+        cell.style.setProperty('--cell-mark-color', markColor);
+      }
+      if (this.paintMode) {
+        cell.classList.add('calendar-cell--paintable');
+        cell.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          this.isPainting = true;
+          this.paintAction = this.marks.get(dateKey) === this.activeColor ? 'erase' : 'paint';
+          void this.applyMarkToggle(day, dateKey);
+        });
+        cell.addEventListener('mouseenter', () => {
+          if (this.isPainting) void this.applyMarkToggle(day, dateKey);
+        });
+      }
+
       const dayBills       = billsByDay.get(day) ?? [];
       const dayDebts       = debtByDay.get(day) ?? [];
       const dayPaydays     = paydaysByDay.get(day) ?? [];
@@ -318,26 +398,146 @@ export class CalendarPage {
           dayOneTime.length > 0 || dayOneTimeIncome.length > 0 || dayPayments.length > 0) {
         const chipsWrap = document.createElement('div');
         chipsWrap.className = 'calendar-bills';
+
+        // Days before today in the current month cannot be "Upcoming"
+        const isPastDay = isCurrentYearMonth && day < today.getDate();
+
         dayPaydays.forEach(({ source, paydayIndex }) => chipsWrap.appendChild(this.buildPaydayChip(source, paydayIndex)));
         dayOneTimeIncome.forEach((s) => chipsWrap.appendChild(this.buildOneTimeIncomeChip(s)));
-        dayBills.forEach((e) => chipsWrap.appendChild(this.buildBillChip(e)));
-        dayDebts.forEach(({ account, status }) => chipsWrap.appendChild(this.buildDebtChip(account, status)));
+
+        dayBills.forEach((e) => {
+          const paidRec = this.expensePaidRecords.find((r) => r.expenseId === e.id);
+          const chipEl = this.buildBillChip(e, paidRec);
+          if (this.activeFilter) {
+            const { status } = computeBillStatus(e);
+            const chipStatus = e.isAutoPay ? 'ok' : status;
+            if (chipStatus === this.activeFilter && !(chipStatus === 'ok' && isPastDay)) {
+              chipEl.querySelector<HTMLElement>('.calendar-bill-chip')?.classList.add('cal-chip-filter-match');
+            }
+          }
+          chipsWrap.appendChild(chipEl);
+        });
+
+        dayDebts.forEach(({ account, status }) => {
+          const chipEl = this.buildDebtChip(account, status, debtPaymentDateMap.get(account.id));
+          if (this.activeFilter && debtChipStatus(status.currentMonth) === this.activeFilter) {
+            chipEl.querySelector<HTMLElement>('.calendar-bill-chip')?.classList.add('cal-chip-filter-match');
+          }
+          chipsWrap.appendChild(chipEl);
+        });
+
         dayPayments.forEach(({ payment, account }) => chipsWrap.appendChild(this.buildDebtPaymentChip(payment, account)));
         dayOneTime.forEach((e) => chipsWrap.appendChild(this.buildOneTimeExpenseChip(e)));
         cell.appendChild(chipsWrap);
       }
+
+      const dayMemos = this.memos.get(dateKey) ?? [];
+      cell.appendChild(this.buildMemoWidget(dateKey, dayMemos));
 
       grid.appendChild(cell);
     }
 
     gridWrap.appendChild(grid);
     this.container.appendChild(gridWrap);
+
+    if (this.paintMode) {
+      this.muHandler = () => { this.isPainting = false; };
+      document.addEventListener('mouseup', this.muHandler);
+    }
   }
 
   private chipNav(e: MouseEvent, sessionKey: string, id: string, route: '/expenses' | '/income' | '/debt'): void {
     if ((e.target as HTMLElement).closest('a, button')) return;
     sessionStorage.setItem(sessionKey, id);
     navigate(route);
+  }
+
+  private buildPaintToolbar(): HTMLElement {
+    const COLORS = [
+      { color: '#22c55e', label: 'Green' },
+      { color: '#3b82f6', label: 'Blue' },
+      { color: '#eab308', label: 'Amber' },
+      { color: '#ef4444', label: 'Red' },
+      { color: '#a855f7', label: 'Purple' },
+    ];
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'paint-toolbar';
+    toolbar.setAttribute('data-testid', 'paint-toolbar');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = `paint-mode-btn${this.paintMode ? ' paint-mode-btn--active' : ''}`;
+    toggleBtn.setAttribute('data-testid', 'paint-mode-btn');
+    toggleBtn.textContent = this.paintMode ? '✦ Marking' : '✦ Mark Days';
+    toggleBtn.addEventListener('click', () => {
+      this.paintMode = !this.paintMode;
+      this.isPainting = false;
+      this.paint();
+    });
+    toolbar.appendChild(toggleBtn);
+
+    if (this.paintMode) {
+      const palette = document.createElement('div');
+      palette.className = 'paint-palette';
+      palette.setAttribute('data-testid', 'paint-palette');
+
+      COLORS.forEach(({ color, label }) => {
+        const swatch = document.createElement('button');
+        swatch.className = `paint-color-btn${color === this.activeColor ? ' paint-color-btn--active' : ''}`;
+        swatch.style.setProperty('--swatch-color', color);
+        swatch.setAttribute('aria-label', label);
+        swatch.setAttribute('title', label);
+        swatch.addEventListener('click', () => {
+          this.activeColor = color;
+          this.paint();
+        });
+        palette.appendChild(swatch);
+      });
+
+      toolbar.appendChild(palette);
+
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'paint-clear-btn';
+      clearBtn.setAttribute('data-testid', 'paint-clear-month');
+      clearBtn.textContent = 'Clear Month';
+      clearBtn.addEventListener('click', async () => {
+        const label = new Date(this.year, this.month, 1)
+          .toLocaleString('default', { month: 'long', year: 'numeric' });
+        if (!confirm(`Clear all marks for ${label}?`)) return;
+        await deleteCalendarMarksForMonth(this.year, this.month);
+        this.marks.clear();
+        this.paint();
+      });
+      toolbar.appendChild(clearBtn);
+    }
+
+    return toolbar;
+  }
+
+  private async applyMarkToggle(day: number, dateKey: string): Promise<void> {
+    if (this.paintAction === 'erase') {
+      if (!this.marks.has(dateKey)) return;
+      this.marks.delete(dateKey);
+      await deleteCalendarMark(dateKey);
+      this.updateCellMarkDOM(day, null);
+    } else {
+      if (this.marks.get(dateKey) === this.activeColor) return;
+      this.marks.set(dateKey, this.activeColor);
+      await saveCalendarMark({ date: dateKey, color: this.activeColor });
+      this.updateCellMarkDOM(day, this.activeColor);
+    }
+  }
+
+  private updateCellMarkDOM(day: number, color: string | null): void {
+    const cell = this.container.querySelector<HTMLElement>(`[data-day="${day}"]`);
+    if (!cell) return;
+    if (color) {
+      cell.classList.add('calendar-cell--marked');
+      cell.style.setProperty('--cell-mark-color', color);
+    } else {
+      cell.classList.remove('calendar-cell--marked');
+      cell.style.removeProperty('--cell-mark-color');
+    }
   }
 
   private buildSummaryBar(bills: Expense[]): HTMLElement {
@@ -347,12 +547,22 @@ export class CalendarPage {
 
     const counts = { 'past-due': 0, 'due-soon': 0, paid: 0, ok: 0 };
 
+    const now = new Date();
+    const todayDate = now.getDate();
+    const isCurrentYearMonth = now.getFullYear() === this.year && now.getMonth() === this.month;
+    const daysInMonthForCount = new Date(this.year, this.month + 1, 0).getDate();
+
     bills.forEach((e) => {
       const { status } = computeBillStatus(e);
-      counts[status]++;
+      const chipStatus = e.isAutoPay ? 'ok' : status;
+      const dueDay = Math.min(e.dueDay!, daysInMonthForCount);
+      // Don't count 'ok' (Upcoming) for bills whose due day has already passed this month
+      if (chipStatus === 'ok' && isCurrentYearMonth && dueDay < todayDate) return;
+      counts[chipStatus]++;
     });
 
     this.debtEntries.forEach(({ status }) => {
+      if (!status.dueDayThisMonth) return;
       counts[debtChipStatus(status.currentMonth)]++;
     });
 
@@ -365,12 +575,39 @@ export class CalendarPage {
 
     chips.forEach(({ key, label, cssClass, testid }) => {
       if (counts[key] === 0) return;
+      const isActive = this.activeFilter === key;
       const chip = document.createElement('div');
-      chip.className = `calendar-summary-chip ${cssClass}`;
+      chip.className = `calendar-summary-chip ${cssClass}${isActive ? ' calendar-summary-chip--active' : ''}`;
       chip.setAttribute('data-testid', testid);
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('title', isActive ? `Remove ${label} filter` : `Highlight ${label} days`);
       chip.textContent = `${counts[key]} ${label}`;
+      chip.addEventListener('click', () => {
+        this.activeFilter = isActive ? null : key;
+        this.paint();
+      });
+      chip.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.activeFilter = isActive ? null : key;
+          this.paint();
+        }
+      });
       bar.appendChild(chip);
     });
+
+    if (this.activeFilter !== null) {
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'calendar-filter-clear-btn';
+      clearBtn.setAttribute('data-testid', 'cal-filter-clear');
+      clearBtn.textContent = '✕ Clear Filter';
+      clearBtn.addEventListener('click', () => {
+        this.activeFilter = null;
+        this.paint();
+      });
+      bar.appendChild(clearBtn);
+    }
 
     return bar;
   }
@@ -415,13 +652,19 @@ export class CalendarPage {
     return chip;
   }
 
-  private buildBillChip(expense: Expense): HTMLElement {
+  private buildBillChip(expense: Expense, paidRecord?: ExpensePaidRecord): HTMLElement {
     const { status } = computeBillStatus(expense);
     const isAutoPay = !!expense.isAutoPay;
     const category = this.categories.find((c) => c.id === expense.categoryId);
     const categoryName = category?.name ?? 'Expense';
     const chipStatus = isAutoPay ? 'ok' : status;
     const statusIcon = isAutoPay ? '🔄' : (status === 'paid' ? '✓' : status === 'past-due' ? '⚠' : status === 'due-soon' ? '⏰' : '');
+
+    const isPaidStatus = chipStatus === 'paid';
+    const displayAmount = (isPaidStatus && paidRecord) ? paidRecord.amount : expense.amount;
+    const paidOnStr = isPaidStatus
+      ? new Date(paidRecord?.date ?? expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : null;
 
     const wrap = document.createElement('div');
     wrap.className = 'cal-chip-wrap';
@@ -441,7 +684,8 @@ export class CalendarPage {
       ${isAutoPay
         ? '<span class="cal-chip-autopay">Auto-pay</span>'
         : `<span class="cal-chip-type">${categoryName}</span>`}
-      <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
+      <span class="cal-chip-amount">${fmtCents.format(displayAmount)}</span>
+      ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
     `;
 
     if (expense.url) {
@@ -506,12 +750,23 @@ export class CalendarPage {
     return chip;
   }
 
-  private buildDebtChip(account: DebtAccount, status: AccountPaymentStatus): HTMLElement {
+  private buildDebtChip(account: DebtAccount, status: AccountPaymentStatus, paidDate?: number): HTMLElement {
     const chipStatus = debtChipStatus(status.currentMonth);
     const minPay = computeMinPayment(account);
-    const amountLabel = minPay != null
-      ? `${fmtCents.format(minPay)} min`
-      : `${fmtCents.format(account.balance)} balance`;
+
+    let amountLabel: string;
+    let paidOnStr: string | null = null;
+    if (chipStatus === 'paid') {
+      amountLabel = `${fmtCents.format(status.currentMonthTotal)} paid`;
+      if (paidDate != null) {
+        paidOnStr = new Date(paidDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    } else {
+      amountLabel = minPay != null
+        ? `${fmtCents.format(minPay)} min`
+        : `${fmtCents.format(account.balance)} balance`;
+    }
+
     const statusIcon = chipStatus === 'paid' ? '✓' : chipStatus === 'past-due' ? '⚠' : chipStatus === 'due-soon' ? '⏰' : '';
 
     const wrap = document.createElement('div');
@@ -531,6 +786,7 @@ export class CalendarPage {
       </div>
       <span class="cal-chip-type">${DEBT_TYPE_LABEL[account.type]}</span>
       <span class="cal-chip-amount">${amountLabel}</span>
+      ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
     `;
 
     if (account.url) {
@@ -578,123 +834,255 @@ export class CalendarPage {
     return chip;
   }
 
-  private openMarkPaidForm(expense: Expense): void {
-    const isFixed = !!expense.isFixedAmount;
-    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-    const today = new Date().toISOString().split('T')[0];
+  private buildMemoWidget(dateKey: string, dayMemos: CalendarMemo[]): HTMLElement {
+    const widget = document.createElement('div');
+    widget.className = 'cal-memo-widget';
 
-    const body = document.createElement('div');
-    body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
-    body.innerHTML = `
-      <p class="text-sm text-muted">
-        How much was the actual bill for <strong>${expense.description}</strong>?
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="cal-mp-amount">Actual amount</label>
-        <input id="cal-mp-amount" type="number" min="0" step="0.01"
-          value="${expense.amount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
-        ${isFixed
-          ? '<span class="form-hint">Fixed amount — same as estimated</span>'
-          : `<span class="form-hint">Estimated: ${currFmt.format(expense.amount)}</span>`}
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="cal-mp-date">Date paid</label>
-        <input id="cal-mp-date" type="date" value="${today}" />
-      </div>
-    `;
+    const btn = document.createElement('button');
+    const count = dayMemos.length;
+    btn.className = `cal-memo-btn${count === 0 ? ' cal-memo-btn--empty' : ''}`;
+    if (count === 2) btn.dataset['stacked'] = '2';
+    if (count >= 3) btn.dataset['stacked'] = '3';
+    btn.setAttribute('aria-label', count > 0 ? `${count} note${count > 1 ? 's' : ''}` : 'Add note');
+    btn.setAttribute('title', count > 0 ? `${count} note${count > 1 ? 's' : ''}` : 'Add note');
+    btn.setAttribute('data-testid', 'cal-memo-btn');
+    btn.innerHTML = count === 0
+      ? '+'
+      : count === 1
+        ? '&#9998;'
+        : `&#9998;<span class="cal-memo-count-badge">${count}</span>`;
 
-    // Card dropdown
-    if (this.cardAccounts.length > 0) {
-      const cardGroup = document.createElement('div');
-      cardGroup.className = 'form-group';
-      const cardLabel = document.createElement('label');
-      cardLabel.className = 'form-label';
-      cardLabel.htmlFor = 'cal-mp-card';
-      cardLabel.innerHTML = 'Charge to card <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
-      const cardSel = document.createElement('select');
-      cardSel.id = 'cal-mp-card';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openMemoModal(dateKey, dayMemos);
+    });
+
+    widget.appendChild(btn);
+    return widget;
+  }
+
+  private openMemoModal(dateKey: string, initialMemos: CalendarMemo[]): void {
+    let memos = [...initialMemos];
+    let currentIndex = 0;
+
+    const [y, mo, d] = dateKey.split('-').map(Number) as [number, number, number];
+    const dateLabel = new Date(y, mo - 1, d, 12).toLocaleDateString('en-US', {
+      month: 'long', day: 'numeric', year: 'numeric',
+    });
+
+    const content = document.createElement('div');
+    content.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
+
+    // ── Pager ──────────────────────────────────────────────────────────────
+    const pagerSection = document.createElement('div');
+    pagerSection.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-3)';
+
+    const pagerBar = document.createElement('div');
+    pagerBar.className = 'cal-memo-pager';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'cal-memo-nav-btn';
+    prevBtn.textContent = '←';
+    prevBtn.setAttribute('aria-label', 'Previous note');
+    prevBtn.setAttribute('data-testid', 'cal-memo-prev');
+
+    const pagerLabel = document.createElement('span');
+    pagerLabel.className = 'cal-memo-pager-label';
+    pagerLabel.setAttribute('data-testid', 'cal-memo-pager-label');
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'cal-memo-nav-btn';
+    nextBtn.textContent = '→';
+    nextBtn.setAttribute('aria-label', 'Next note');
+    nextBtn.setAttribute('data-testid', 'cal-memo-next');
+
+    pagerBar.appendChild(prevBtn);
+    pagerBar.appendChild(pagerLabel);
+    pagerBar.appendChild(nextBtn);
+
+    const noteCard = document.createElement('div');
+    noteCard.className = 'cal-memo-note-card';
+    noteCard.setAttribute('data-testid', 'cal-memo-note-card');
+
+    const noteText = document.createElement('p');
+    noteText.className = 'cal-memo-note-text';
+    noteText.setAttribute('data-testid', 'cal-memo-note-text');
+    noteCard.appendChild(noteText);
+
+    const noteMeta = document.createElement('div');
+    noteMeta.className = 'cal-memo-note-meta';
+
+    const metaInfo = document.createElement('span');
+    metaInfo.className = 'cal-memo-meta-info';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'cal-memo-delete-btn';
+    deleteBtn.setAttribute('data-testid', 'cal-memo-delete-btn');
+    deleteBtn.textContent = 'Delete';
+
+    noteMeta.appendChild(metaInfo);
+    noteMeta.appendChild(deleteBtn);
+
+    pagerSection.appendChild(pagerBar);
+    pagerSection.appendChild(noteCard);
+    pagerSection.appendChild(noteMeta);
+
+    // ── Divider ────────────────────────────────────────────────────────────
+    const divider = document.createElement('hr');
+    divider.className = 'cal-memo-divider';
+
+    // ── Add note section ───────────────────────────────────────────────────
+    const addSection = document.createElement('div');
+    addSection.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-3)';
+
+    const addLabel = document.createElement('label');
+    addLabel.className = 'form-label';
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = 3;
+    textarea.maxLength = 500;
+    textarea.placeholder = 'Write a note for yourself or a family member...';
+    textarea.style.cssText = 'resize:vertical;min-height:72px';
+    textarea.setAttribute('data-testid', 'cal-memo-textarea');
+
+    const addRow = document.createElement('div');
+    addRow.style.cssText = 'display:flex;align-items:center;gap:var(--space-3)';
+
+    if (this.members.length > 0) {
+      const fromLabel = document.createElement('span');
+      fromLabel.style.cssText = 'font-size:var(--text-sm);color:var(--color-text-muted);white-space:nowrap';
+      fromLabel.textContent = 'From:';
+      const memberSel = document.createElement('select');
+      memberSel.id = 'cal-memo-member';
+      memberSel.style.flex = '1';
       const noneOpt = document.createElement('option');
       noneOpt.value = '';
-      noneOpt.textContent = '— No card —';
-      cardSel.appendChild(noneOpt);
-      this.cardAccounts.forEach((a) => {
+      noneOpt.textContent = '— No author —';
+      memberSel.appendChild(noneOpt);
+      this.members.forEach((m) => {
         const opt = document.createElement('option');
-        opt.value = a.id;
-        opt.textContent = a.name;
-        opt.selected = a.id === (expense.linkedCardId ?? '');
-        cardSel.appendChild(opt);
+        opt.value = m.id;
+        opt.textContent = m.name;
+        memberSel.appendChild(opt);
       });
-      cardGroup.appendChild(cardLabel);
-      cardGroup.appendChild(cardSel);
-      body.appendChild(cardGroup);
+      addRow.appendChild(fromLabel);
+      addRow.appendChild(memberSel);
     }
 
-    openFormModal({
-      title: `Record Payment — ${expense.description}`,
-      body,
-      submitLabel: 'Record Payment',
-      onSubmit: async (close) => {
-        const rawAmount = parseFloat(body.querySelector<HTMLInputElement>('#cal-mp-amount')!.value);
-        if (isNaN(rawAmount) || rawAmount < 0) return;
-        const paidAmount = Math.round(rawAmount * 100) / 100;
-        const dateStr = body.querySelector<HTMLInputElement>('#cal-mp-date')!.value;
-        const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
-        const selectedCardId = body.querySelector<HTMLSelectElement>('#cal-mp-card')?.value || null;
+    const addNoteBtn = document.createElement('button');
+    addNoteBtn.className = 'btn btn-primary';
+    addNoteBtn.style.whiteSpace = 'nowrap';
+    addNoteBtn.setAttribute('data-testid', 'cal-memo-add-btn');
+    addNoteBtn.textContent = 'Add Note';
+    addRow.appendChild(addNoteBtn);
 
-        const record = createExpensePaidRecord(expense.id, paidAmount, paidDate);
-        const ops: Promise<unknown>[] = [
-          saveExpense({ ...expense, date: paidDate }),
-          saveExpensePaidRecord(record),
-        ];
+    const errorEl = document.createElement('p');
+    errorEl.className = 'form-error';
+    errorEl.style.display = 'none';
 
-        if (selectedCardId) {
-          const existingCharge = await findChargeByExpenseId(expense.id);
-          if (existingCharge && existingCharge.accountId === selectedCardId) {
-            ops.push(saveCardCharge({ ...existingCharge, amount: paidAmount, date: paidDate }));
-          } else {
-            if (existingCharge) ops.push(deleteCardCharge(existingCharge.id));
-            const charge = createCardCharge(selectedCardId, expense.description, paidAmount, paidDate, expense.categoryId || undefined);
-            charge.sourceExpenseId = expense.id;
-            ops.push(saveCardCharge(charge));
-          }
-        }
+    addSection.appendChild(addLabel);
+    addSection.appendChild(textarea);
+    addSection.appendChild(addRow);
+    addSection.appendChild(errorEl);
 
-        await Promise.all(ops);
-        close();
-        refreshNotifier();
-        await this.load();
-      },
+    // ── Pager refresh ──────────────────────────────────────────────────────
+    const refreshPager = () => {
+      if (memos.length === 0) {
+        pagerSection.style.display = 'none';
+        divider.style.display = 'none';
+        addLabel.textContent = 'Write a note';
+        return;
+      }
+      pagerSection.style.display = '';
+      divider.style.display = '';
+      addLabel.textContent = 'Add another note';
+
+      const memo = memos[currentIndex]!;
+      pagerLabel.textContent = `Note ${currentIndex + 1} of ${memos.length}`;
+      noteText.textContent = memo.text;
+
+      const member = this.members.find((m) => m.id === memo.memberId);
+      const authorStr = member ? `— ${member.name}` : '';
+      const dateStr = new Date(memo.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      metaInfo.textContent = [authorStr, dateStr].filter(Boolean).join(' · ');
+
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === memos.length - 1;
+    };
+
+    prevBtn.addEventListener('click', () => { currentIndex--; refreshPager(); });
+    nextBtn.addEventListener('click', () => { currentIndex++; refreshPager(); });
+
+    deleteBtn.addEventListener('click', async () => {
+      const memo = memos[currentIndex]!;
+      await deleteCalendarMemo(memo.id);
+      memos = memos.filter((m) => m.id !== memo.id);
+      if (currentIndex >= memos.length) currentIndex = Math.max(0, memos.length - 1);
+      if (memos.length === 0) this.memos.delete(dateKey);
+      else this.memos.set(dateKey, [...memos]);
+      this.updateMemoWidget(dateKey, memos);
+      refreshPager();
+    });
+
+    addNoteBtn.addEventListener('click', async () => {
+      const text = textarea.value.trim();
+      if (!text) {
+        errorEl.textContent = '⚠ Write something first.';
+        errorEl.style.display = '';
+        return;
+      }
+      errorEl.style.display = 'none';
+      const memberSel = content.querySelector<HTMLSelectElement>('#cal-memo-member');
+      const memberId = memberSel?.value || undefined;
+      const memo = memberId
+        ? createCalendarMemo(dateKey, text, memberId)
+        : createCalendarMemo(dateKey, text);
+      await saveCalendarMemo(memo);
+      memos = [...memos, memo];
+      currentIndex = memos.length - 1;
+      this.memos.set(dateKey, [...memos]);
+      this.updateMemoWidget(dateKey, memos);
+      textarea.value = '';
+      refreshPager();
+    });
+
+    content.appendChild(pagerSection);
+    content.appendChild(divider);
+    content.appendChild(addSection);
+
+    refreshPager();
+
+    openModal({ title: `Notes — ${dateLabel}`, content });
+  }
+
+  private updateMemoWidget(dateKey: string, memos: CalendarMemo[]): void {
+    const day = parseInt(dateKey.split('-')[2]!, 10);
+    const cell = this.container.querySelector<HTMLElement>(`[data-day="${day}"]`);
+    if (!cell) return;
+    const existing = cell.querySelector('.cal-memo-widget');
+    const newWidget = this.buildMemoWidget(dateKey, memos);
+    if (existing) {
+      existing.replaceWith(newWidget);
+    } else {
+      cell.appendChild(newWidget);
+    }
+  }
+
+  private openMarkPaidForm(expense: Expense): void {
+    openExpensePaymentModal({
+      expense,
+      bankAccounts: this.bankAccounts,
+      cardAccounts: this.cardAccounts,
+      allPaidRecords: this.expensePaidRecords,
+      onSave: () => this.load(),
     });
   }
 
-  private openRecordPaymentForm(account: DebtAccount, minPay: number | undefined): void {
-    const body = document.createElement('div');
-    body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
-    body.innerHTML = `
-      <p class="text-sm text-muted">
-        Record a payment for <strong>${account.name}</strong>.
-        ${minPay != null ? `Minimum due: <strong>${fmtCents.format(minPay)}</strong>` : ''}
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="cal-dp-amount">Payment amount</label>
-        <input id="cal-dp-amount" type="number" min="0.01" step="0.01"
-          value="${minPay != null ? minPay.toFixed(2) : ''}" placeholder="0.00" />
-      </div>
-    `;
-
-    openFormModal({
-      title: `Record Payment — ${account.name}`,
-      body,
-      submitLabel: 'Record Payment',
-      onSubmit: async (close) => {
-        const rawAmount = parseFloat(body.querySelector<HTMLInputElement>('#cal-dp-amount')!.value);
-        if (isNaN(rawAmount) || rawAmount <= 0) return;
-        const payment = createDebtPayment(account.id, rawAmount, 'regular');
-        await saveDebtPayment(payment);
-        close();
-        refreshNotifier();
-        await this.load();
-      },
+  private openRecordPaymentForm(account: DebtAccount, _minPay?: number): void {
+    openDebtPaymentModal({
+      account,
+      bankAccounts: this.bankAccounts,
+      onSave: () => this.load(),
     });
   }
 }

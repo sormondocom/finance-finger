@@ -1,4 +1,5 @@
 import './expenses.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   getCategories, saveCategory, deleteCategory, createCategory,
   getExpenses, saveExpense, deleteExpense, createExpense,
@@ -9,6 +10,7 @@ import {
   getCardCharges, saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
+import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
 import { navigate } from '@/app/router';
 import { toMonthly, fmt, fmtCents, FREQUENCY_LABELS, FREQUENCY_OPTIONS, CATEGORY_COLORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
@@ -18,7 +20,7 @@ import { openAddNotificationModal, buildLinkedRemindersSection } from '@/utils/n
 import type { ExpenseCategory, Expense, ExpensePaidRecord, IncomeFrequency, HouseholdMember, DebtAccount, BankAccount } from '@/types';
 
 type FilterType = 'all' | 'recurring' | 'one-time';
-type SortBy = 'due-date' | 'name' | 'amount' | 'pay-type';
+type SortBy = string;
 
 function freqInterval(freq: string | null | undefined): number {
   if (freq === 'quarterly') return 3;
@@ -55,7 +57,10 @@ export class ExpensesPage {
   private paidThisMonth = new Map<string, ExpensePaidRecord>();
   private activeCategoryId: string | null = null;
   private filter: FilterType = 'all';
-  private sortBy: SortBy = 'due-date';
+  private sortBy: SortBy = 'due-asc';
+  private catSort = 'name-asc';
+  private groupSortMap = new Map<string, string>();
+  private allPaidRecords: ExpensePaidRecord[] = [];
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -67,7 +72,11 @@ export class ExpensesPage {
 
   private async load(): Promise<void> {
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    // Expand window 14 days before month start so early payments (e.g., Aug 31 for
+    // a Sep 9 due date) are included in the paidThisMonth map.
+    const windowLookback = new Date(now.getFullYear(), now.getMonth(), 1);
+    windowLookback.setDate(windowLookback.getDate() - 14);
+    const monthStart = windowLookback.getTime();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
 
     const [categories, expenses, members, allAccounts, allPaidRecords, bankAccounts] = await Promise.all([
@@ -84,6 +93,7 @@ export class ExpensesPage {
     this.cardAccounts = allAccounts.filter((a) => a.type === 'card').sort((a, b) => a.name.localeCompare(b.name));
     this.bankAccounts = bankAccounts.sort((a, b) => a.name.localeCompare(b.name));
 
+    this.allPaidRecords = allPaidRecords;
     this.paidThisMonth = new Map();
     allPaidRecords
       .filter((r) => r.date >= monthStart && r.date < monthEnd)
@@ -130,6 +140,7 @@ export class ExpensesPage {
     addBtn.addEventListener('click', () => this.openExpenseForm());
     header.querySelector('.expenses-header')?.appendChild(addBtn);
     header.appendChild(addBtn);
+    header.querySelector('h1')?.appendChild(makeHelpBtn('expenses'));
     this.container.appendChild(header);
 
     // ── Category management card ─────────────────────────────────────────
@@ -432,36 +443,36 @@ export class ExpensesPage {
       filterSection.appendChild(btn);
     });
 
-    // Sort control
-    const sortSep = document.createElement('div');
-    sortSep.className = 'filter-separator';
-    filterSection.appendChild(sortSep);
+    // Sort pills
+    const sortBar = document.createElement('div');
+    sortBar.className = 'expense-sort-bar';
 
-    const sortLabel = document.createElement('span');
-    sortLabel.className = 'filter-sort-label';
-    sortLabel.textContent = 'Sort:';
-    filterSection.appendChild(sortLabel);
+    const curDash = this.sortBy.lastIndexOf('-');
+    const curField = this.sortBy.slice(0, curDash);
+    const curDir = this.sortBy.slice(curDash + 1);
 
-    const sortSel = document.createElement('select');
-    sortSel.className = 'filter-sort-select';
-    sortSel.setAttribute('data-testid', 'expense-sort-select');
     ([
-      ['due-date', 'Due Date'],
-      ['name',     'Name (A–Z)'],
-      ['amount',   'Cost'],
+      ['due',      'Due'],
+      ['name',     'Name'],
+      ['amount',   'Amount'],
       ['pay-type', 'Pay Type'],
-    ] as [SortBy, string][]).forEach(([val, label]) => {
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = label;
-      opt.selected = this.sortBy === val;
-      sortSel.appendChild(opt);
+    ] as [string, string][]).forEach(([field, label]) => {
+      const isActive = curField === field;
+      const btn = document.createElement('button');
+      btn.className = `expense-sort-btn${isActive ? ' active' : ''}`;
+      btn.dataset['sortField'] = field;
+      btn.textContent = isActive ? `${label} ${curDir === 'asc' ? '↑' : '↓'}` : label;
+      btn.addEventListener('click', () => {
+        const di = this.sortBy.lastIndexOf('-');
+        const cf = this.sortBy.slice(0, di);
+        const cd = this.sortBy.slice(di + 1);
+        this.sortBy = cf === field ? `${field}-${cd === 'asc' ? 'desc' : 'asc'}` : `${field}-asc`;
+        this.paint();
+      });
+      sortBar.appendChild(btn);
     });
-    sortSel.addEventListener('change', () => {
-      this.sortBy = sortSel.value as SortBy;
-      this.paint();
-    });
-    filterSection.appendChild(sortSel);
+
+    filterSection.appendChild(sortBar);
 
     bar.appendChild(filterSection);
     return bar;
@@ -476,22 +487,32 @@ export class ExpensesPage {
     });
   }
 
-  private sortExpenses(items: Expense[]): Expense[] {
+  private sortByMode(items: Expense[], mode: string): Expense[] {
+    const dashIdx = mode.lastIndexOf('-');
+    const field = mode.slice(0, dashIdx);
+    const dir = mode.slice(dashIdx + 1) !== 'desc' ? 1 : -1;
     return [...items].sort((a, b) => {
-      switch (this.sortBy) {
+      switch (field) {
         case 'name':
-          return a.description.localeCompare(b.description);
+          return dir * a.description.localeCompare(b.description);
         case 'amount':
-          return b.amount - a.amount;
+          return dir * (toMonthly(a.amount, a.recurringFrequency ?? 'monthly') - toMonthly(b.amount, b.recurringFrequency ?? 'monthly'));
         case 'pay-type':
-          // manual pay first, then auto-pay; within each group sort by due date
-          if (!!a.isAutoPay !== !!b.isAutoPay) return (a.isAutoPay ? 1 : 0) - (b.isAutoPay ? 1 : 0);
+          if (!!a.isAutoPay !== !!b.isAutoPay) return dir * ((a.isAutoPay ? 1 : 0) - (b.isAutoPay ? 1 : 0));
           return this.nextDueMs(a) - this.nextDueMs(b);
-        case 'due-date':
+        case 'due':
         default:
-          return this.nextDueMs(a) - this.nextDueMs(b);
+          return dir * (this.nextDueMs(a) - this.nextDueMs(b));
       }
     });
+  }
+
+  private sortExpenses(items: Expense[]): Expense[] {
+    return this.sortByMode(items, this.sortBy);
+  }
+
+  private sortExpensesForGroup(catId: string, items: Expense[]): Expense[] {
+    return this.sortByMode(items, this.groupSortMap.get(catId) ?? this.sortBy);
   }
 
   private nextDueMs(expense: Expense): number {
@@ -531,7 +552,59 @@ export class ExpensesPage {
 
     const catMap = new Map(this.categories.map((c) => [c.id, c]));
 
-    byCat.forEach((items, catId) => {
+    // Category group sort controls (only relevant when multiple groups are visible)
+    const entries = [...byCat.entries()];
+    if (entries.length > 1) {
+      const catSortRow = document.createElement('div');
+      catSortRow.className = 'expense-group-sort-row';
+
+      const catSortLabel = document.createElement('span');
+      catSortLabel.className = 'expense-group-sort-label';
+      catSortLabel.textContent = 'Groups:';
+      catSortRow.appendChild(catSortLabel);
+
+      const catSortBar = document.createElement('div');
+      catSortBar.className = 'expense-sort-bar';
+
+      const cgDash = this.catSort.lastIndexOf('-');
+      const cgField = this.catSort.slice(0, cgDash);
+      const cgDir = this.catSort.slice(cgDash + 1);
+
+      ([['name', 'Name'], ['total', 'Total']] as [string, string][]).forEach(([field, label]) => {
+        const isActive = cgField === field;
+        const btn = document.createElement('button');
+        btn.className = `expense-sort-btn${isActive ? ' active' : ''}`;
+        btn.textContent = isActive ? `${label} ${cgDir === 'asc' ? '↑' : '↓'}` : label;
+        btn.addEventListener('click', () => {
+          const di = this.catSort.lastIndexOf('-');
+          const cf = this.catSort.slice(0, di);
+          const cd = this.catSort.slice(di + 1);
+          this.catSort = cf === field ? `${field}-${cd === 'asc' ? 'desc' : 'asc'}` : `${field}-asc`;
+          this.paint();
+        });
+        catSortBar.appendChild(btn);
+      });
+
+      catSortRow.appendChild(catSortBar);
+      container.appendChild(catSortRow);
+    }
+
+    // Sort category groups
+    const cgDash = this.catSort.lastIndexOf('-');
+    const cgField = this.catSort.slice(0, cgDash);
+    const cgAsc = this.catSort.slice(cgDash + 1) !== 'desc';
+    entries.sort(([aId, aItems], [bId, bItems]) => {
+      if (cgField === 'total') {
+        const aTotal = aItems.filter((e) => e.recurring).reduce((s, e) => s + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
+        const bTotal = bItems.filter((e) => e.recurring).reduce((s, e) => s + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
+        return (cgAsc ? 1 : -1) * (aTotal - bTotal);
+      }
+      const aName = aId === noCatKey ? '￿' : (catMap.get(aId)?.name ?? '￿');
+      const bName = bId === noCatKey ? '￿' : (catMap.get(bId)?.name ?? '￿');
+      return (cgAsc ? 1 : -1) * aName.localeCompare(bName);
+    });
+
+    entries.forEach(([catId, items]) => {
       const cat = catId === noCatKey ? null : catMap.get(catId);
       const monthlyTotal = items
         .filter((e) => e.recurring)
@@ -549,7 +622,32 @@ export class ExpensesPage {
       `;
       group.appendChild(groupHeader);
 
-      this.sortExpenses(items)
+      // Per-group sort pills
+      const groupSortBar = document.createElement('div');
+      groupSortBar.className = 'expense-group-sort-bar';
+      const groupMode = this.groupSortMap.get(catId) ?? this.sortBy;
+      const gDash = groupMode.lastIndexOf('-');
+      const gField = groupMode.slice(0, gDash);
+      const gDir = groupMode.slice(gDash + 1);
+      ([
+        ['due', 'Due'], ['name', 'Name'], ['amount', 'Amount'], ['pay-type', 'Pay Type'],
+      ] as [string, string][]).forEach(([field, label]) => {
+        const isActive = gField === field;
+        const btn = document.createElement('button');
+        btn.className = `expense-sort-btn${isActive ? ' active' : ''}`;
+        btn.textContent = isActive ? `${label} ${gDir === 'asc' ? '↑' : '↓'}` : label;
+        btn.addEventListener('click', () => {
+          const cur = this.groupSortMap.get(catId) ?? this.sortBy;
+          const di = cur.lastIndexOf('-');
+          const cf = cur.slice(0, di), cd = cur.slice(di + 1);
+          this.groupSortMap.set(catId, cf === field ? `${field}-${cd === 'asc' ? 'desc' : 'asc'}` : `${field}-asc`);
+          this.paint();
+        });
+        groupSortBar.appendChild(btn);
+      });
+      group.appendChild(groupSortBar);
+
+      this.sortExpensesForGroup(catId, items)
         .forEach((e) => group.appendChild(this.buildExpenseRow(e)));
 
       container.appendChild(group);
@@ -569,10 +667,21 @@ export class ExpensesPage {
     // for the overage-trend mascot alert).
     const paidRecord = this.paidThisMonth.get(expense.id);
     const _now = new Date();
-    const _monthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).getTime();
     const _monthEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 1).getTime();
-    const billDateThisMonth = isBill && expense.date >= _monthStart && expense.date < _monthEnd;
-    const alreadyPaid = !!paidRecord && (!isBill || billDateThisMonth);
+    // For bills, check if expense.date (last-paid date) falls within 14 days before the
+    // due date — this mirrors the 14-day lookback in billStatus and paymentStatus so an
+    // early payment (e.g., Aug 31 for a Sep 9 due date) is correctly marked as paid.
+    const billDateThisCycle = (() => {
+      if (!isBill || !expense.dueDay) return false;
+      const _maxDay = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
+      const dueDate = new Date(_now.getFullYear(), _now.getMonth(), Math.min(expense.dueDay, _maxDay));
+      const cycleWindowStart = dueDate.getTime() - 14 * 24 * 60 * 60 * 1000;
+      return expense.date >= cycleWindowStart && expense.date < _monthEnd;
+    })();
+    const alreadyPaid = !!paidRecord && (!isBill || billDateThisCycle);
+    // Stale: expense.date puts the bill in "paid" state but no actual paid record exists.
+    // Caused by a ledger delete that didn't roll back expense.date correctly.
+    const isStaleStatus = isBill && billStatus?.status === 'paid' && !alreadyPaid;
     const showPayBtn = !isAutoPay && !alreadyPaid;
     // Auto-pay always shows a log button — "Log Actual" when nothing recorded yet,
     // "Update Actual" when a record exists (allows correction or retroactive entry).
@@ -599,6 +708,7 @@ export class ExpensesPage {
     })();
 
     const statusBadge = (() => {
+      if (isStaleStatus) return '<span class="expense-badge expense-badge--stale" data-testid="expense-bill-badge">⚠ Sync issue</span>';
       if (alreadyPaid) return '<span class="expense-badge expense-badge--paid" data-testid="expense-bill-badge">✓ Paid</span>';
       if (!billStatus || isAutoPay) return ''; // auto-pay past-due/due-soon isn't actionable
       switch (billStatus.status) {
@@ -643,11 +753,15 @@ export class ExpensesPage {
       : '';
 
     row.innerHTML = `
-      <div class="expense-row-desc">${statusBadge}${expense.description}${thresholdBadge}</div>
-      <div class="expense-row-date">${dateLabel}</div>
-      ${expense.recurring && freqLabel
-        ? `<span class="expense-row-recur">↻ ${freqLabel}${nextDueStr}</span>`
-        : ''}
+      <div class="expense-row-desc">
+        <div class="expense-row-desc-main">${statusBadge}${expense.description}${thresholdBadge}</div>
+        <div class="expense-row-desc-sub">
+          <span class="expense-row-date">${dateLabel}</span>
+          ${expense.recurring && freqLabel
+            ? `<span class="expense-row-recur">↻ ${freqLabel}${nextDueStr}</span>`
+            : ''}
+        </div>
+      </div>
       <div class="expense-row-amount">${amountDisplay}</div>
       <div class="expense-row-actions">
         ${isAutoPay ? '<span class="expense-autopay-badge" data-testid="expense-autopay-badge">🔄 Auto-pay</span>' : ''}
@@ -659,6 +773,9 @@ export class ExpensesPage {
           : ''}
         ${showEditPaymentBtn
           ? `<button class="mark-paid-btn mark-paid-btn--edit" data-action="edit-payment" data-testid="expense-edit-payment" title="Edit recorded payment">✎ Edit Payment</button>`
+          : ''}
+        ${isStaleStatus
+          ? `<button class="mark-paid-btn mark-paid-btn--stale" data-action="reset-status" title="Payment status is out of sync — click to reset">↺ Reset Status</button>`
           : ''}
         <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
         <button class="icon-btn" data-action="edit" data-testid="expense-edit" title="Edit">✏️</button>
@@ -675,7 +792,7 @@ export class ExpensesPage {
       badge.className = 'expense-card-badge';
       badge.setAttribute('data-testid', 'expense-card-badge');
       badge.textContent = `💳 ${linkedCard.name}`;
-      row.querySelector('.expense-row-desc')!.appendChild(badge);
+      row.querySelector('.expense-row-desc-main')!.appendChild(badge);
     }
 
     // Bank account badge
@@ -687,7 +804,7 @@ export class ExpensesPage {
       badge.className = 'expense-bank-badge';
       badge.setAttribute('data-testid', 'expense-bank-badge');
       badge.textContent = `🏦 ${linkedBank.name}`;
-      row.querySelector('.expense-row-desc')!.appendChild(badge);
+      row.querySelector('.expense-row-desc-main')!.appendChild(badge);
     }
 
     // Billing portal link
@@ -721,6 +838,16 @@ export class ExpensesPage {
       });
     }
 
+    if (isStaleStatus) {
+      row.querySelector('[data-action="reset-status"]')!.addEventListener('click', async () => {
+        // Reset to epoch 0 (never paid) — createdAt could fall inside the current cycle
+        // window and would leave the bill stale again.
+        await saveExpense({ ...expense, date: 0 });
+        await this.load();
+        refreshNotifier();
+      });
+    }
+
     row.querySelector('[data-action="notif"]')!.addEventListener('click', () => {
       const ctx = expense.dueDay
         ? { label: expense.description, defaultTrigger: 'bill-before' as const, defaultExpenseId: expense.id }
@@ -732,244 +859,201 @@ export class ExpensesPage {
     );
     row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
       if (!confirm(`Delete "${expense.description}"?`)) return;
-      if (expense.linkedCardId) {
-        const charge = await findChargeByExpenseId(expense.id);
-        if (charge) await deleteCardCharge(charge.id);
-      }
-      const paidRecords = await getExpensePaidRecords(expense.id);
-      await Promise.all(paidRecords.map((r) => deleteExpensePaidRecord(r.id)));
+      // Delete ALL card charges linked to this expense regardless of whether a card
+      // was configured on the expense itself — ad-hoc card payments also create charges
+      // with sourceExpenseId set. Use getCardCharges() + filter to catch every one.
+      const allCharges = await getCardCharges();
+      const linkedCharges = allCharges.filter((c) => c.sourceExpenseId === expense.id);
+      const paidRecs = await getExpensePaidRecords(expense.id);
+      await Promise.all([
+        ...linkedCharges.map((c) => deleteCardCharge(c.id)),
+        ...paidRecs.map((r) => deleteExpensePaidRecord(r.id)),
+      ]);
       await deleteExpense(expense.id);
       await this.load();
+      refreshNotifier();
     });
 
-    // Wrap paid non-bill expenses with the green left bar
+    // Ledger button + panel
+    const records = this.allPaidRecords.filter((r) => r.expenseId === expense.id);
+    const ledgerPanel = this.buildLedgerPanel(expense, records);
+
+    const ledgerBtn = document.createElement('button');
+    ledgerBtn.className = 'icon-btn';
+    ledgerBtn.setAttribute('data-action', 'ledger');
+    ledgerBtn.title = 'Payment history';
+    ledgerBtn.textContent = records.length > 0 ? `📋 ${records.length}` : '📋';
+    if (records.length > 0) ledgerBtn.style.color = 'var(--ff-gold-dark)';
+    ledgerBtn.addEventListener('click', () => {
+      const open = ledgerPanel.style.display !== 'none';
+      ledgerPanel.style.display = open ? 'none' : '';
+    });
+    row.querySelector('[data-action="notif"]')!.before(ledgerBtn);
+
+    // Outer wrapper holds the row (possibly status-wrapped) + the ledger panel
+    const outer = document.createElement('div');
+    outer.className = 'expense-item-outer';
+
     if (!isBill && alreadyPaid) {
       const wrap = document.createElement('div');
       wrap.className = 'expense-bill-wrap expense-bill-wrap--paid';
       wrap.setAttribute('data-testid', 'expense-bill-wrap');
       wrap.appendChild(row);
-      return wrap;
+      outer.appendChild(wrap);
+    } else if (!billStatus || billStatus.status === 'ok') {
+      outer.appendChild(row);
+    } else {
+      const wrapClass = isStaleStatus ? 'expense-bill-wrap--stale'
+        : billStatus.status === 'past-due' ? 'expense-bill-wrap--past-due'
+        : billStatus.status === 'due-soon' ? 'expense-bill-wrap--due-soon'
+        : 'expense-bill-wrap--paid';
+      const wrap = document.createElement('div');
+      wrap.className = `expense-bill-wrap ${wrapClass}`;
+      wrap.setAttribute('data-testid', 'expense-bill-wrap');
+      wrap.appendChild(row);
+      outer.appendChild(wrap);
     }
 
-    // Wrap tracked bills that have a noteworthy status
-    if (!billStatus || billStatus.status === 'ok') return row;
+    outer.appendChild(ledgerPanel);
+    return outer;
+  }
 
-    const wrap = document.createElement('div');
-    const wrapClass = billStatus.status === 'past-due' ? 'expense-bill-wrap--past-due'
-      : billStatus.status === 'due-soon' ? 'expense-bill-wrap--due-soon'
-      : 'expense-bill-wrap--paid';
-    wrap.className = `expense-bill-wrap ${wrapClass}`;
-    wrap.setAttribute('data-testid', 'expense-bill-wrap');
-    wrap.appendChild(row);
-    return wrap;
+  private buildLedgerPanel(expense: Expense, records: ExpensePaidRecord[]): HTMLElement {
+    const isBill = expense.recurring && !!expense.dueDay;
+    const panel = document.createElement('div');
+    panel.className = 'expense-ledger-panel';
+    panel.style.display = 'none';
+
+    if (records.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'text-muted text-sm';
+      empty.style.padding = 'var(--space-3) var(--space-4)';
+      empty.textContent = 'No payment history yet.';
+      panel.appendChild(empty);
+      return panel;
+    }
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'expense-ledger-row expense-ledger-col-header';
+    ([
+      ['Date',   'expense-ledger-date'],
+      ['Via',    'expense-ledger-source'],
+      ['Amount', 'expense-ledger-amount'],
+      ['',       'expense-ledger-actions'],
+    ] as [string, string][]).forEach(([text, cls]) => {
+      const cell = document.createElement('span');
+      cell.className = cls;
+      cell.textContent = text;
+      headerRow.appendChild(cell);
+    });
+    panel.appendChild(headerRow);
+
+    records.forEach((r) => {
+      const cardName = r.cardId ? this.cardAccounts.find((a) => a.id === r.cardId)?.name : null;
+      const bankName = r.bankAccountId ? this.bankAccounts.find((a) => a.id === r.bankAccountId)?.name : null;
+      const source = cardName ? `💳 ${cardName}` : bankName ? `🏦 ${bankName}` : '—';
+      const dateStr = new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      const ledgerRow = document.createElement('div');
+      ledgerRow.className = 'expense-ledger-row';
+
+      const dateEl = document.createElement('span');
+      dateEl.className = 'expense-ledger-date';
+      dateEl.textContent = dateStr;
+
+      const amtEl = document.createElement('span');
+      amtEl.className = 'expense-ledger-amount';
+      amtEl.textContent = fmtCents.format(r.amount);
+
+      const srcEl = document.createElement('span');
+      srcEl.className = 'expense-ledger-source';
+      if (r.cardId || r.bankAccountId) {
+        const link = document.createElement('a');
+        link.className = 'expense-ledger-source-link';
+        link.textContent = source;
+        link.href = '#';
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (r.cardId) {
+            sessionStorage.setItem('cal-focus-account', r.cardId);
+            navigate('/debt');
+          } else if (r.bankAccountId) {
+            sessionStorage.setItem('cal-focus-bank', r.bankAccountId);
+            navigate('/accounts');
+          }
+        });
+        srcEl.appendChild(link);
+      } else {
+        srcEl.textContent = source;
+      }
+
+      const actionsEl = document.createElement('span');
+      actionsEl.className = 'expense-ledger-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn';
+      editBtn.title = 'Edit this payment record';
+      editBtn.textContent = '✏️';
+      editBtn.addEventListener('click', () => {
+        this.openRecordPaymentForm(expense, r);
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn danger';
+      delBtn.title = 'Remove this payment record';
+      delBtn.textContent = '🗑️';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Remove this payment record?')) return;
+
+        const ops: Promise<unknown>[] = [deleteExpensePaidRecord(r.id)];
+
+        // Remove the linked card charge if it matches this record's card
+        if (r.cardId) {
+          const charge = await findChargeByExpenseId(expense.id);
+          if (charge && charge.accountId === r.cardId) ops.push(deleteCardCharge(charge.id));
+        }
+
+        // Roll expense.date back to the most recent remaining payment (fresh DB read, not stale cache)
+        if (isBill) {
+          const freshRecords = await getExpensePaidRecords(expense.id);
+          const remaining = freshRecords.filter((rec) => rec.id !== r.id);
+          // Use 0 (never paid) when no records remain — createdAt could be inside the
+          // current billing window and would leave the bill showing as paid (stale).
+          const newDate = remaining.length > 0
+            ? Math.max(...remaining.map((rec) => rec.date))
+            : 0;
+          ops.push(saveExpense({ ...expense, date: newDate }));
+        }
+
+        await Promise.all(ops);
+        await this.load();
+        refreshNotifier();
+      });
+
+      actionsEl.appendChild(editBtn);
+      actionsEl.appendChild(delBtn);
+
+      ledgerRow.appendChild(dateEl);
+      ledgerRow.appendChild(srcEl);
+      ledgerRow.appendChild(amtEl);
+      ledgerRow.appendChild(actionsEl);
+      panel.appendChild(ledgerRow);
+    });
+
+    return panel;
   }
 
   // ── Record Payment form ────────────────────────────────────────────────
 
   private openRecordPaymentForm(expense: Expense, existingRecord?: ExpensePaidRecord): void {
-    const isBill = expense.recurring && !!expense.dueDay;
-    const isFixed = !!expense.isFixedAmount;
-    const isUpdate = !!existingRecord;
-    const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
-    const today = new Date().toISOString().split('T')[0]!;
-    const prefillDate = existingRecord
-      ? new Date(existingRecord.date).toISOString().split('T')[0]!
-      : today;
-    const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
-
-    const body = document.createElement('div');
-    body.className = 'expense-form';
-
-    body.innerHTML = `
-      <p class="text-sm text-muted">
-        ${isUpdate
-          ? `Update the recorded payment for <strong>${expense.description}</strong>.`
-          : `How much was the actual ${isBill ? 'bill' : 'expense'} for <strong>${expense.description}</strong>?`}
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="mp-amount">Actual amount</label>
-        <input id="mp-amount" type="number" min="0" step="0.01"
-          value="${prefillAmount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
-        ${isFixed
-          ? '<span class="form-hint">Fixed amount — same as estimated amount</span>'
-          : expense.threshold
-            ? `<span class="form-hint">Estimated: ${currFmt.format(expense.amount)} · Target: ${currFmt.format(expense.threshold)}</span>`
-            : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${currFmt.format(expense.amount)}</span>`}
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="mp-date">Date paid</label>
-        <input id="mp-date" type="date" value="${prefillDate}" />
-      </div>
-      <div id="mp-overage-msg" style="display:none"></div>
-    `;
-
-    // Unified "Pay from" dropdown — bank accounts + credit cards in optgroups
-    const modalRef: { close?: () => void } = {};
-    const sourceGroup = document.createElement('div');
-    sourceGroup.className = 'form-group';
-    const overageMsg = body.querySelector<HTMLElement>('#mp-overage-msg')!;
-
-    const hasAnySources = this.bankAccounts.length > 0 || this.cardAccounts.length > 0;
-
-    // Determine pre-selected value (edit: use existing record; new: use expense defaults)
-    const defaultSourceValue = (() => {
-      if (existingRecord?.bankAccountId) return `bank:${existingRecord.bankAccountId}`;
-      if (existingRecord?.cardId)        return `card:${existingRecord.cardId}`;
-      if (expense.bankAccountId)         return `bank:${expense.bankAccountId}`;
-      if (expense.linkedCardId)          return `card:${expense.linkedCardId}`;
-      return '';
-    })();
-
-    const srcLabel = document.createElement('label');
-    srcLabel.className = 'form-label';
-    srcLabel.htmlFor = 'mp-source';
-    srcLabel.innerHTML = 'Pay from <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
-    sourceGroup.appendChild(srcLabel);
-
-    if (hasAnySources) {
-      const srcSel = document.createElement('select');
-      srcSel.id = 'mp-source';
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = '— Not specified —';
-      srcSel.appendChild(noneOpt);
-
-      if (this.bankAccounts.length > 0) {
-        const bankGroup = document.createElement('optgroup');
-        bankGroup.label = 'Bank Accounts';
-        this.bankAccounts.forEach((b) => {
-          const opt = document.createElement('option');
-          opt.value = `bank:${b.id}`;
-          opt.textContent = b.name;
-          opt.selected = defaultSourceValue === `bank:${b.id}`;
-          bankGroup.appendChild(opt);
-        });
-        srcSel.appendChild(bankGroup);
-      }
-
-      if (this.cardAccounts.length > 0) {
-        const cardGroup = document.createElement('optgroup');
-        cardGroup.label = 'Credit Cards';
-        this.cardAccounts.forEach((a) => {
-          const opt = document.createElement('option');
-          opt.value = `card:${a.id}`;
-          opt.textContent = a.name;
-          opt.selected = defaultSourceValue === `card:${a.id}`;
-          cardGroup.appendChild(opt);
-        });
-        srcSel.appendChild(cardGroup);
-      }
-
-      sourceGroup.appendChild(srcSel);
-    } else {
-      const hint = document.createElement('span');
-      hint.className = 'form-hint';
-      hint.textContent = 'No accounts or cards set up. ';
-      const bankLink = document.createElement('a');
-      bankLink.href = '#';
-      bankLink.textContent = 'Add a bank account →';
-      bankLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        modalRef.close?.();
-        navigate('/accounts');
-      });
-      const sep = document.createTextNode(' · ');
-      const cardLink = document.createElement('a');
-      cardLink.href = '#';
-      cardLink.textContent = 'Add a credit card →';
-      cardLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        modalRef.close?.();
-        navigate('/debt');
-      });
-      hint.appendChild(bankLink);
-      hint.appendChild(sep);
-      hint.appendChild(cardLink);
-      sourceGroup.appendChild(hint);
-    }
-
-    body.insertBefore(sourceGroup, overageMsg);
-
-    const amountInput = body.querySelector<HTMLInputElement>('#mp-amount')!;
-
-    const overageLimit = expense.threshold ?? expense.amount;
-    if (!isFixed) {
-      amountInput.addEventListener('input', () => {
-        const val = parseFloat(amountInput.value);
-        if (!isNaN(val) && val > overageLimit) {
-          const over = val - overageLimit;
-          const label = expense.threshold ? 'Over target by' : `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by`;
-          overageMsg.textContent = `⚠ ${label} ${currFmt.format(over)}`;
-          overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
-        } else {
-          overageMsg.style.display = 'none';
-        }
-      });
-    }
-
-    const { close: closeModal } = openFormModal({
-      title: isUpdate ? `Edit Payment — ${expense.description}` : `Record Payment — ${expense.description}`,
-      body,
-      submitLabel: isUpdate ? 'Save Changes' : 'Record Payment',
-      onSubmit: async (close) => {
-        const rawAmount = parseFloat(amountInput.value);
-        if (isNaN(rawAmount) || rawAmount < 0) return;
-        const paidAmount = Math.round(rawAmount * 100) / 100;
-        const dateStr = body.querySelector<HTMLInputElement>('#mp-date')!.value;
-        const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
-        const sourceVal = body.querySelector<HTMLSelectElement>('#mp-source')?.value ?? '';
-        const selectedCardId   = sourceVal.startsWith('card:') ? sourceVal.slice(5) : null;
-        const selectedBankId   = sourceVal.startsWith('bank:') ? sourceVal.slice(5) : null;
-
-        const { cardId: _cid, bankAccountId: _bid, ...baseFields } =
-          isUpdate && existingRecord ? existingRecord : createExpensePaidRecord(expense.id, paidAmount, paidDate);
-        const record: ExpensePaidRecord = {
-          ...baseFields,
-          amount: paidAmount,
-          date: paidDate,
-          ...(selectedCardId ? { cardId: selectedCardId } : {}),
-          ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
-        };
-        const ops: Promise<unknown>[] = [saveExpensePaidRecord(record)];
-
-        // Update expense.date to signal last-paid for tracked bills
-        if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
-
-        // Handle card charge — create/update when card selected, delete when switched away
-        const existingCharge = await findChargeByExpenseId(expense.id);
-        if (selectedCardId) {
-          if (existingCharge && existingCharge.accountId === selectedCardId) {
-            ops.push(saveCardCharge({ ...existingCharge, amount: paidAmount, date: paidDate }));
-          } else {
-            if (existingCharge) ops.push(deleteCardCharge(existingCharge.id));
-            const charge = createCardCharge(selectedCardId, expense.description, paidAmount, paidDate, expense.categoryId || undefined);
-            charge.sourceExpenseId = expense.id;
-            ops.push(saveCardCharge(charge));
-          }
-        } else if (existingCharge) {
-          // Payment source changed away from card — remove the charge
-          ops.push(deleteCardCharge(existingCharge.id));
-        }
-
-        await Promise.all(ops);
-        close();
-        await this.load();
-        refreshNotifier();
-
-        if (paidAmount > overageLimit) {
-          const overCount = await getOverageTrend(expense.id, overageLimit);
-          if (overCount >= 2) {
-            const fmtLimit = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(overageLimit);
-            setTimeout(() => showMascot('expense-trend', {
-              bill: expense.description,
-              threshold: fmtLimit,
-              count: String(overCount),
-            }), 600);
-          }
-        }
-      },
+    openExpensePaymentModal({
+      expense,
+      bankAccounts: this.bankAccounts,
+      cardAccounts: this.cardAccounts,
+      allPaidRecords: this.allPaidRecords,
+      ...(existingRecord ? { existingRecord } : {}),
+      onSave: () => this.load(),
     });
-    modalRef.close = closeModal;
   }
 
   // ── Log Actual form (auto-pay only) ───────────────────────────────────────
@@ -983,6 +1067,14 @@ export class ExpensesPage {
       ? new Date(existingRecord.date).toISOString().split('T')[0]!
       : today;
     const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
+
+    const defaultSourceValue = (() => {
+      if (existingRecord?.bankAccountId) return `bank:${existingRecord.bankAccountId}`;
+      if (existingRecord?.cardId)        return `card:${existingRecord.cardId}`;
+      if (expense.bankAccountId)         return `bank:${expense.bankAccountId}`;
+      if (expense.linkedCardId)          return `card:${expense.linkedCardId}`;
+      return '';
+    })();
 
     const body = document.createElement('div');
     body.className = 'expense-form';
@@ -1005,6 +1097,51 @@ export class ExpensesPage {
       </div>
       <div id="la-overage-msg" style="display:none"></div>
     `;
+
+    // "Charged to" source dropdown — same bank/card options as Record Payment
+    const hasAnySources = this.bankAccounts.length > 0 || this.cardAccounts.length > 0;
+    const sourceGroup = document.createElement('div');
+    sourceGroup.className = 'form-group';
+    const srcLabel = document.createElement('label');
+    srcLabel.className = 'form-label';
+    srcLabel.htmlFor = 'la-source';
+    srcLabel.innerHTML = 'Charged to <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
+    sourceGroup.appendChild(srcLabel);
+
+    if (hasAnySources) {
+      const srcSel = document.createElement('select');
+      srcSel.id = 'la-source';
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '— Not specified —';
+      srcSel.appendChild(noneOpt);
+      if (this.bankAccounts.length > 0) {
+        const bankGroup = document.createElement('optgroup');
+        bankGroup.label = 'Accounts';
+        this.bankAccounts.forEach((b) => {
+          const opt = document.createElement('option');
+          opt.value = `bank:${b.id}`;
+          opt.textContent = b.name;
+          opt.selected = defaultSourceValue === `bank:${b.id}`;
+          bankGroup.appendChild(opt);
+        });
+        srcSel.appendChild(bankGroup);
+      }
+      if (this.cardAccounts.length > 0) {
+        const cardGroup = document.createElement('optgroup');
+        cardGroup.label = 'Credit Cards';
+        this.cardAccounts.forEach((a) => {
+          const opt = document.createElement('option');
+          opt.value = `card:${a.id}`;
+          opt.textContent = a.name;
+          opt.selected = defaultSourceValue === `card:${a.id}`;
+          cardGroup.appendChild(opt);
+        });
+        srcSel.appendChild(cardGroup);
+      }
+      sourceGroup.appendChild(srcSel);
+    }
+    body.insertBefore(sourceGroup, body.querySelector('#la-overage-msg'));
 
     const amountInput = body.querySelector<HTMLInputElement>('#la-amount')!;
     const overageMsg = body.querySelector<HTMLElement>('#la-overage-msg')!;
@@ -1032,13 +1169,26 @@ export class ExpensesPage {
         const actualAmount = Math.round(rawAmount * 100) / 100;
         const dateStr = body.querySelector<HTMLInputElement>('#la-date')!.value;
         const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
+        const sourceVal = body.querySelector<HTMLSelectElement>('#la-source')?.value ?? '';
+        const selectedCardId = sourceVal.startsWith('card:') ? sourceVal.slice(5) : null;
+        const selectedBankId = sourceVal.startsWith('bank:') ? sourceVal.slice(5) : null;
 
         const ops: Promise<unknown>[] = [];
         if (isUpdate && existingRecord) {
-          // Update the existing record in-place
-          ops.push(saveExpensePaidRecord({ ...existingRecord, amount: actualAmount, date: paidDate }));
+          const { cardId: _cid, bankAccountId: _bid, ...baseFields } = existingRecord;
+          ops.push(saveExpensePaidRecord({
+            ...baseFields,
+            amount: actualAmount,
+            date: paidDate,
+            ...(selectedCardId ? { cardId: selectedCardId } : {}),
+            ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
+          }));
         } else {
-          ops.push(saveExpensePaidRecord(createExpensePaidRecord(expense.id, actualAmount, paidDate)));
+          ops.push(saveExpensePaidRecord({
+            ...createExpensePaidRecord(expense.id, actualAmount, paidDate),
+            ...(selectedCardId ? { cardId: selectedCardId } : {}),
+            ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
+          }));
         }
         if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
 
@@ -1326,6 +1476,27 @@ export class ExpensesPage {
     const recurGroup = recurChk.closest('.form-group') ?? recurChk.parentElement!;
     body.insertBefore(bankAccountGroup, recurGroup);
 
+    // ── Mutual exclusion: card ↔ bank account ────────────────────────────────
+    // Selecting a card disables the bank account picker and vice versa.
+    // Resetting back to "No..." re-enables the other side.
+    if (efCardSel && efBankAccountSel) {
+      const syncCardToBank = () => {
+        const hasCard = efCardSel!.value !== '';
+        efBankAccountSel!.disabled = hasCard;
+        if (hasCard) efBankAccountSel!.value = '';
+      };
+      const syncBankToCard = () => {
+        const hasBank = efBankAccountSel!.value !== '';
+        efCardSel!.disabled = hasBank;
+        if (hasBank) efCardSel!.value = '';
+      };
+      efCardSel.addEventListener('change', syncCardToBank);
+      efBankAccountSel.addEventListener('change', syncBankToCard);
+      // Apply initial state based on pre-filled values
+      if (efCardSel.value !== '') syncCardToBank();
+      else if (efBankAccountSel.value !== '') syncBankToCard();
+    }
+
     let flushReminders: (finalItemId: string) => Promise<void> = async () => {};
     if (isEdit && existing) {
       const remindersOpts = existing.dueDay
@@ -1435,6 +1606,7 @@ export class ExpensesPage {
         await flushReminders(expense.id);
         close();
         await this.load();
+        refreshNotifier();
 
       },
     });

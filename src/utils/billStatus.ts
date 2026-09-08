@@ -66,10 +66,10 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
   const clampedDay = Math.min(expense.dueDay, maxDay);
   const dueDayThisMonth = new Date(year, month, clampedDay);
 
-  const paidThisMonth =
-    lastPaid.getFullYear() === year && lastPaid.getMonth() === month;
-
-  if (paidThisMonth) return { status: 'paid', dueDayThisMonth };
+  // Paid if lastPaid falls within 14 days before the due date through end of month.
+  // This covers early payments (e.g., paying Aug 31 for a Sep 9 due date).
+  const cycleWindowStart = new Date(dueDayThisMonth.getTime() - 14 * 24 * 60 * 60 * 1000);
+  if (lastPaid >= cycleWindowStart) return { status: 'paid', dueDayThisMonth };
 
   const daysUntilDue = clampedDay - today;
   const status: BillStatus =

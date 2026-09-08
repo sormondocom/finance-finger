@@ -21,6 +21,9 @@ const today      = new Date();
 const dayOfMonth = today.getDate();
 const thisYear   = today.getFullYear();
 const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
+const currentMonthLabel = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const nextMonthLabel    = new Date(thisYear, today.getMonth() + 1, 1)
+  .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
 // Past-due: 5 days before today (min day 1)
 const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
@@ -186,23 +189,25 @@ test('clicking Mark Paid changes the chip status to paid', async () => {
 // ── Month navigation ──────────────────────────────────────────────────────────
 
 test('next button advances to the next month', async () => {
-  const before = await page.locator('[data-testid="cal-month-label"]').textContent();
+  // Re-navigate to reset state — safe against retries where a prior attempt may have
+  // already advanced the month (the cal-next handler is async; it awaits DB loads before
+  // calling paint(), so reading the label immediately after click races with repaint).
+  await navigateTo(page, 'calendar');
+  await expect(page.locator('[data-testid="cal-month-label"]')).toContainText(currentMonthLabel);
   await page.click('[data-testid="cal-next"]');
-  const after = await page.locator('[data-testid="cal-month-label"]').textContent();
-  expect(before).not.toEqual(after);
+  // Wait for the async handler to finish (loadMarks + loadMemos + paint)
+  await expect(page.locator('[data-testid="cal-month-label"]')).toContainText(nextMonthLabel);
   await page.screenshot({ path: 'tests/screenshots/calendar-04-next-month.png' });
 });
 
 test('next month has no bill chips (bills are current-month only)', async () => {
   // Bills placed at their due day only exist in the current month's view
-  const chips = page.locator('[data-testid="calendar-bill-chip"]');
-  // There may still be chips if dueDay overlaps — just verify grid rendered
+  // There may still be chips if dueDay overlaps — just verify the grid rendered
   await expect(page.locator('[data-testid="calendar-grid"]')).toBeVisible();
 });
 
 test('prev button returns to the current month', async () => {
   await page.click('[data-testid="cal-prev"]');
-  const label = await page.locator('[data-testid="cal-month-label"]').textContent();
-  const expected = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  expect(label).toContain(String(today.getFullYear()));
+  // Wait for the async handler to finish (loadMarks + loadMemos + paint)
+  await expect(page.locator('[data-testid="cal-month-label"]')).toContainText(currentMonthLabel);
 });

@@ -51,7 +51,7 @@ test('set up: add a monthly income source', async () => {
   await page.click('[data-testid="add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Salary');
-  await page.fill('#sf-amount', '5000');
+  await page.fill('#sf-amount', '4999.50');
   // Frequency defaults to monthly — leave it
 
   await page.click('[data-testid="modal-submit"]');
@@ -63,14 +63,15 @@ test('budget summary shows income after adding a source', async () => {
   await navigateTo(page, 'budget');
 
   await expect(page.locator('[data-testid="budget-summary"]')).toBeVisible();
-  await expect(page.locator('[data-testid="budget-income-value"]')).toContainText('$5,000');
+  // Cents preserved via fmtCents: $4,999.50 not $5,000
+  await expect(page.locator('[data-testid="budget-income-value"]')).toContainText('$4,999.50');
   await expect(page.locator('[data-testid="budget-expenses-value"]')).toContainText('—');
   await page.screenshot({ path: 'tests/screenshots/budget-02-income-only.png' });
 });
 
 test('surplus stat shows full income when no expenses', async () => {
   await expect(page.locator('[data-testid="budget-stat-surplus"]')).toContainText('Surplus');
-  await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$5,000');
+  await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$4,999.50');
 });
 
 test('cash flow card is visible when income exists', async () => {
@@ -93,7 +94,7 @@ test('set up: add a recurring expense with a category', async () => {
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-desc', 'Rent');
-  await page.fill('#ef-amount', '1500');
+  await page.fill('#ef-amount', '1499.90');
   await page.selectOption('#ef-cat', { label: 'Housing' });
   await page.check('#ef-recurring');
   await page.click('[data-testid="modal-submit"]');
@@ -104,13 +105,15 @@ test('set up: add a recurring expense with a category', async () => {
 test('budget summary shows expenses after adding a recurring expense', async () => {
   await navigateTo(page, 'budget');
 
-  await expect(page.locator('[data-testid="budget-expenses-value"]')).toContainText('$1,500');
+  // Cents preserved via fmtCents: $1,499.90 not $1,500
+  await expect(page.locator('[data-testid="budget-expenses-value"]')).toContainText('$1,499.90');
   await page.screenshot({ path: 'tests/screenshots/budget-03-with-expense.png' });
 });
 
 test('surplus is income minus expenses', async () => {
   await expect(page.locator('[data-testid="budget-stat-surplus"]')).toContainText('Surplus');
-  await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$3,500');
+  // Surplus = $4,999.50 – $1,499.90 = $3,499.60 — trailing zero preserved
+  await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$3,499.60');
 });
 
 test('category breakdown card is visible with at least one row', async () => {

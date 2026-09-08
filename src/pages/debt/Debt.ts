@@ -1,4 +1,5 @@
 import './debt.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   Chart,
   LineController,
@@ -21,6 +22,8 @@ import {
   getExpensePaidRecords, saveExpensePaidRecord,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
+import { openImportWizard } from '@/components/ImportWizard';
+import { openDebtPaymentModal } from '@/components/DebtPaymentModal';
 import { fmt, fmtCents } from '@/utils/finance';
 import { navigate } from '@/app/router';
 import {
@@ -70,7 +73,6 @@ const STRATEGY_DESCS: Record<DebtStrategy, string> = {
 };
 
 const HIGH_APR_THRESHOLD = 20;
-const HIGH_BALANCE_THRESHOLD = 5000;
 
 const PERIODS_PER_YEAR_MAP: Record<PaymentCycle, number> = {
   weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12,
@@ -93,6 +95,7 @@ export class DebtPage {
   private _chargesPageState = new Map<string, { page: number; pageSize: number; sortAsc: boolean }>();
   private container!: HTMLElement;
   private chartInstance: Chart | null = null;
+  private sortMode = 'priority-asc';
 
   render(): HTMLElement {
     this.container = document.createElement('div');
@@ -134,7 +137,7 @@ export class DebtPage {
       </div>
       <div style="text-align:right">
         <div class="debt-total-label">Total debt</div>
-        <div class="debt-total-value" data-testid="debt-total-value">${totalDebt > 0 ? fmt.format(totalDebt) : '—'}</div>
+        <div class="debt-total-value" data-testid="debt-total-value">${totalDebt > 0 ? fmtCents.format(totalDebt) : '—'}</div>
       </div>
     `;
     const addBtn = document.createElement('button');
@@ -143,6 +146,7 @@ export class DebtPage {
     addBtn.textContent = '+ Add debt';
     addBtn.addEventListener('click', () => this.openDebtForm());
     header.appendChild(addBtn);
+    header.querySelector('h1')?.appendChild(makeHelpBtn('debt'));
     this.container.appendChild(header);
 
     if (this.accounts.length === 0) {
@@ -159,12 +163,35 @@ export class DebtPage {
     // ── Account list ─────────────────────────────────────────────────────
     this.container.appendChild(this.buildDebtList());
     const calFocusAccount = sessionStorage.getItem('cal-focus-account');
+    const focusCharge = sessionStorage.getItem('ff-focus-charge');
     if (calFocusAccount) {
       sessionStorage.removeItem('cal-focus-account');
+      if (focusCharge) sessionStorage.removeItem('ff-focus-charge');
       requestAnimationFrame(() => {
         const target = this.container.querySelector<HTMLElement>(`[data-account-id="${calFocusAccount}"]`);
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        if (focusCharge) {
+          // Open the charges panel if it's closed
+          const chargesPanel = target.querySelector<HTMLElement>('.charges-panel');
+          if (chargesPanel && chargesPanel.style.display === 'none') {
+            chargesPanel.style.display = '';
+            this._openChargesPanels.add(calFocusAccount);
+            const chargesBtn = target.querySelector<HTMLButtonElement>('[data-action="charges"]');
+            if (chargesBtn) chargesBtn.textContent = '🧾 ↑';
+          }
+          // Highlight the specific charge; fall back to highlighting the card row
+          const chargeItem = target.querySelector<HTMLElement>(`[data-charge-id="${focusCharge}"]`);
+          if (chargeItem) {
+            setTimeout(() => {
+              chargeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              chargeItem.classList.add('cal-focus-highlight');
+            }, 150);
+          } else {
+            target.classList.add('cal-focus-highlight');
+          }
+        } else {
           target.classList.add('cal-focus-highlight');
         }
       });
@@ -250,18 +277,56 @@ export class DebtPage {
     card.className = 'card';
 
     const titleRow = document.createElement('div');
-    titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5)';
-    titleRow.innerHTML = '<h2 class="font-serif" style="font-size:var(--text-xl)">My Debt</h2>';
+    titleRow.className = 'debt-list-title-row';
+
+    const heading = document.createElement('h2');
+    heading.className = 'font-serif';
+    heading.style.fontSize = 'var(--text-xl)';
+    heading.textContent = 'My Debt';
+    titleRow.appendChild(heading);
+
+    const sortBar = document.createElement('div');
+    sortBar.className = 'debt-sort-bar';
+
+    const refreshSortButtons = () => {
+      const dashIdx = this.sortMode.lastIndexOf('-');
+      const field = this.sortMode.slice(0, dashIdx);
+      const dir = this.sortMode.slice(dashIdx + 1);
+      sortBar.querySelectorAll<HTMLButtonElement>('.debt-sort-btn').forEach((btn) => {
+        const isActive = btn.dataset['sortField'] === field;
+        btn.classList.toggle('active', isActive);
+        btn.textContent = isActive
+          ? `${btn.dataset['sortLabel']} ${dir === 'asc' ? '↑' : '↓'}`
+          : btn.dataset['sortLabel']!;
+      });
+    };
+
+    (['priority', 'balance', 'name', 'due'] as const).forEach((field) => {
+      const label = field === 'due' ? 'Due' : field.charAt(0).toUpperCase() + field.slice(1);
+      const btn = document.createElement('button');
+      btn.className = 'debt-sort-btn';
+      btn.dataset['sortField'] = field;
+      btn.dataset['sortLabel'] = label;
+      btn.addEventListener('click', () => {
+        const dashIdx = this.sortMode.lastIndexOf('-');
+        const curField = this.sortMode.slice(0, dashIdx);
+        const curDir = this.sortMode.slice(dashIdx + 1);
+        this.sortMode = curField === field
+          ? `${field}-${curDir === 'asc' ? 'desc' : 'asc'}`
+          : `${field}-asc`;
+        refreshSortButtons();
+        this.resortDebtList();
+      });
+      sortBar.appendChild(btn);
+    });
+    refreshSortButtons();
+
+    titleRow.appendChild(sortBar);
     card.appendChild(titleRow);
 
     const list = document.createElement('div');
+    list.className = 'debt-account-list';
     list.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-3)';
-
-    // Determine avalanche focus (highest APR with a remaining balance, only shown when 2+ active)
-    const activeWithBalance = this.accounts.filter((a) => a.balance > 0);
-    const avalancheFocusId = activeWithBalance.length >= 2
-      ? [...activeWithBalance].sort((a, b) => b.apr - a.apr)[0]?.id ?? null
-      : null;
 
     const paymentsByAccount = new Map<string, DebtPayment[]>();
     this.payments.forEach((p) => {
@@ -277,21 +342,59 @@ export class DebtPage {
       chargesByAccount.set(c.accountId, arr);
     });
 
-    this.accounts.forEach((a) => {
+    this.getSortedAccounts().forEach((a) => {
       const accountPayments = paymentsByAccount.get(a.id) ?? [];
       const accountCharges = chargesByAccount.get(a.id) ?? [];
-      list.appendChild(this.buildDebtRow(a, accountPayments, accountCharges, a.id === avalancheFocusId));
+      list.appendChild(this.buildDebtRow(a, accountPayments, accountCharges, this.accounts.length));
     });
 
     card.appendChild(list);
     return card;
   }
 
+  private getSortedAccounts(): DebtAccount[] {
+    const accs = [...this.accounts];
+    switch (this.sortMode) {
+      case 'priority-asc':
+        return accs.sort((a, b) => {
+          const pa = a.priority ?? null, pb = b.priority ?? null;
+          if (pa !== null && pb !== null) return pa - pb;
+          if (pa !== null) return -1;
+          if (pb !== null) return 1;
+          return 0;
+        });
+      case 'priority-desc':
+        return accs.sort((a, b) => {
+          const pa = a.priority ?? null, pb = b.priority ?? null;
+          if (pa !== null && pb !== null) return pb - pa;
+          if (pa !== null) return -1;
+          if (pb !== null) return 1;
+          return 0;
+        });
+      case 'balance-asc':  return accs.sort((a, b) => a.balance - b.balance);
+      case 'balance-desc': return accs.sort((a, b) => b.balance - a.balance);
+      case 'name-asc':     return accs.sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-desc':    return accs.sort((a, b) => b.name.localeCompare(a.name));
+      case 'due-asc':      return accs.sort((a, b) => (a.dueDay ?? 999) - (b.dueDay ?? 999));
+      case 'due-desc':     return accs.sort((a, b) => (b.dueDay ?? 0) - (a.dueDay ?? 0));
+      default:             return accs;
+    }
+  }
+
+  private resortDebtList(): void {
+    const list = this.container.querySelector<HTMLElement>('.debt-account-list');
+    if (!list) return;
+    this.getSortedAccounts().forEach((a) => {
+      const wrap = list.querySelector<HTMLElement>(`[data-account-id="${a.id}"]`);
+      if (wrap) list.appendChild(wrap);
+    });
+  }
+
   private buildDebtRow(
     a: DebtAccount,
     payments: DebtPayment[],
     charges: CardCharge[],
-    isAvalancheFocus: boolean,
+    totalAccounts: number,
   ): HTMLElement {
     const isCard = a.type === 'card';
     const util = isCard && (a.creditLimit ?? 0) > 0 ? a.balance / a.creditLimit! : 0;
@@ -308,7 +411,12 @@ export class DebtPage {
       : 'Due Soon';
     const statusBadge = (() => {
       switch (payStatus.currentMonth) {
-        case 'paid':     return '<span class="debt-badge debt-badge--paid">✓ Paid</span>';
+        case 'paid': {
+          const extraTxt = payStatus.currentMonthExtra > 0
+            ? ` +${fmtCents.format(payStatus.currentMonthExtra)} extra`
+            : '';
+          return `<span class="debt-badge debt-badge--paid">✓ Paid${extraTxt}</span>`;
+        }
         case 'past-due': return '<span class="debt-badge debt-badge--past-due">⚠ Past Due</span>';
         case 'due-soon': return `<span class="debt-badge debt-badge--due-soon">⏰ ${dueSoonLabel}</span>`;
         case 'partial':  return '<span class="debt-badge debt-badge--partial">½ Partial</span>';
@@ -316,16 +424,12 @@ export class DebtPage {
       }
     })();
 
-    // Priority badges
     const now = Date.now();
     const introActive = isCard && !!a.introAprEndDate && a.introAprEndDate > now;
     const highApr = a.apr >= HIGH_APR_THRESHOLD;
-    const isPriority = highApr && a.balance >= HIGH_BALANCE_THRESHOLD;
     const badges = [
-      isPriority        ? '<span class="debt-badge debt-badge--priority">⚡ Priority</span>' : '',
-      !isPriority && highApr && !introActive ? '<span class="debt-badge debt-badge--high-apr">High APR</span>' : '',
-      isAvalancheFocus  ? '<span class="debt-badge debt-badge--focus">Pay first</span>' : '',
-      introActive       ? '<span class="debt-badge debt-badge--intro">0% Intro</span>' : '',
+      highApr && !introActive ? '<span class="debt-badge debt-badge--high-apr">High APR</span>' : '',
+      introActive             ? '<span class="debt-badge debt-badge--intro">0% Intro</span>' : '',
       statusBadge,
     ].join('');
 
@@ -356,7 +460,7 @@ export class DebtPage {
     row.innerHTML = `
       <div class="card-row-info">
         <div class="card-row-name">
-          ${icon} ${a.name}
+          <span class="card-row-name-text">${icon} ${a.name}</span>
           ${needsSetup ? '<span class="setup-badge">⚠ Needs payment info</span>' : ''}
           ${badges}
         </div>
@@ -368,14 +472,16 @@ export class DebtPage {
             </div>
             <span class="card-row-util-label">${utilPct}% used</span>
           ` : ''}
+          ${isCard ? `<button class="btn-charges" data-action="charges" data-testid="debt-charges-btn" title="Log charges">🧾 ${hasCharges ? charges.length : '+Charges'}</button>` : ''}
+          ${hasPayments ? `<button class="payment-history-btn" data-action="history" data-testid="payment-history-btn" title="Payment history">↓ ${payments.length}</button>` : ''}
         </div>
+        ${needsSetup ? '<button class="btn btn-secondary btn-sm debt-setup-btn" data-action="setup" data-testid="debt-setup">Complete setup →</button>' : ''}
       </div>
-      <div class="card-row-balance${a.balance === 0 ? ' card-row-balance--zero' : ''}" data-testid="debt-row-balance">${fmt.format(a.balance)}</div>
+      <div class="card-row-balance${a.balance === 0 ? ' card-row-balance--zero' : ''}" data-testid="debt-row-balance">${fmtCents.format(a.balance)}</div>
       <div class="card-row-actions">
-        ${needsSetup ? '<button class="btn btn-secondary btn-sm" data-action="setup" data-testid="debt-setup">Complete setup →</button>' : ''}
+        <span class="priority-slot"></span>
         <button class="btn-pay" data-action="pay" data-testid="debt-pay-btn">💰 Pay</button>
-        ${isCard ? `<button class="btn-charges" data-action="charges" data-testid="debt-charges-btn" title="Log charges">🧾 ${hasCharges ? charges.length : '+Charges'}</button>` : ''}
-        ${hasPayments ? `<button class="payment-history-btn" data-action="history" data-testid="payment-history-btn" title="Payment history">↓ ${payments.length}</button>` : ''}
+        ${isCard ? `<button class="btn-import" data-action="import" data-testid="debt-card-import-btn" title="Import charges from CSV">⬆ Import</button>` : ''}
         <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
         <button class="icon-btn" data-action="edit" data-testid="debt-edit" title="Edit">✏️</button>
         <button class="icon-btn danger" data-action="delete" data-testid="debt-delete" title="Delete">🗑️</button>
@@ -383,6 +489,52 @@ export class DebtPage {
     `;
 
     wrap.appendChild(row);
+
+    // ── Priority selector ─────────────────────────────────────────────────
+    const prioritySel = document.createElement('select');
+    prioritySel.className = 'priority-select';
+    prioritySel.dataset['priorityFor'] = a.id;
+    prioritySel.title = 'Set payoff priority';
+    prioritySel.dataset['hasPriority'] = a.priority != null ? '1' : '0';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '—';
+    prioritySel.appendChild(noneOpt);
+    for (let i = 1; i <= totalAccounts; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `#${i}`;
+      if (a.priority === i) opt.selected = true;
+      prioritySel.appendChild(opt);
+    }
+    prioritySel.addEventListener('change', async () => {
+      const newPriority = prioritySel.value === '' ? null : parseInt(prioritySel.value, 10);
+      const oldPriority = a.priority ?? null;
+      if (newPriority === oldPriority) return;
+
+      // Swap with any account that already holds the chosen priority
+      const conflict = newPriority !== null
+        ? this.accounts.find((acc) => acc.id !== a.id && (acc.priority ?? null) === newPriority)
+        : null;
+
+      a.priority = newPriority;
+      prioritySel.dataset['hasPriority'] = newPriority != null ? '1' : '0';
+
+      if (conflict) {
+        conflict.priority = oldPriority;
+        const conflictSel = this.container.querySelector<HTMLSelectElement>(`[data-priority-for="${conflict.id}"]`);
+        if (conflictSel) {
+          conflictSel.value = oldPriority === null ? '' : String(oldPriority);
+          conflictSel.dataset['hasPriority'] = oldPriority != null ? '1' : '0';
+        }
+      }
+
+      const saves: Promise<void>[] = [saveDebtAccount(a)];
+      if (conflict) saves.push(saveDebtAccount(conflict));
+      await Promise.all(saves);
+      this.resortDebtList();
+    });
+    row.querySelector<HTMLElement>('.priority-slot')!.replaceWith(prioritySel);
 
     // Payment history panel (collapsed by default)
     let historyPanel: HTMLElement | null = null;
@@ -426,6 +578,18 @@ export class DebtPage {
     }
     row.querySelector('[data-action="pay"]')!.addEventListener('click', () => this.openPaymentModal(a));
 
+    if (isCard) {
+      row.querySelector('[data-action="import"]')?.addEventListener('click', () => {
+        openImportWizard({
+          targetId: a.id,
+          targetType: 'debt-card',
+          targetName: a.name,
+          categories: this.expenseCategories,
+          onComplete: () => this.load(),
+        });
+      });
+    }
+
     if (a.url) {
       const link = document.createElement('a');
       link.className = 'icon-btn';
@@ -468,120 +632,19 @@ export class DebtPage {
   // ── Per-card payment modal ─────────────────────────────────────────────
 
   private openPaymentModal(a: DebtAccount): void {
-    const body = document.createElement('div');
-    body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
-
-    const minPay = computeMinPayment(a);
-    const today = new Date().toISOString().split('T')[0]!;
-
-    const bankOptions = this.bankAccounts
-      .map((b) => `<option value="${b.id}">${b.name}</option>`)
-      .join('');
-
-    body.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
-        <div class="form-group">
-          <label class="form-label" for="pay-amount">Payment amount <span class="req">*</span></label>
-          <input id="pay-amount" type="number" min="0.01" step="0.01"
-            value="${minPay != null ? minPay.toFixed(2) : ''}" placeholder="0.00" />
-          ${minPay != null ? `<span class="form-hint">Minimum: ${fmtCents.format(minPay)}</span>` : ''}
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="pay-date">Payment date <span class="req">*</span></label>
-          <input id="pay-date" type="date" value="${today}" />
-        </div>
-      </div>
-      <div class="form-group" id="pay-bank-group">
-        <label class="form-label" for="pay-bank">Pay from account <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-        ${this.bankAccounts.length > 0
-          ? `<select id="pay-bank"><option value="">— not specified —</option>${bankOptions}</select>`
-          : `<select id="pay-bank" disabled><option value="">No bank accounts set up</option></select>`}
-      </div>
-      <div class="form-group">
-        <label class="form-label">Payment type</label>
-        <div style="display:flex;gap:var(--space-5)">
-          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
-            <input type="radio" name="pay-type" value="regular" checked /> Regular payment
-          </label>
-          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
-            <input type="radio" name="pay-type" value="extra" /> Extra payment
-          </label>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="pay-note">Note <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-        <input id="pay-note" type="text" placeholder="e.g. February statement, bonus payment" maxlength="80" />
-      </div>
-      <div id="pay-error" class="form-error" style="display:none"></div>
-    `;
-
-    // "Add one in Accounts →" hint when no bank accounts exist — close modal, then navigate
-    let closeModal: (() => void) | undefined;
-    if (this.bankAccounts.length === 0) {
-      const hint = document.createElement('span');
-      hint.className = 'form-hint';
-      hint.textContent = 'No bank accounts set up yet. ';
-      const addLink = document.createElement('a');
-      addLink.href = '#';
-      addLink.textContent = 'Add one in Accounts →';
-      addLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        closeModal?.();
-        navigate('/accounts');
-      });
-      hint.appendChild(addLink);
-      body.querySelector('#pay-bank-group')!.appendChild(hint);
-    }
-
-    const modal = openFormModal({
-      title: `Make a Payment — ${a.name}`,
-      body,
-      submitLabel: 'Record Payment',
-      onSubmit: async (close) => {
-        const amountRaw = parseFloat(body.querySelector<HTMLInputElement>('#pay-amount')!.value);
-        const dateStr = body.querySelector<HTMLInputElement>('#pay-date')!.value;
-        const typeVal = (body.querySelector<HTMLInputElement>('[name="pay-type"]:checked')?.value ?? 'regular') as 'regular' | 'extra';
-        const note = body.querySelector<HTMLInputElement>('#pay-note')!.value.trim();
-        const bankAccountId = body.querySelector<HTMLSelectElement>('#pay-bank')!.value || undefined;
-        const errEl = body.querySelector<HTMLElement>('#pay-error')!;
-
-        errEl.style.display = 'none';
-        const missing: string[] = [];
-        if (isNaN(amountRaw) || amountRaw <= 0) missing.push('Payment amount');
-        if (!dateStr)                           missing.push('Payment date');
-        if (missing.length > 0) {
-          errEl.textContent = missing.length === 1
-            ? `${missing[0]} is required.`
-            : `Fill in all required fields: ${missing.join(', ')}.`;
-          errEl.style.display = 'block';
-          return;
-        }
-
-        const payment = createDebtPayment(a.id, amountRaw, typeVal, note || undefined);
-        payment.date = new Date(dateStr + 'T12:00:00').getTime();
-        if (bankAccountId) payment.bankAccountId = bankAccountId;
-
-        const newBalance = Math.max(0, a.balance - amountRaw);
-        const updatedAccount: DebtAccount = { ...a, balance: newBalance, updatedAt: Date.now() };
-
-        await Promise.all([saveDebtPayment(payment), saveDebtAccount(updatedAccount)]);
-
-        const wasPaidOff = a.balance > 0 && newBalance === 0;
-        close();
-        await this.load();
-        refreshNotifier();
-
-        if (wasPaidOff) {
-          const allFree = this.accounts.every((acc) => acc.balance <= 0);
-          if (allFree) {
-            setTimeout(() => showAllDebtFreeCelebration(), 450);
-          } else {
-            setTimeout(() => showDebtPayoffCelebration(a.name), 450);
-          }
+    openDebtPaymentModal({
+      account: a,
+      bankAccounts: this.bankAccounts,
+      onSave: () => this.load(),
+      onPayoff: (updatedAccount) => {
+        const allFree = this.accounts.every((acc) => acc.id === updatedAccount.id ? updatedAccount.balance <= 0 : acc.balance <= 0);
+        if (allFree) {
+          setTimeout(() => showAllDebtFreeCelebration(), 450);
+        } else {
+          setTimeout(() => showDebtPayoffCelebration(a.name), 450);
         }
       },
     });
-    closeModal = modal.close;
   }
 
   // ── Edit an existing payment ───────────────────────────────────────────
@@ -702,6 +765,7 @@ export class DebtPage {
       {
         label: currentMonthLabel,
         total: payStatus.currentMonthTotal,
+        extra: payStatus.currentMonthExtra,
         minimumMet: payStatus.minimumPayment != null && payStatus.currentMonthTotal >= payStatus.minimumPayment,
         isCurrent: true,
         status: payStatus.currentMonth,
@@ -709,6 +773,7 @@ export class DebtPage {
       ...payStatus.historicalMonths.slice(0, 5).map((h) => ({
         label: h.label,
         total: h.total,
+        extra: h.extra,
         minimumMet: h.minimumMet,
         isCurrent: false,
         status: h.minimumMet ? 'paid' : 'partial',
@@ -719,7 +784,7 @@ export class DebtPage {
       const monthGrid = document.createElement('div');
       monthGrid.className = 'payment-month-grid';
 
-      allMonths.forEach(({ label, total, minimumMet, status }) => {
+      allMonths.forEach(({ label, total, extra, minimumMet, status }) => {
         const chip = document.createElement('div');
         const chipClass = minimumMet ? 'paid'
           : status === 'past-due' ? 'past-due'
@@ -729,9 +794,13 @@ export class DebtPage {
         chip.className = `payment-month-chip payment-month-chip--${chipClass}`;
 
         const icon = minimumMet ? '✓' : status === 'past-due' ? '⚠' : total > 0 ? '½' : '—';
+        const extraStr = extra > 0 && minimumMet
+          ? `<span class="payment-month-chip-extra">+${fmtCents.format(extra)} extra</span>`
+          : '';
         chip.innerHTML = `
           <span class="payment-month-chip-label">${label}</span>
           <span class="payment-month-chip-amount">${total > 0 ? fmtCents.format(total) : '—'}</span>
+          ${extraStr}
           <span class="payment-month-chip-icon">${icon}</span>
         `;
         monthGrid.appendChild(chip);
@@ -935,6 +1004,7 @@ export class DebtPage {
     sorted.slice(page * pageSize, page * pageSize + pageSize).forEach((ch) => {
       const item = document.createElement('div');
       item.className = 'charges-item';
+      item.setAttribute('data-charge-id', ch.id);
       const dateStr = new Date(ch.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const cat = ch.categoryId ? catMap.get(ch.categoryId) : null;
 
@@ -996,7 +1066,10 @@ export class DebtPage {
       delBtn.textContent = '🗑️';
       delBtn.addEventListener('click', async () => {
         if (!confirm(`Remove ${fmtCents.format(ch.amount)} charge from ${ch.merchant}?`)) return;
-        await deleteCardCharge(ch.id);
+        await Promise.all([
+          deleteCardCharge(ch.id),
+          saveDebtAccount({ ...a, balance: a.balance - ch.amount, updatedAt: Date.now() }),
+        ]);
         this._openChargesPanels.add(a.id);
         await this.load();
       });
@@ -1101,11 +1174,17 @@ export class DebtPage {
         }
 
         const date = new Date(dateVal + 'T12:00:00').getTime();
+        const amountDelta = amount - ch.amount;
         const updated: CardCharge = { ...ch, merchant, amount, date };
         if (categoryId) updated.categoryId = categoryId; else delete updated.categoryId;
         if (note)       updated.note = note;              else delete updated.note;
 
-        await saveCardCharge(updated);
+        await Promise.all([
+          saveCardCharge(updated),
+          ...(amountDelta !== 0
+            ? [saveDebtAccount({ ...a, balance: a.balance + amountDelta, updatedAt: Date.now() })]
+            : []),
+        ]);
         this._openChargesPanels.add(a.id);
         close();
         await this.load();
@@ -1178,7 +1257,10 @@ export class DebtPage {
 
         const date = new Date(dateStr + 'T12:00:00').getTime();
         const charge = createCardCharge(a.id, merchant, amount, date, categoryId, note);
-        await saveCardCharge(charge);
+        await Promise.all([
+          saveCardCharge(charge),
+          saveDebtAccount({ ...a, balance: a.balance + amount, updatedAt: Date.now() }),
+        ]);
         this._openChargesPanels.add(a.id);
         close();
         await this.load();
@@ -1268,7 +1350,7 @@ export class DebtPage {
       item.setAttribute('data-account-id', a.id);
       item.innerHTML = `
         <span>${idx + 1}. ${DEBT_TYPE_ICONS[a.type]} ${a.name}</span>
-        <span class="text-xs text-muted">${a.apr}% APR · ${fmt.format(a.balance)}</span>
+        <span class="text-xs text-muted">${a.apr}% APR · ${fmtCents.format(a.balance)}</span>
         <button class="order-btn" data-dir="up" ${idx === 0 ? 'disabled' : ''}>▲</button>
         <button class="order-btn" data-dir="down" ${idx === orderedAccounts.length - 1 ? 'disabled' : ''}>▼</button>
       `;
@@ -1325,16 +1407,16 @@ export class DebtPage {
         </div>
         <div class="whatif-stat">
           <span class="whatif-stat-label">Total interest</span>
-          <span class="whatif-stat-value" style="color:var(--ff-rust)">${fmt.format(minOnly.totalInterest)}</span>
+          <span class="whatif-stat-value" style="color:var(--ff-rust)">${fmtCents.format(minOnly.totalInterest)}</span>
         </div>
         <div class="whatif-stat">
           <span class="whatif-stat-label">Total paid</span>
-          <span class="whatif-stat-value">${fmt.format(minOnly.totalPaid)}</span>
+          <span class="whatif-stat-value">${fmtCents.format(minOnly.totalPaid)}</span>
         </div>
       </div>
       <div class="whatif-panel improved">
         <div class="whatif-label">
-          ${this.extraPayment > 0 ? `With +${fmt.format(this.extraPayment)}/mo extra` : 'With extra payment'}
+          ${this.extraPayment > 0 ? `With +${fmtCents.format(this.extraPayment)}/mo extra` : 'With extra payment'}
         </div>
         <div class="whatif-stat">
           <span class="whatif-stat-label">Debt-free</span>
@@ -1342,11 +1424,11 @@ export class DebtPage {
         </div>
         <div class="whatif-stat">
           <span class="whatif-stat-label">Total interest</span>
-          <span class="whatif-stat-value" style="color:var(--ff-rust)">${fmt.format(withExtra.totalInterest)}</span>
+          <span class="whatif-stat-value" style="color:var(--ff-rust)">${fmtCents.format(withExtra.totalInterest)}</span>
         </div>
         <div class="whatif-stat">
           <span class="whatif-stat-label">Total paid</span>
-          <span class="whatif-stat-value">${fmt.format(withExtra.totalPaid)}</span>
+          <span class="whatif-stat-value">${fmtCents.format(withExtra.totalPaid)}</span>
         </div>
       </div>
     `;
@@ -1362,7 +1444,7 @@ export class DebtPage {
       banner.innerHTML = `
         <span class="savings-banner-icon">🎉</span>
         <div>
-          <strong>You'd save ${fmt.format(interestSaved)} in interest</strong> and be debt-free
+          <strong>You'd save ${fmtCents.format(interestSaved)} in interest</strong> and be debt-free
           ${timeStr ? `<strong>${timeStr} sooner</strong>` : 'sooner'}.
           That money stays in your pocket instead of going to the bank.
         </div>
@@ -1371,9 +1453,9 @@ export class DebtPage {
 
       setTimeout(() =>
         showMascot('debt-free-improvement', {
-          amount: fmt.format(this.extraPayment),
+          amount: fmtCents.format(this.extraPayment),
           date: fmtDate(withExtra.debtFreeDate),
-          interest: fmt.format(interestSaved),
+          interest: fmtCents.format(interestSaved),
           months: String(monthsSaved),
         }),
         800,
@@ -1395,7 +1477,7 @@ export class DebtPage {
         step.innerHTML = `
           <span class="payoff-order-num">${i + 1}</span>
           <span>${DEBT_TYPE_ICONS[a.type]} ${a.name}</span>
-          <span class="text-xs text-muted">${a.apr}% APR · ${fmt.format(a.balance)}</span>
+          <span class="text-xs text-muted">${a.apr}% APR · ${fmtCents.format(a.balance)}</span>
         `;
         list.appendChild(step);
         if (i < minOnly.paidOffOrder.length - 1) {
@@ -1499,7 +1581,7 @@ export class DebtPage {
 
     if (extraData) {
       datasets.push({
-        label: `With +${fmt.format(this.extraPayment)}/mo`,
+        label: `With +${fmtCents.format(this.extraPayment)}/mo`,
         data: extraData,
         borderColor: 'var(--ff-green)',
         backgroundColor: 'rgba(45,90,39,0.07)',
@@ -2017,7 +2099,7 @@ export class DebtPage {
     strategyNote.className = 'text-xs text-muted';
     strategyNote.style.marginBottom = 'var(--space-5)';
     const extraNote = this.extraPayment > 0
-      ? ` · +${fmt.format(this.extraPayment)}/mo extra`
+      ? ` · +${fmtCents.format(this.extraPayment)}/mo extra`
       : ' · minimum payments only';
     strategyNote.textContent =
       `${this.strategy.charAt(0).toUpperCase() + this.strategy.slice(1)} strategy${extraNote}`;

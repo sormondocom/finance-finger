@@ -144,12 +144,26 @@ type AvatarType = 'male' | 'female' | 'child' | 'baby-male' | 'baby-female' | 'c
 | `bankAccountId?` | `string` | optional bank account the payment was drawn from |
 | `createdAt` | `number` |  |
 
+## Account Transfers
+
+### `AccountTransfer`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `fromAccountId` | `string` |  |
+| `toAccountId` | `string` |  |
+| `amount` | `number` |  |
+| `date` | `number` | timestamp |
+| `note?` | `string` |  |
+| `createdAt` | `number` |  |
+
 ## Bank Accounts
 
 ### `BankAccountType`
 
 ```typescript
-type BankAccountType = 'checking' | 'savings' | 'money-market' | 'other'
+type BankAccountType = 'checking' | 'savings' | 'money-market' | 'cash' | 'other'
 ```
 
 ### `BankAccountOwnership`
@@ -197,6 +211,7 @@ type DebtAccountType = 'card' | 'mortgage' | 'medical' | 'loan' | 'vehicle'
 | `paymentCycle` | `PaymentCycle` |  |
 | `dueDay?` | `number` | day of month extracted from nextDueDateMs for ongoing cycle display |
 | `nextDueDateMs?` | `number` | timestamp of the actual next payment due date; status computation advances this forward by paymentCycle |
+| `priority?` | `number \| null` | user-assigned payoff priority (1 = first); null/undefined = no preference |
 | `url?` | `string` | optional billing portal / website link |
 | `createdAt` | `number` |  |
 | `updatedAt` | `number` |  |
@@ -357,3 +372,24 @@ type NotifLinkedItemType = 'expense' | 'debt' | 'income' | 'account'
 | `lastFiredAt?` | `string` | 'YYYY-MM-DD' — prevents double-fire on the same calendar day |
 | `createdAt` | `number` |  |
 | `updatedAt` | `number` |  |
+
+## Calendar marks
+
+### `CalendarMark`
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | `string` | 'YYYY-MM-DD' |
+| `color` | `string` | hex color string |
+
+## Calendar memos
+
+### `CalendarMemo`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `date` | `string` | 'YYYY-MM-DD' |
+| `text` | `string` |  |
+| `memberId?` | `string` | optional household member who wrote it |
+| `createdAt` | `number` |  |

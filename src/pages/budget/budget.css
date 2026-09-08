@@ -325,6 +325,131 @@
   opacity: 0.7;
 }
 
+/* ── Budget editor: wider modal when ledger is present ───────────────────── */
+
+dialog.ff-modal:has(.be-spending-ledger) {
+  width: min(780px, calc(100vw - 2rem));
+}
+
+/* ── Budget editor: spending ledger ─────────────────────────────────────── */
+
+.be-spending-ledger {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.be-spending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+
+.be-spending-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.be-spending-total {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.be-spending-group-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.be-spending-row {
+  display: grid;
+  grid-template-columns: 76px 1fr auto auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.be-spending-row:last-child {
+  border-bottom: none;
+}
+
+.be-spending-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Item name — always a <button>, reset to look like text */
+.be-spending-item {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  cursor: default;
+}
+
+.be-spending-item--link {
+  cursor: pointer;
+  transition: color var(--ease-default);
+}
+
+.be-spending-item--link:hover {
+  color: var(--ff-gold-dark);
+  text-decoration: underline;
+}
+
+/* Source/account link pill */
+.be-spending-src {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.be-spending-src-link {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--ease-default), border-color var(--ease-default);
+}
+
+.be-spending-src-link:hover {
+  color: var(--ff-gold-dark);
+  border-color: var(--ff-gold);
+}
+
+.be-spending-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-align: right;
+  color: var(--color-danger);
+}
+
+.be-spending-empty {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0;
+}
+
 /* ── Empty state ────────────────────────────────────────────────────────── */
 
 .budget-empty {

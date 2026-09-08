@@ -120,31 +120,163 @@
   background: var(--color-border);
 }
 
-.filter-sort-label {
+.expense-sort-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+
+.expense-sort-btn {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  font-family: var(--font-ui);
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--ease-default), background var(--ease-default), color var(--ease-default);
+}
+
+.expense-sort-btn.active {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--ff-gold-dark);
+  border-color: rgba(201, 168, 76, 0.5);
+}
+
+.expense-sort-btn:hover:not(.active) {
+  border-color: var(--ff-gold);
+  color: var(--color-text);
+}
+
+.expense-sort-btn:focus {
+  outline: none;
+  border-color: var(--ff-gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
+}
+
+/* ── Category group sort row (global, shown when multiple groups) ────────── */
+
+.expense-group-sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-2);
+}
+
+.expense-group-sort-label {
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
   white-space: nowrap;
-  margin-left: auto;
 }
 
-.filter-sort-select {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: transparent;
+/* ── Per-group sort pills (inside each category group) ───────────────────── */
+
+.expense-group-sort-bar {
+  display: flex;
+  gap: 4px;
+  padding-left: 15px;
+  margin-top: -4px;
+  margin-bottom: var(--space-1);
+}
+
+/* ── Expense item outer (row + ledger panel container) ───────────────────── */
+
+.expense-item-outer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Expense ledger panel ────────────────────────────────────────────────── */
+
+.expense-ledger-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-sunken);
+  overflow: hidden;
+}
+
+.expense-ledger-col-header {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px var(--space-3);
-  outline: none;
-  transition: border-color var(--ease-default), color var(--ease-default);
+  background: var(--color-bg-sunken);
 }
 
-.filter-sort-select:hover,
-.filter-sort-select:focus {
-  border-color: var(--color-text-muted);
-  color: var(--color-text);
+.expense-ledger-col-header span {
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.expense-ledger-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.expense-ledger-row:last-child {
+  border-bottom: none;
+}
+
+.expense-ledger-date {
+  flex-shrink: 0;
+  width: 108px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.expense-ledger-source {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-ledger-amount {
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ff-rust);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-ledger-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.expense-ledger-source-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.expense-ledger-source-link:hover {
+  color: var(--ff-gold-dark);
+  text-decoration-style: solid;
 }
 
 /* ── Category management ────────────────────────────────────────────────── */
@@ -281,8 +413,25 @@
 
 .expense-row-desc {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.expense-row-desc-main {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.expense-row-desc-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .expense-row-date {
@@ -323,6 +472,7 @@
   display: flex;
   gap: var(--space-1);
 }
+
 
 /* ── Expense form ───────────────────────────────────────────────────────── */
 
@@ -419,6 +569,12 @@
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
+.expense-badge--stale {
+  background: rgba(201, 168, 76, 0.12);
+  color: var(--ff-gold-dark);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+}
+
 @keyframes bill-pulse-danger {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.55; }
@@ -440,6 +596,10 @@
 
 .expense-bill-wrap--paid {
   box-shadow: inset 4px 0 0 var(--ff-green);
+}
+
+.expense-bill-wrap--stale {
+  box-shadow: inset 4px 0 0 var(--ff-gold);
 }
 
 /* ── Threshold badge ─────────────────────────────────────────────────────── */
@@ -507,4 +667,15 @@
 .mark-paid-btn--edit:hover {
   background: rgba(100, 116, 139, 0.15);
   border-color: var(--color-text-muted);
+}
+
+.mark-paid-btn--stale {
+  border-color: rgba(201, 168, 76, 0.4);
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--ff-gold-dark);
+}
+
+.mark-paid-btn--stale:hover {
+  background: rgba(201, 168, 76, 0.18);
+  border-color: var(--ff-gold);
 }

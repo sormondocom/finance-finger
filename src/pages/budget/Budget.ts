@@ -1,4 +1,5 @@
 import './budget.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   Chart,
   DoughnutController,
@@ -6,11 +7,12 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { getIncomeSources, getExpenses, getCategories, saveCategory } from '@/db';
+import { getIncomeSources, getExpenses, getCategories, saveCategory, getCardCharges, getBankAccounts, getDebtAccounts } from '@/db';
 import { toMonthly, sourceMonthly, fmt, fmtCents } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { openFormModal } from '@/components/Modal';
-import type { ExpenseCategory, Expense, IncomeSource } from '@/types';
+import { navigate } from '@/app/router';
+import type { ExpenseCategory, Expense, IncomeSource, CardCharge, BankAccount, DebtAccount } from '@/types';
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
 
@@ -21,6 +23,8 @@ interface CategoryTotals {
 
 export class BudgetPage {
   private container!: HTMLElement;
+  private accounts: BankAccount[] = [];
+  private debtAccounts: DebtAccount[] = [];
 
   render(): HTMLElement {
     this.container = document.createElement('div');
@@ -32,11 +36,24 @@ export class BudgetPage {
 
   private async populate(): Promise<void> {
     const el = this.container;
-    const [sources, expenses, categories] = await Promise.all([
+    const [sources, expenses, categories, allCharges, accounts, debtAccounts] = await Promise.all([
       getIncomeSources(),
       getExpenses(),
       getCategories(),
+      getCardCharges(),
+      getBankAccounts(),
+      getDebtAccounts(),
     ]);
+    this.accounts = accounts;
+    this.debtAccounts = debtAccounts;
+
+    // Charges from the current calendar month contribute to category spending
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+    const monthCharges: CardCharge[] = allCharges.filter(
+      (c) => c.date >= monthStart && c.date < monthEnd,
+    );
 
     const monthlyIncome = sources
       .filter((s: IncomeSource) => s.active)
@@ -58,16 +75,16 @@ export class BudgetPage {
     }
 
     // ── Page title ───────────────────────────────────────────────────────
-    const now = new Date();
     const title = document.createElement('div');
     title.innerHTML = `
       <h1 class="font-serif">Budget Overview</h1>
-      <p class="text-muted text-sm">${now.toLocaleString('default', { month: 'long', year: 'numeric' })} · Recurring expenses only</p>
+      <p class="text-muted text-sm">${now.toLocaleString('default', { month: 'long', year: 'numeric' })} · Recurring expenses + card charges</p>
     `;
+    title.querySelector('h1')?.appendChild(makeHelpBtn('budget'));
     el.appendChild(title);
 
     // ── Buckets (envelope budgeting) ─────────────────────────────────────
-    const bucketsSection = this.renderBuckets(categories, recurringExpenses, monthlyIncome);
+    const bucketsSection = this.renderBuckets(categories, recurringExpenses, monthlyIncome, monthCharges);
     if (bucketsSection) el.appendChild(bucketsSection);
 
     // ── Summary stats ────────────────────────────────────────────────────
@@ -80,6 +97,10 @@ export class BudgetPage {
     recurringExpenses.forEach((e) => {
       const key = e.categoryId || '__none__';
       byCat.set(key, (byCat.get(key) ?? 0) + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'));
+    });
+    monthCharges.forEach((c) => {
+      const key = c.categoryId || '__none__';
+      byCat.set(key, (byCat.get(key) ?? 0) + c.amount);
     });
 
     const totals: CategoryTotals[] = Array.from(byCat.entries())
@@ -116,27 +137,66 @@ export class BudgetPage {
 
   // ── Bucket SVG generator ───────────────────────────────────────────────
 
-  private buildBucketSVG(color: string, fillPct: number, isOver: boolean): string {
+  private buildBucketSVG(_color: string, fillPct: number, isOver: boolean): string {
     const clamped = Math.min(fillPct, 1);
-    const fillColor = isOver ? '#DC2626' : fillPct >= 0.7 ? '#B45309' : '#2D5A27';
     const id = `bclip-${Math.random().toString(36).slice(2, 9)}`;
-
-    // Bucket polygon: wider at top (y=22), narrower at bottom (y=102)
-    // Top-left=6,22  Top-right=74,22  Bot-right=80,102  Bot-left=0,102
-    const bucketH = 80; // 102 - 22
+    const bucketH = 80; // y: 22 → 102
     const fillY = 22 + bucketH * (1 - clamped);
     const fillH = bucketH * clamped;
+
+    // Status-based water gradient: blue=ok, amber=warning, red=over
+    const gradTop = isOver ? '#FCA5A5' : fillPct >= 0.7 ? '#FDE68A' : '#93C5FD';
+    const gradBot = isOver ? '#DC2626' : fillPct >= 0.7 ? '#B45309' : '#1D4ED8';
+
+    // Bucket edge x-coords at a given y: left narrows, right widens toward bottom
+    // Left: (6,22)→(0,102) slope −6/80; Right: (74,22)→(80,102) slope +6/80
+    const lx = (y: number) => (6 - (y - 22) * 6 / 80).toFixed(1);
+    const rx = (y: number) => (74 + (y - 22) * 6 / 80).toFixed(1);
+
+    const topBand = `M ${lx(22)} 22 Q 40 20 ${rx(22)} 22 L ${rx(28)} 28 Q 40 26 ${lx(28)} 28 Z`;
+    const midBand = `M ${lx(60)} 60 Q 40 58 ${rx(60)} 60 L ${rx(65)} 65 Q 40 63 ${lx(65)} 65 Z`;
+
+    const wave = clamped > 0.03
+      ? `<path d="M 0 ${fillY.toFixed(1)} Q 20 ${(fillY - 3).toFixed(1)} 40 ${fillY.toFixed(1)} Q 60 ${(fillY + 3).toFixed(1)} 80 ${fillY.toFixed(1)} L 80 102 L 0 102 Z" fill="white" opacity="0.15"/>`
+      : '';
 
     const overLabel = isOver
       ? `<text x="40" y="68" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="system-ui">OVER</text>`
       : '';
 
     return `<svg viewBox="0 0 80 112" xmlns="http://www.w3.org/2000/svg" fill="none" class="bucket-svg" aria-hidden="true">
-      <path d="M20 22 Q40 6 60 22" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <defs><clipPath id="${id}"><polygon points="6,22 74,22 80,102 0,102"/></clipPath></defs>
-      <polygon points="6,22 74,22 80,102 0,102" fill="var(--color-bg-sunken)"/>
-      ${fillPct > 0 ? `<rect x="0" y="${fillY.toFixed(1)}" width="80" height="${Math.max(fillH, 0.1).toFixed(1)}" fill="${fillColor}" opacity="0.75" clip-path="url(#${id})"/>` : ''}
-      <polygon points="6,22 74,22 80,102 0,102" stroke="${color}" stroke-width="2" fill="none"/>
+      <defs>
+        <clipPath id="${id}"><polygon points="6,22 74,22 80,102 0,102"/></clipPath>
+        <linearGradient id="${id}-wg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="${gradTop}" stop-opacity="0.92"/>
+          <stop offset="100%" stop-color="${gradBot}" stop-opacity="0.97"/>
+        </linearGradient>
+      </defs>
+      <!-- Wood body -->
+      <polygon points="6,22 74,22 80,102 0,102" fill="#8B5E3C"/>
+      <!-- Slats -->
+      <g clip-path="url(#${id})">
+        <line x1="20" y1="22" x2="16" y2="102" stroke="#5C3A18" stroke-width="1.5" opacity="0.38"/>
+        <line x1="30" y1="22" x2="28" y2="102" stroke="#5C3A18" stroke-width="1.5" opacity="0.38"/>
+        <line x1="40" y1="22" x2="40" y2="102" stroke="#5C3A18" stroke-width="1.5" opacity="0.38"/>
+        <line x1="50" y1="22" x2="52" y2="102" stroke="#5C3A18" stroke-width="1.5" opacity="0.38"/>
+        <line x1="60" y1="22" x2="64" y2="102" stroke="#5C3A18" stroke-width="1.5" opacity="0.38"/>
+      </g>
+      <!-- Water fill -->
+      ${clamped > 0 ? `<g clip-path="url(#${id})">
+        <rect x="0" y="${fillY.toFixed(1)}" width="80" height="${Math.max(fillH, 0.1).toFixed(1)}" fill="url(#${id}-wg)"/>
+        ${wave}
+      </g>` : ''}
+      <!-- Metal bands (drawn over water) -->
+      <path d="${topBand}" fill="#C9A84C" opacity="0.92"/>
+      <path d="${midBand}" fill="#C9A84C" opacity="0.85"/>
+      <!-- Outline and bottom arc -->
+      <polygon points="6,22 74,22 80,102 0,102" stroke="#3D1F08" stroke-width="2" fill="none"/>
+      <path d="M 0 102 Q 40 110 80 102" fill="none" stroke="#3D1F08" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Handle with gold rivets -->
+      <path d="M 20 22 Q 40 6 60 22" stroke="#6B3A1F" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <circle cx="20" cy="22" r="3.5" fill="#C9A84C"/>
+      <circle cx="60" cy="22" r="3.5" fill="#C9A84C"/>
       ${overLabel}
     </svg>`;
   }
@@ -147,6 +207,7 @@ export class BudgetPage {
     categories: ExpenseCategory[],
     recurringExpenses: Expense[],
     monthlyIncome: number,
+    monthCharges: CardCharge[],
   ): HTMLElement | null {
     if (categories.length === 0) return null;
 
@@ -155,11 +216,15 @@ export class BudgetPage {
 
     if (budgeted.length === 0 && unbudgeted.length === 0) return null;
 
-    // Compute monthly spend per category
+    // Compute monthly spend per category (recurring expenses + this month's card charges)
     const spendByCat = new Map<string, number>();
     recurringExpenses.forEach((e) => {
       const key = e.categoryId || '__none__';
       spendByCat.set(key, (spendByCat.get(key) ?? 0) + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'));
+    });
+    monthCharges.forEach((c) => {
+      const key = c.categoryId || '__none__';
+      spendByCat.set(key, (spendByCat.get(key) ?? 0) + c.amount);
     });
 
     const totalBudgeted = budgeted.reduce((s, c) => s + (c.monthlyBudget ?? 0), 0);
@@ -190,7 +255,7 @@ export class BudgetPage {
       counter.innerHTML = `
         <span class="buckets-assign-label">To Assign</span>
         <span class="buckets-assign-value buckets-assign-value${assignColor}" data-testid="buckets-unassigned-value">
-          ${unassigned >= 0 ? '' : '-'}${fmt.format(Math.abs(unassigned))}
+          ${unassigned >= 0 ? '' : '-'}${fmtCents.format(Math.abs(unassigned))}
         </span>
       `;
       header.appendChild(counter);
@@ -220,12 +285,14 @@ export class BudgetPage {
           ${this.buildBucketSVG(cat.color, pct, isOver)}
           <div class="bucket-info">
             <div class="bucket-name">${cat.name}</div>
-            <div class="bucket-amounts">${fmt.format(spent)} / ${fmt.format(budget)}</div>
+            <div class="bucket-amounts">${fmtCents.format(spent)} / ${fmtCents.format(budget)}</div>
             <div class="bucket-pct ${pctClass}">${Math.round(pct * 100)}%</div>
           </div>
         `;
 
-        item.addEventListener('click', () => this.openBudgetEditor(cat));
+        const catExpenses = recurringExpenses.filter((e) => e.categoryId === cat.id);
+        const catCharges = monthCharges.filter((c) => c.categoryId === cat.id);
+        item.addEventListener('click', () => this.openBudgetEditor(cat, catExpenses, catCharges));
 
         grid.appendChild(item);
       });
@@ -255,7 +322,9 @@ export class BudgetPage {
           <span>${cat.name}</span>
           <span class="unbudgeted-pill-add">+ Set budget</span>
         `;
-        pill.addEventListener('click', () => this.openBudgetEditor(cat));
+        const catExpenses = recurringExpenses.filter((e) => e.categoryId === cat.id);
+        const catCharges = monthCharges.filter((c) => c.categoryId === cat.id);
+        pill.addEventListener('click', () => this.openBudgetEditor(cat, catExpenses, catCharges));
         list.appendChild(pill);
       });
 
@@ -268,7 +337,11 @@ export class BudgetPage {
 
   // ── Budget editor modal ────────────────────────────────────────────────
 
-  private openBudgetEditor(cat: ExpenseCategory): void {
+  private openBudgetEditor(
+    cat: ExpenseCategory,
+    catExpenses: Expense[],
+    catCharges: CardCharge[],
+  ): void {
     const body = document.createElement('div');
     body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
     body.innerHTML = `
@@ -283,8 +356,152 @@ export class BudgetPage {
       </div>
     `;
 
-    openFormModal({
-      title: `Set Budget — ${cat.name}`,
+    // ── Spending ledger ────────────────────────────────────────────────────
+    const freqLabels: Record<string, string> = {
+      monthly: 'monthly', weekly: 'weekly', biweekly: 'bi-weekly',
+      semimonthly: 'twice/mo', quarterly: 'quarterly', annually: 'annually',
+    };
+
+    const recurringTotal = catExpenses.reduce(
+      (s, e) => s + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0,
+    );
+    const chargesTotal = catCharges.reduce((s, c) => s + c.amount, 0);
+    const spendingTotal = recurringTotal + chargesTotal;
+
+    const ledger = document.createElement('div');
+    ledger.className = 'be-spending-ledger';
+
+    const header = document.createElement('div');
+    header.className = 'be-spending-header';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'be-spending-title';
+    titleEl.textContent = 'This Month\'s Spending';
+    const totalEl = document.createElement('span');
+    totalEl.className = 'be-spending-total';
+    totalEl.textContent = fmtCents.format(spendingTotal);
+    header.append(titleEl, totalEl);
+    ledger.appendChild(header);
+
+    const modalRef: { close?: () => void } = {};
+
+    // goTo: sets sessionStorage focus keys so target pages handle scroll + highlight
+    const goTo = (
+      route: '/accounts' | '/debt',
+      id: string,
+      extraKey?: string,
+      extraVal?: string,
+    ) => {
+      modalRef.close?.();
+      sessionStorage.setItem(route === '/accounts' ? 'cal-focus-bank' : 'cal-focus-account', id);
+      if (extraKey && extraVal) sessionStorage.setItem(extraKey, extraVal);
+      navigate(route);
+    };
+
+    type NavTarget = { route: '/accounts' | '/debt'; id: string; label: string; icon: string } | null;
+
+    // addRow: onItemClick = item-name action (opens ledger/charges + highlights entry)
+    //         src         = source pill link (just highlights the account/card row)
+    const addRow = (
+      meta: string,
+      desc: string,
+      amount: number,
+      onItemClick: (() => void) | null,
+      src: NavTarget,
+    ) => {
+      const row = document.createElement('div');
+      row.className = 'be-spending-row';
+
+      const metaEl = document.createElement('span');
+      metaEl.className = 'be-spending-meta';
+      metaEl.textContent = meta;
+
+      const itemEl = document.createElement('button');
+      itemEl.type = 'button';
+      itemEl.className = onItemClick ? 'be-spending-item be-spending-item--link' : 'be-spending-item';
+      itemEl.textContent = desc;
+      if (onItemClick) itemEl.addEventListener('click', (e) => { e.stopPropagation(); onItemClick(); });
+
+      const srcEl = document.createElement('span');
+      srcEl.className = 'be-spending-src';
+      if (src) {
+        const srcBtn = document.createElement('button');
+        srcBtn.type = 'button';
+        srcBtn.className = 'be-spending-src-link';
+        srcBtn.textContent = `${src.icon} ${src.label}`;
+        srcBtn.addEventListener('click', (e) => { e.stopPropagation(); goTo(src.route, src.id); });
+        srcEl.appendChild(srcBtn);
+      }
+
+      const amtEl = document.createElement('span');
+      amtEl.className = 'be-spending-amount';
+      amtEl.textContent = fmtCents.format(amount);
+
+      row.append(metaEl, itemEl, srcEl, amtEl);
+      ledger.appendChild(row);
+    };
+
+    if (catExpenses.length === 0 && catCharges.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'be-spending-empty';
+      empty.textContent = 'No spending recorded this month.';
+      ledger.appendChild(empty);
+    } else {
+      if (catExpenses.length > 0) {
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'be-spending-group-label';
+        groupLabel.textContent = 'Recurring Expenses';
+        ledger.appendChild(groupLabel);
+        catExpenses.forEach((e) => {
+          const monthly = toMonthly(e.amount, e.recurringFrequency ?? 'monthly');
+          const freq = e.recurringFrequency
+            ? (freqLabels[e.recurringFrequency] ?? e.recurringFrequency)
+            : 'one-time';
+          let src: NavTarget = null;
+          let onItemClick: (() => void) | null = null;
+          if (e.bankAccountId) {
+            const acct = this.accounts.find((a) => a.id === e.bankAccountId);
+            if (acct) {
+              src = { route: '/accounts', id: acct.id, label: acct.name, icon: '🏦' };
+              onItemClick = () => goTo('/accounts', acct.id, 'ff-focus-ledger-bank', e.id);
+            }
+          } else if (e.linkedCardId) {
+            const card = this.debtAccounts.find((d) => d.id === e.linkedCardId);
+            if (card) {
+              src = { route: '/debt', id: card.id, label: card.name, icon: '💳' };
+              onItemClick = () => goTo('/debt', card.id);
+            }
+          }
+          addRow(freq, e.description, monthly, onItemClick, src);
+        });
+      }
+
+      if (catCharges.length > 0) {
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'be-spending-group-label';
+        groupLabel.textContent = 'Charges';
+        ledger.appendChild(groupLabel);
+        [...catCharges]
+          .sort((a, b) => b.date - a.date)
+          .forEach((c) => {
+            const dateStr = new Date(c.date).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric',
+            });
+            const card = this.debtAccounts.find((d) => d.id === c.accountId);
+            const src: NavTarget = card
+              ? { route: '/debt', id: card.id, label: card.name, icon: '💳' }
+              : null;
+            const onItemClick = card
+              ? () => goTo('/debt', card.id, 'ff-focus-charge', c.id)
+              : null;
+            addRow(dateStr, c.merchant, c.amount, onItemClick, src);
+          });
+      }
+    }
+
+    body.appendChild(ledger);
+
+    const { close } = openFormModal({
+      title: `Budget — ${cat.name}`,
       body,
       submitLabel: 'Save',
       onSubmit: async (close) => {
@@ -300,6 +517,7 @@ export class BudgetPage {
         this.populate();
       },
     });
+    modalRef.close = close;
   }
 
   // ── Summary stats row ──────────────────────────────────────────────────
@@ -312,18 +530,18 @@ export class BudgetPage {
     div.innerHTML = `
       <div class="budget-stat" data-testid="budget-stat-income">
         <div class="budget-stat-label">Monthly Income</div>
-        <div class="budget-stat-value" data-testid="budget-income-value">${income > 0 ? fmt.format(income) : '—'}</div>
+        <div class="budget-stat-value" data-testid="budget-income-value">${income > 0 ? fmtCents.format(income) : '—'}</div>
         <div class="budget-stat-sub">Active sources only</div>
       </div>
       <div class="budget-stat" data-testid="budget-stat-expenses">
         <div class="budget-stat-label">Monthly Expenses</div>
-        <div class="budget-stat-value" data-testid="budget-expenses-value">${expenses > 0 ? fmt.format(expenses) : '—'}</div>
+        <div class="budget-stat-value" data-testid="budget-expenses-value">${expenses > 0 ? fmtCents.format(expenses) : '—'}</div>
         <div class="budget-stat-sub">Recurring only</div>
       </div>
       <div class="budget-stat" data-testid="budget-stat-surplus">
         <div class="budget-stat-label">${surplus >= 0 ? 'Surplus' : 'Shortfall'}</div>
         <div class="budget-stat-value ${surplus >= 0 ? 'positive' : 'negative'}" data-testid="budget-surplus-value">
-          ${income > 0 ? fmt.format(Math.abs(surplus)) : '—'}
+          ${income > 0 ? fmtCents.format(Math.abs(surplus)) : '—'}
         </div>
         <div class="budget-stat-sub">${income > 0 ? `${pct}% of income` : 'Add income to see this'}</div>
       </div>
@@ -440,7 +658,7 @@ export class BudgetPage {
           <div class="breakdown-bar-fill" style="width:${pct}%;background:${t.cat?.color ?? '#999'}"></div>
         </div>
         <div class="breakdown-amount">
-          ${fmt.format(t.monthlyTotal)}<span class="text-xs text-muted" style="font-weight:400"> (${ofIncome}%)</span>
+          ${fmtCents.format(t.monthlyTotal)}<span class="text-xs text-muted" style="font-weight:400"> (${ofIncome}%)</span>
         </div>
       `;
       table.appendChild(row);
@@ -482,7 +700,7 @@ export class BudgetPage {
         <div class="cashflow-bar-track">
           <div class="cashflow-bar-fill" style="width:${pct}%;background:${color}"></div>
         </div>
-        <div class="cashflow-bar-value" style="color:${color}">${fmt.format(value)}</div>
+        <div class="cashflow-bar-value" style="color:${color}">${fmtCents.format(value)}</div>
       `;
       card.appendChild(group);
     });

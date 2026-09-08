@@ -1,4 +1,5 @@
 import './insights.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import {
   Chart,
   LineController,
@@ -62,6 +63,7 @@ export class InsightsPage {
         <cite>— Buck &amp; Penny</cite>
       </blockquote>
     `;
+    header.querySelector('h1')?.appendChild(makeHelpBtn('learn'));
     this.container.appendChild(header);
 
     // Tabs
@@ -82,6 +84,7 @@ export class InsightsPage {
     (Object.keys(TOPIC_LABELS) as Topic[]).forEach((t) => {
       const btn = document.createElement('button');
       btn.className = `insights-tab ${this.topic === t ? 'active' : ''}`;
+      btn.setAttribute('data-testid', `insights-tab-${t}`);
       btn.textContent = TOPIC_LABELS[t];
       btn.addEventListener('click', () => {
         this.topic = t;
@@ -209,16 +212,16 @@ export class InsightsPage {
         </div>
         <div class="calc-result-row">
           <span class="calc-result-label">Total interest (min only)</span>
-          <span class="calc-result-value" style="color:var(--ff-rust)">${fmt.format(minResult.totalInterest)}</span>
+          <span class="calc-result-value" style="color:var(--ff-rust)">${fmtCents.format(minResult.totalInterest)}</span>
         </div>
         ${extraResult ? `
         <div class="calc-result-row" style="border-top:1px solid var(--color-border);padding-top:var(--space-2);margin-top:var(--space-1)">
-          <span class="calc-result-label">With +${fmt.format(extra)}/mo: payoff</span>
+          <span class="calc-result-label">With +${fmtCents.format(extra)}/mo: payoff</span>
           <span class="calc-result-value" style="color:var(--ff-green)">${(extraResult.periodsToPayoff / 12).toFixed(1)} years</span>
         </div>
         <div class="calc-result-row">
           <span class="calc-result-label">Interest saved</span>
-          <span class="calc-result-value" style="color:var(--ff-green)">${fmt.format(saved)} · ${mosSaved} months sooner</span>
+          <span class="calc-result-value" style="color:var(--ff-green)">${fmtCents.format(saved)} · ${mosSaved} months sooner</span>
         </div>` : ''}
       `;
     };
@@ -331,7 +334,7 @@ export class InsightsPage {
       result.innerHTML = `
         <div class="calc-result-row">
           <span class="calc-result-label">Target emergency fund</span>
-          <span class="calc-result-value" style="color:var(--ff-green)">${fmt.format(target)}</span>
+          <span class="calc-result-value" style="color:var(--ff-green)">${fmtCents.format(target)}</span>
         </div>
         <div class="calc-result-row">
           <span class="calc-result-label">Saving $200/month, you'd get there in</span>
@@ -406,11 +409,11 @@ export class InsightsPage {
         </div>
         <div class="calc-result-row">
           <span class="calc-result-label">To reach 30%</span>
-          <span class="calc-result-value">${fmt.format(Math.max(0, balance - limit * 0.3))} reduction needed</span>
+          <span class="calc-result-value">${fmtCents.format(Math.max(0, balance - limit * 0.3))} reduction needed</span>
         </div>
         <div class="calc-result-row">
           <span class="calc-result-label">To reach 10% (optimal)</span>
-          <span class="calc-result-value">${fmt.format(Math.max(0, balance - limit * 0.1))} reduction needed</span>
+          <span class="calc-result-value">${fmtCents.format(Math.max(0, balance - limit * 0.1))} reduction needed</span>
         </div>
       `;
     };
@@ -520,13 +523,13 @@ export class InsightsPage {
           <div class="calc-result" style="flex:1;border-left-color:var(--ff-rust)">
             <div class="calc-result-row">
               <span class="calc-result-label">$5k debt at 22% APR (unpaid)</span>
-              <span class="calc-result-value" style="color:var(--ff-rust)">${fmt.format(finalDebt)}</span>
+              <span class="calc-result-value" style="color:var(--ff-rust)">${fmtCents.format(finalDebt)}</span>
             </div>
           </div>
           <div class="calc-result good" style="flex:1">
             <div class="calc-result-row">
               <span class="calc-result-label">$5k invested at 8% avg return</span>
-              <span class="calc-result-value" style="color:var(--ff-green)">${fmt.format(finalInv)}</span>
+              <span class="calc-result-value" style="color:var(--ff-green)">${fmtCents.format(finalInv)}</span>
             </div>
           </div>
         `;

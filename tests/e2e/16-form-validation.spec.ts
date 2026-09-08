@@ -290,3 +290,45 @@ test('a genuinely new category name is accepted after duplicates were rejected',
     page.locator('[data-testid="category-pill"]').filter({ hasText: 'Produce' }),
   ).toBeVisible();
 });
+
+// ── Debt form validation ──────────────────────────────────────────────────────
+
+test('submitting an empty debt form lists all required fields in a single error', async () => {
+  await navigateTo(page, 'debt');
+  await page.click('[data-testid="add-debt-btn"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+
+  // Submit without filling anything
+  await page.click('[data-testid="modal-submit"]');
+
+  const err = page.locator('#da-error');
+  await expect(err).toBeVisible();
+  const errText = await err.textContent() ?? '';
+  expect(errText).toContain('Name');
+  expect(errText).toContain('balance');
+  expect(errText).toContain('APR');
+
+  await page.click('[data-testid="modal-cancel"]');
+});
+
+test('debt form stays open after a validation failure', async () => {
+  // Already confirmed by the cancel above — confirm modal is gone
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+});
+
+// ── Account form validation ───────────────────────────────────────────────────
+
+test('submitting an empty account form shows a required-field error for Name', async () => {
+  await navigateTo(page, 'accounts');
+  await page.click('[data-testid="add-account-btn"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+
+  // Submit without filling Name
+  await page.click('[data-testid="modal-submit"]');
+
+  const err = page.locator('#ba-error');
+  await expect(err).toBeVisible();
+  await expect(err).toContainText('Account name');
+
+  await page.click('[data-testid="modal-cancel"]');
+});

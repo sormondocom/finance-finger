@@ -1,4 +1,5 @@
 import './settings.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import browser from 'webextension-polyfill';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { invalidateConfig } from '@/mascot/Mascot';
@@ -6,10 +7,12 @@ import { readKeyInfo } from '@/crypto/pgp';
 import { isVaultOpen, closeVault } from '@/crypto/vault';
 import { buildExportBundle, encryptExport, decryptImport, applyImport } from '@/crypto/export';
 import { openFormModal } from '@/components/Modal';
-import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, deleteIncomeSource, getBankAccounts, saveBankAccount, getExpenses, saveExpense, getSetting, saveSetting, getCustomNotifications, saveCustomNotification, deleteCustomNotification, createCustomNotification } from '@/db';
+import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, deleteIncomeSource, getBankAccounts, saveBankAccount, getExpenses, saveExpense, getSetting, saveSetting, getCustomNotifications, saveCustomNotification, deleteCustomNotification, createCustomNotification, getSnapshots, deleteSnapshot, getTransactionRules, deleteTransactionRule, clearAllTransactionRules } from '@/db';
+import type { TransactionRule } from '@/types';
+import { takeSnapshot, restoreSnapshot } from '@/utils/snapshot';
 import { setCurrency, getCurrentCurrency, SUPPORTED_CURRENCIES } from '@/utils/finance';
 import { buildBreakGlassSection } from './BreakGlass';
-import type { VaultConfig, MascotGender, HouseholdMember, AvatarType, SharingKey, CustomNotification, NotificationTriggerType, Expense } from '@/types';
+import type { VaultConfig, MascotGender, HouseholdMember, AvatarType, SharingKey, CustomNotification, NotificationTriggerType, Expense, RawSnapshot } from '@/types';
 
 function triggerDownload(content: string, filename: string): void {
   const blob = new Blob([content], { type: 'text/plain' });
@@ -46,6 +49,7 @@ export class SettingsPage {
   private sharingKeys: SharingKey[] = [];
   private notifications: CustomNotification[] = [];
   private expenses: Expense[] = [];
+  private snapshots: RawSnapshot[] = [];
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -56,12 +60,13 @@ export class SettingsPage {
   }
 
   private async load(): Promise<void> {
-    [this.config, this.members, this.sharingKeys, this.notifications, this.expenses] = await Promise.all([
+    [this.config, this.members, this.sharingKeys, this.notifications, this.expenses, this.snapshots] = await Promise.all([
       getConfig(),
       getMembers(),
       getSharingKeys(),
       getCustomNotifications(),
       getExpenses(),
+      getSnapshots(),
     ]);
     this.paint();
   }
@@ -70,6 +75,7 @@ export class SettingsPage {
     this.container.innerHTML = '';
     const h = document.createElement('div');
     h.innerHTML = '<h1 class="font-serif">Settings</h1>';
+    h.querySelector('h1')?.appendChild(makeHelpBtn('settings'));
     this.container.appendChild(h);
 
     this.container.appendChild(this.sectionMascot());
@@ -78,6 +84,8 @@ export class SettingsPage {
     this.container.appendChild(this.sectionSecurity());
     this.container.appendChild(this.sectionNotifications());
     this.container.appendChild(this.sectionDataSharing());
+    this.container.appendChild(this.sectionImport());
+    this.container.appendChild(this.sectionSnapshots());
     this.container.appendChild(this.sectionDanger());
     this.container.appendChild(buildBreakGlassSection(this.config?.mascotGender));
   }
@@ -1700,6 +1708,339 @@ export class SettingsPage {
         }
       },
     });
+  }
+
+  // ── Repeat Transaction Detection ──────────────────────────────────────
+
+  private sectionImport(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'settings-group';
+    wrap.innerHTML = `<div class="settings-group-title">Repeat Transaction Detection</div>`;
+
+    const descRow = document.createElement('div');
+    descRow.className = 'setting-row';
+    descRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Enable auto-matching</span>
+        <span class="setting-row-desc">When a vendor appears the set number of times during import, you will be offered to auto-manage it going forward — skipping the review card on future imports.</span>
+      </div>
+    `;
+    const enableToggle = document.createElement('label');
+    enableToggle.className = 'setting-row-control';
+    enableToggle.style.cssText = 'display:flex;align-items:center;gap:var(--space-2);cursor:pointer';
+    const enableCheck = document.createElement('input');
+    enableCheck.type = 'checkbox';
+    enableCheck.checked = true;
+    const enableLabel = document.createElement('span');
+    enableLabel.style.cssText = 'font-size:var(--text-sm)';
+    enableLabel.textContent = 'Enabled';
+    enableToggle.appendChild(enableCheck);
+    enableToggle.appendChild(enableLabel);
+    descRow.appendChild(enableToggle);
+    wrap.appendChild(descRow);
+
+    // Load and sync the persisted enable state
+    getSetting<boolean>('import.repeatDetection.enabled').then((v) => {
+      enableCheck.checked = v ?? true;
+    });
+    enableCheck.addEventListener('change', async () => {
+      await saveSetting('import.repeatDetection.enabled', enableCheck.checked);
+    });
+
+    // Threshold row
+    const thresholdRow = document.createElement('div');
+    thresholdRow.className = 'setting-row';
+    thresholdRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Match threshold</span>
+        <span class="setting-row-desc">Number of confirmed transactions from the same vendor before auto-management is offered. Default is 5.</span>
+      </div>
+    `;
+    const thresholdControl = document.createElement('div');
+    thresholdControl.className = 'setting-row-control';
+    thresholdControl.style.cssText = 'display:flex;gap:var(--space-2);align-items:center';
+    const thresholdInput = document.createElement('input');
+    thresholdInput.type = 'number';
+    thresholdInput.min = '1';
+    thresholdInput.max = '50';
+    thresholdInput.value = '5';
+    thresholdInput.style.cssText = 'width:64px;text-align:right';
+    thresholdInput.setAttribute('data-testid', 'settings-repeat-threshold');
+    const thresholdSave = document.createElement('button');
+    thresholdSave.className = 'btn btn-primary';
+    thresholdSave.textContent = 'Save';
+    thresholdSave.setAttribute('data-testid', 'settings-repeat-threshold-save');
+    thresholdSave.addEventListener('click', async () => {
+      const val = Math.max(1, Math.min(50, parseInt(thresholdInput.value, 10) || 5));
+      thresholdInput.value = String(val);
+      await saveSetting('import.repeatDetection.threshold', val);
+      this.showToast('Threshold updated!');
+    });
+    thresholdControl.appendChild(thresholdInput);
+    thresholdControl.appendChild(thresholdSave);
+    thresholdRow.appendChild(thresholdControl);
+    wrap.appendChild(thresholdRow);
+
+    getSetting<number>('import.repeatDetection.threshold').then((v) => {
+      thresholdInput.value = String(v ?? 5);
+    });
+
+    // Rules list
+    const rulesLabelRow = document.createElement('div');
+    rulesLabelRow.className = 'setting-row';
+    rulesLabelRow.style.borderTop = '1px solid var(--color-border)';
+    rulesLabelRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Auto-match rules</span>
+        <span class="setting-row-desc">Vendors that have been seen enough times. Rules marked "Auto" are applied on import without review.</span>
+      </div>
+    `;
+    wrap.appendChild(rulesLabelRow);
+
+    const rulesList = document.createElement('div');
+    rulesList.className = 'import-rules-list';
+    wrap.appendChild(rulesList);
+
+    const ACTION_LABELS: Record<string, string> = {
+      'expense':      'Expense payment',
+      'debt-payment': 'Debt / card payment',
+      'transfer':     'Transfer',
+      'income':       'Income / deposit',
+      'category':     'Categorized charge',
+    };
+
+    const renderRules = async () => {
+      rulesList.innerHTML = '';
+      const rules = await getTransactionRules();
+      if (rules.length === 0) {
+        const empty = document.createElement('p');
+        empty.style.cssText = 'font-size:var(--text-sm);color:var(--color-text-muted);padding:var(--space-1) var(--space-5) var(--space-2)';
+        empty.textContent = 'No rules yet. They are created automatically as you review imports.';
+        rulesList.appendChild(empty);
+        return;
+      }
+      rules.forEach((rule: TransactionRule) => {
+        const row = document.createElement('div');
+        row.className = 'import-rule-row';
+
+        const info = document.createElement('div');
+        info.className = 'import-rule-info';
+
+        const name = document.createElement('span');
+        name.className = 'import-rule-name';
+        name.textContent = rule.displayName;
+        name.title = `Pattern: ${rule.pattern}`;
+        info.appendChild(name);
+
+        const meta = document.createElement('span');
+        meta.className = 'import-rule-meta';
+        meta.textContent = `${ACTION_LABELS[rule.action.type] ?? rule.action.type} · ${rule.appliedCount} match${rule.appliedCount !== 1 ? 'es' : ''}`;
+        info.appendChild(meta);
+
+        const badge = document.createElement('span');
+        badge.className = `import-rule-badge ${rule.autoManage ? 'import-rule-badge--auto' : 'import-rule-badge--learning'}`;
+        badge.textContent = rule.autoManage ? 'Auto' : 'Learning';
+        info.appendChild(badge);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-secondary';
+        delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger);flex-shrink:0';
+        delBtn.textContent = 'Remove';
+        delBtn.addEventListener('click', async () => {
+          await deleteTransactionRule(rule.id);
+          await renderRules();
+        });
+
+        row.appendChild(info);
+        row.appendChild(delBtn);
+        rulesList.appendChild(row);
+      });
+    };
+
+    renderRules();
+
+    // Clear all row
+    const clearRow = document.createElement('div');
+    clearRow.className = 'setting-row settings-danger';
+    clearRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Clear all rules</span>
+        <span class="setting-row-desc">Removes all auto-match rules and resets repeat detection. Future imports will require full manual review.</span>
+      </div>
+    `;
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'btn btn-danger setting-row-control';
+    clearBtn.textContent = 'Clear all';
+    clearBtn.addEventListener('click', async () => {
+      if (!confirm('Clear all auto-match rules? This cannot be undone.')) return;
+      await clearAllTransactionRules();
+      await renderRules();
+      this.showToast('All rules cleared.');
+    });
+    clearRow.appendChild(clearBtn);
+    wrap.appendChild(clearRow);
+
+    return wrap;
+  }
+
+  // ── Snapshots ─────────────────────────────────────────────────────────
+
+  private sectionSnapshots(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'settings-group';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'settings-group-title-row';
+    const titleText = document.createElement('span');
+    titleText.className = 'settings-group-title';
+    titleText.textContent = 'Snapshots';
+    const nowBtn = document.createElement('button');
+    nowBtn.className = 'btn btn-secondary';
+    nowBtn.textContent = 'Snapshot now';
+    nowBtn.setAttribute('data-testid', 'settings-snapshot-now-btn');
+    titleRow.appendChild(titleText);
+    titleRow.appendChild(nowBtn);
+    wrap.appendChild(titleRow);
+
+    const descRow = document.createElement('div');
+    descRow.className = 'setting-row';
+    descRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Point-in-time recovery</span>
+        <span class="setting-row-desc">
+          Financial Finger automatically snapshots your data every 30 minutes.
+          Snapshots are kept for 24 hours, with a minimum of 5 always retained.
+          Restoring replaces all current data — a safety snapshot is taken first.
+        </span>
+      </div>
+    `;
+    wrap.appendChild(descRow);
+
+    const list = document.createElement('div');
+    list.className = 'snapshot-list';
+    list.setAttribute('data-testid', 'settings-snapshot-list');
+    wrap.appendChild(list);
+
+    const buildSnapshotRow = (snap: RawSnapshot, isImport: boolean): HTMLElement => {
+      const dateLabel = new Date(snap.takenAt).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+      });
+
+      const row = document.createElement('div');
+      row.className = 'snapshot-row' + (isImport ? ' import-snapshot-row' : '');
+      row.setAttribute('data-testid', 'settings-snapshot-row');
+
+      const info = document.createElement('div');
+      info.className = 'snapshot-row-info';
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'snapshot-row-label';
+      labelSpan.textContent = snap.label;
+      if (isImport) {
+        const badge = document.createElement('span');
+        badge.className = 'import-snapshot-badge';
+        badge.textContent = 'Import';
+        badge.setAttribute('data-testid', 'settings-snapshot-import-badge');
+        labelSpan.appendChild(badge);
+      }
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'snapshot-row-date';
+      dateSpan.textContent = dateLabel;
+      info.appendChild(labelSpan);
+      info.appendChild(dateSpan);
+
+      const actions = document.createElement('div');
+      actions.className = 'snapshot-row-actions';
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'btn btn-secondary';
+      restoreBtn.textContent = 'Restore';
+      restoreBtn.setAttribute('data-testid', 'settings-snapshot-restore-btn');
+      restoreBtn.addEventListener('click', async () => {
+        const confirmed = confirm(
+          `Restore to: ${dateLabel}\n\nThis will replace all current data with data from this snapshot. A safety snapshot of your current state will be saved first.\n\nProceed?`,
+        );
+        if (!confirmed) return;
+        restoreBtn.disabled = true;
+        restoreBtn.textContent = 'Restoring…';
+        try {
+          await takeSnapshot(`Before restore — ${dateLabel}`);
+          await restoreSnapshot(snap);
+          this.showToast('Restored! Reloading…');
+          setTimeout(() => location.reload(), 1200);
+        } catch {
+          restoreBtn.disabled = false;
+          restoreBtn.textContent = 'Restore';
+          this.showToast('Restore failed — try again.');
+        }
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-secondary snapshot-delete-btn';
+      delBtn.textContent = 'Delete';
+      delBtn.setAttribute('data-testid', 'settings-snapshot-delete-btn');
+      delBtn.addEventListener('click', async () => {
+        await deleteSnapshot(snap.id);
+        this.snapshots = await getSnapshots();
+        renderList();
+      });
+
+      actions.appendChild(restoreBtn);
+      actions.appendChild(delBtn);
+      row.appendChild(info);
+      row.appendChild(actions);
+      return row;
+    };
+
+    // Renders only the list element from the current this.snapshots array.
+    const renderList = () => {
+      list.innerHTML = '';
+      const regular = this.snapshots.filter((s) => s.snapshotType !== 'import');
+      const imports  = this.snapshots.filter((s) => s.snapshotType === 'import');
+
+      if (regular.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'snapshot-empty';
+        empty.textContent = 'No snapshots yet — one will be taken automatically within 30 minutes.';
+        empty.setAttribute('data-testid', 'settings-snapshot-empty');
+        list.appendChild(empty);
+      } else {
+        regular.forEach((snap) => list.appendChild(buildSnapshotRow(snap, false)));
+      }
+
+      if (imports.length > 0) {
+        const importHeading = document.createElement('div');
+        importHeading.className = 'snapshot-row-info';
+        importHeading.style.cssText = 'margin-top:var(--space-4);padding:var(--space-2) 0;border-top:1px solid var(--color-border);font-weight:var(--weight-semibold);font-size:var(--text-sm);color:var(--color-text-muted)';
+        importHeading.textContent = 'Import snapshots (not auto-pruned)';
+        list.appendChild(importHeading);
+        imports.forEach((snap) => list.appendChild(buildSnapshotRow(snap, true)));
+      }
+    };
+
+    // Fetch fresh data and re-render only the list, leaving the rest of the page alone.
+    const refreshList = async () => {
+      this.snapshots = await getSnapshots();
+      renderList();
+    };
+
+    nowBtn.addEventListener('click', async () => {
+      nowBtn.disabled = true;
+      nowBtn.textContent = 'Saving…';
+      try {
+        await takeSnapshot('Manual');
+        await refreshList();
+        this.showToast('Snapshot saved!');
+      } catch {
+        this.showToast('Snapshot failed — try again.');
+      } finally {
+        nowBtn.disabled = false;
+        nowBtn.textContent = 'Snapshot now';
+      }
+    });
+
+    renderList();
+    return wrap;
   }
 
   // ── Danger zone ───────────────────────────────────────────────────────

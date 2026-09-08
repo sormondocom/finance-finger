@@ -1,0 +1,167 @@
+@import '@/app/styles/variables.css';
+
+.help-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.help-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-quote {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--ff-gold);
+}
+
+.help-quote cite {
+  display: block;
+  font-style: normal;
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+  color: var(--ff-gold-dark);
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────────── */
+
+.help-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.help-tab {
+  padding: var(--space-3) var(--space-5);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--ease-default), border-color var(--ease-default);
+}
+
+.help-tab.active {
+  color: var(--ff-navy);
+  border-bottom-color: var(--ff-gold);
+}
+
+/* ── Card grid ──────────────────────────────────────────────────────────── */
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-5);
+}
+
+/* ── Step list ──────────────────────────────────────────────────────────── */
+
+.help-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--color-bg-sunken);
+  border-radius: var(--radius-md);
+}
+
+.help-step-num {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.help-step-body {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.help-step-body strong { color: var(--color-text); }
+
+/* ── Callout box ─────────────────────────────────────────────────────────── */
+
+.help-callout {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  background: rgba(201,168,76,0.08);
+  border-left: 3px solid var(--ff-gold);
+  color: var(--color-text-muted);
+}
+
+.help-callout strong { color: var(--color-text); }
+
+/* ── Status badge row ───────────────────────────────────────────────────── */
+
+.help-status-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.help-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Classroom section (wide card) ──────────────────────────────────────── */
+
+.help-classroom-card {
+  grid-column: 1 / -1;
+}
+
+/* ── Global help button ─────────────────────────────────────────────────── */
+
+.help-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--ease-default), color var(--ease-default), border-color var(--ease-default);
+  line-height: 1;
+}
+
+.help-nav-btn:hover {
+  background: var(--color-bg-sunken);
+  border-color: var(--ff-gold);
+  color: var(--ff-gold-dark);
+}

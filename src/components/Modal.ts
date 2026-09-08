@@ -4,6 +4,8 @@ export interface ModalOptions {
   title: string;
   content: HTMLElement;
   onClose?: () => void;
+  /** When false, clicking the backdrop and pressing Escape will not close the modal. Default: true. */
+  backdropClose?: boolean;
 }
 
 export function openModal(opts: ModalOptions): { close: () => void } {
@@ -42,11 +44,16 @@ export function openModal(opts: ModalOptions): { close: () => void } {
   };
 
   closeBtn.addEventListener('click', close);
-  dialog.addEventListener('cancel', close);
-  dialog.addEventListener('click', (e) => {
-    // click on backdrop (dialog element itself, not its children)
-    if (e.target === dialog) close();
-  });
+
+  if (opts.backdropClose !== false) {
+    dialog.addEventListener('cancel', close);
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) close();
+    });
+  } else {
+    // Prevent Escape from closing the dialog natively
+    dialog.addEventListener('cancel', (e) => e.preventDefault());
+  }
 
   return { close };
 }

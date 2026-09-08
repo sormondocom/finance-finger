@@ -709,6 +709,18 @@
   color: #ea580c;
 }
 
+.bg-issue-badge--stale {
+  background: rgba(201,168,76,0.15);
+  color: var(--ff-gold-dark);
+}
+
+.bg-issue-fix-btn {
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-3);
+}
+
 .bg-issue-desc {
   font-size: var(--text-sm);
   color: var(--color-text);

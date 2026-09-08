@@ -1,4 +1,5 @@
 import './dashboard.css';
+import { makeHelpBtn } from '@/utils/helpNav';
 import browser from 'webextension-polyfill';
 import {
   getMembers, getIncomeSources, getExpenses, getDebtAccounts,
@@ -95,6 +96,7 @@ export class Dashboard {
       <h1 class="dashboard-title font-serif">${profileName}</h1>
       <p class="dashboard-subtitle">${members.length} member${members.length !== 1 ? 's' : ''}</p>
     `;
+    titleWrap.querySelector('h1')?.appendChild(makeHelpBtn('dashboard'));
     headerRow.appendChild(titleWrap);
     headerRow.appendChild(this.buildHeaderControls());
     this.el.appendChild(headerRow);
@@ -582,7 +584,7 @@ export class Dashboard {
     debtCard.setAttribute('data-testid', 'summary-card-debt');
     debtCard.innerHTML = `
       <span class="summary-card-label">Total Debt</span>
-      <span class="summary-card-value" data-testid="summary-value-debt">${this.totalDebt > 0 ? fmt.format(this.totalDebt) : '—'}</span>
+      <span class="summary-card-value" data-testid="summary-value-debt">${this.totalDebt > 0 ? fmtCents.format(this.totalDebt) : '—'}</span>
       <span class="summary-card-sub">${this.debtCount} account${this.debtCount !== 1 ? 's' : ''}</span>
     `;
     section.appendChild(debtCard);
@@ -1418,7 +1420,7 @@ export class Dashboard {
             <span class="text-sm font-bold">${c.name}</span>
             <span class="text-xs text-muted" style="display:block">${c.apr}% APR</span>
           </div>
-          <span class="text-sm" style="color:var(--color-danger)">${fmt.format(c.balance)}</span>
+          <span class="text-sm" style="color:var(--color-danger)">${fmtCents.format(c.balance)}</span>
         </div>
       `,
       )
