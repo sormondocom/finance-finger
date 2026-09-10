@@ -414,7 +414,8 @@ function openExportModal(
       }
       const fpEl = document.createElement('span');
       fpEl.className = 'sharing-key-card-fp';
-      fpEl.textContent = sk.fingerprint;
+      fpEl.textContent = `…${sk.fingerprint.slice(-12)}`;
+      fpEl.title = sk.fingerprint;
       info.appendChild(fpEl);
 
       radio.addEventListener('change', () => {
