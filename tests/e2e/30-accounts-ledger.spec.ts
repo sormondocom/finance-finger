@@ -54,23 +54,23 @@ test('setup: add Test Checking bank account', async () => {
 test('setup: add monthly income source linked to Test Checking', async () => {
   await navigateTo(page, 'income');
   // Need a household member first
-  await page.fill('[data-testid="add-member-input"]', 'Sam');
-  await page.click('[data-testid="add-member-btn"]');
+  await page.fill('[data-testid="income-add-member-input"]', 'Sam');
+  await page.click('[data-testid="income-add-member-btn"]');
 
   // Add income source
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Monthly Salary');
   await page.fill('#sf-amount', '4000.90');
   // Explicitly set payday to local today (avoids UTC/local mismatch in Income.ts default)
   await page.fill('#sf-payday', todayStr);
   // Bank account select — assert it's visible (only renders when bank accounts are loaded)
-  const bankSelect = page.locator('[data-testid="sf-account-select"]');
+  const bankSelect = page.locator('[data-testid="income-sf-account-select"]');
   await expect(bankSelect).toBeVisible({ timeout: 8_000 });
   await bankSelect.selectOption({ label: 'Test Checking' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Monthly Salary' })).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Monthly Salary' })).toBeVisible({ timeout: 8_000 });
 });
 
 // ── Setup: expense paid from account ──────────────────────────────────────────
@@ -125,8 +125,8 @@ test('setup: add a credit card debt and record a payment from Test Checking', as
   const debtRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Test Card' });
   await debtRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await page.fill('#pay-amount', '149.90');
-  const bankSel = page.locator('#pay-bank');
+  await page.fill('[data-testid="debt-pay-amount"]', '149.90');
+  const bankSel = page.locator('[data-testid="debt-pay-bank-select"]');
   if (await bankSel.isVisible()) {
     await bankSel.selectOption({ label: 'Test Checking' });
   }

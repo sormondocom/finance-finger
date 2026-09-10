@@ -16,6 +16,10 @@
 
 > *Figurin' out your finances — offline, encrypted, and yours.*
 
+<p align="center">
+  <img src="docs/screenshots/03-dashboard.png" alt="Financial Finger dashboard" width="800" />
+</p>
+
 A fully offline browser extension for household budgeting, debt management, and financial planning. Every byte of your financial data is encrypted at rest with your own PGP key. Nothing ever leaves your device unencrypted.
 
 ---
@@ -23,13 +27,9 @@ A fully offline browser extension for household budgeting, debt management, and 
 ## Table of Contents
 
 - [Why it exists](#why-it-exists)
+- [For contributors & security researchers](#for-contributors--security-researchers)
 - [Browser support](#browser-support)
 - [Quick start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Install and build](#install-and-build)
-  - [Load in Chrome / Chromium](#load-in-chrome--chromium)
-  - [Load in Firefox](#load-in-firefox)
-  - [Development workflow](#development-workflow)
 - [First-run setup](#first-run-setup)
 - [Features](#features)
   - [Household & income](#household--income)
@@ -56,6 +56,7 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Learn (Financial Education)](#learn-financial-education)
   - [Settings](#settings-1)
   - [Data Sharing](#data-sharing)
+  - [Help](#help)
 - [Common Scenarios](#common-scenarios)
   - [Starting from scratch](#starting-from-scratch)
   - [Tracking a new credit card](#tracking-a-new-credit-card)
@@ -86,7 +87,9 @@ A fully offline browser extension for household budgeting, debt management, and 
 - [Troubleshooting](#troubleshooting)
   - [Break Glass](#break-glass)
   - [Orphan Record Scanner](#orphan-record-scanner)
+- [Help](#help)
 - [FAQ](#faq)
+  - [I lost my private key / forgot my passphrase. Can I recover my data?](#i-lost-my-private-key--forgot-my-passphrase-can-i-recover-my-data)
   - [Why can't I connect my bank or financial services directly via API?](#why-cant-i-connect-my-bank-or-financial-services-directly-via-api)
   - [Why can't Financial Finger email me or text my phone when a reminder fires?](#why-cant-financial-finger-email-me-or-text-my-phone-when-a-reminder-fires)
 - [Financial Finger in the Classroom](#financial-finger-in-the-classroom)
@@ -94,27 +97,6 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Teacher setup](#teacher-setup)
   - [Student onboarding](#student-onboarding)
   - [Classroom exercises](#classroom-exercises)
-- [Testing](#testing)
-  - [Approach](#approach)
-  - [What is covered](#what-is-covered)
-  - [Running the tests](#running-the-tests)
-  - [Unit tests](#unit-tests)
-  - [Code coverage](#code-coverage)
-- [CI / CD](#ci--cd)
-  - [Pipeline overview](#pipeline-overview)
-  - [Creating a release](#creating-a-release)
-  - [Verifying build attestations](#verifying-build-attestations)
-  - [Test artifacts on failure](#test-artifacts-on-failure)
-  - [Running Firefox E2E tests locally](#running-firefox-e2e-tests-locally)
-- [Architecture](#architecture)
-  - [Why a browser extension?](#why-a-browser-extension)
-  - [Extension structure](#extension-structure)
-  - [Crypto layer](#crypto-layer)
-  - [Data layer](#data-layer)
-  - [Notifier module](#notifier-module)
-  - [Amortization engine](#amortization-engine)
-  - [Directory layout](#directory-layout)
-  - [Build targets](#build-targets)
 - [Dependencies](#dependencies)
 - [License](#license)
 
@@ -122,13 +104,23 @@ A fully offline browser extension for household budgeting, debt management, and 
 
 ## Why it exists
 
-Most budgeting tools are cloud services. Your income, debts, and spending habits live on someone else's servers — paid for with advertising or subscription revenue and potentially exposed in breaches. Financial Finger flips that model: your data stays in your browser's local storage, encrypted to a key that only you hold. The extension is the only reader.
+Most budgeting tools are cloud services. Your income, debts, and spending habits live on someone else's servers — paid for with advertising or subscription revenue and potentially exposed in breaches. Financial Finger flips that model: your data stays in your browser's local storage, encrypted to a key that only you hold. The extension is the only reader. Financial Finger is **free**.
+
+If you're feeling generous you can throw a few bucks my way at [Buymeacoffee](https://buymeacoffee.com/sormondocom) — always appreciated but never required.
+
+---
+
+## For contributors & security researchers
+
+This README is written for people who want to **use** Financial Finger. If you want to build, test, or contribute to the codebase, see **[CONTRIBUTING.md](CONTRIBUTING.md)** — it covers the full dev environment setup, build commands, E2E and unit test structure, CI/CD pipeline, and architecture.
+
+For a detailed explanation of the cryptographic model, threat model, and how to report a vulnerability, see **[SECURITY.md](SECURITY.md)**.
 
 ---
 
 ## Browser support
 
-Financial Finger targets both **Chromium** (Chrome, Edge, Brave, Arc) and **Firefox** as equally supported primary browsers. Both use the MV3 extension format. The `webextension-polyfill` library normalizes the `browser.*` API namespace so the same TypeScript source produces both targets from a single build.
+Financial Finger targets both **Chromium** (Chrome, Edge, Brave, Arc) and **Firefox** as equally supported primary browsers.
 
 | Browser | Minimum version | Extension format |
 |---|---|---|
@@ -136,66 +128,32 @@ Financial Finger targets both **Chromium** (Chrome, Edge, Brave, Arc) and **Fire
 | Edge | 109+ | MV3 |
 | Firefox | 109+ | MV3 |
 
-Firefox notes: the Firefox build sets `browser_specific_settings.gecko.id` in the manifest. Use `npm run build:firefox` to produce the Firefox-specific output in `dist/firefox/`. The `web-ext` CLI supports live-reload development against Firefox Desktop.
-
 ---
 
 ## Quick start
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 18 or later
-- npm 9 or later
-- Chrome/Chromium 109+ or Firefox 109+
-
-### Install and build
-
-```bash
-git clone <repo-url>
-cd finance-finger
-npm install
-npm run build          # builds both Chromium (dist/chrome/) and Firefox (dist/firefox/)
-```
-
-Build targets separately:
-
-```bash
-npm run build:chrome   # → dist/chrome/
-npm run build:firefox  # → dist/firefox/
-```
+Download the latest release from the [Releases page](https://github.com/sormondocom/finance-finger/releases). Each release includes two zip files: one for Chrome/Chromium and one for Firefox.
 
 ### Load in Chrome / Chromium
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Select the `dist/chrome/` folder
+1. Unzip `financial-finger-*-chrome.zip`
+2. Open `chrome://extensions`
+3. Enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked**
+5. Select the unzipped folder
 
-Click the Financial Finger icon in your toolbar to open the app in a dedicated tab.
+Click the Financial Finger icon in your toolbar to open the app.
 
 ### Load in Firefox
 
-1. Run `npm run build:firefox`
+1. Unzip `financial-finger-*-firefox.zip`
 2. Open `about:debugging#/runtime/this-firefox`
 3. Click **Load Temporary Add-on**
-4. Select `dist/firefox/manifest.json`
+4. Select `manifest.json` inside the unzipped folder
 
-Or use `web-ext` for live reload during development:
+> **Note:** Firefox temporary add-ons are removed when the browser closes. For persistent installation, Firefox requires a signed extension. A signed release will be published to addons.mozilla.org when the extension reaches a stable release milestone.
 
-```bash
-npm run build:firefox
-npx web-ext run -s dist/firefox --target firefox-desktop
-```
-
-### Development workflow
-
-Vite's dev server doesn't integrate with the extension loader, so development is a build-and-reload cycle:
-
-```bash
-npm run build:chrome -- --watch   # rebuilds on every file save
-```
-
-Reload the extension manually in `chrome://extensions` after each build (the Reload button on the extension card). Firefox with `web-ext run` reloads automatically.
+→ **Building from source?** See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer setup.
 
 ---
 
@@ -203,16 +161,28 @@ Reload the extension manually in `chrome://extensions` after each build (the Rel
 
 The **six-step setup wizard** runs automatically on first launch:
 
+<p align="center">
+  <img src="docs/screenshots/01-setup-welcome.png" alt="Setup welcome screen" width="49%" />
+  <img src="docs/screenshots/02-setup-mascot.png" alt="Mascot selection step" width="49%" />
+</p>
+
 | Step | What happens |
 |---|---|
 | **Welcome** | Overview of the privacy model |
 | **Mascot** | Choose Buck (male pig, cowboy) or Penny (female pig, sunflower hat); optionally rename them |
 | **Keys** | Generate a new ECC curve25519 PGP keypair (name, email, passphrase) — or paste an existing armored private key |
-| **Save your key** | The private key is shown once; copy it to a password manager or print it for offsite storage. *It is never stored by the extension.* |
+| **Save your key** | The private key is shown once; copy it to a password manager or print it for offsite storage. *It is never stored by the extension.* **⚠️ If you lose your private key or forget your passphrase, your data cannot be recovered by anyone — there is no reset or recovery mechanism.**  Back it up to multiple locations if you can, print it out (*Really!*  If you have nothing but a piece of paper to enter in a long text string from, it is probably better than starting over.)|
 | **Profile** | Name your household |
 | **Done** | Vault is created; you land on the dashboard |
 
-On subsequent launches the **vault unlock screen** appears. Paste your private key and enter your passphrase to decrypt the session vault key and access your data. The vault stays unlocked for the full browser session; closing all extension tabs re-locks it.
+> **Not sure what a PGP key is?** That's okay — most people don't.
+> [PGP (Pretty Good Privacy)](https://en.wikipedia.org/wiki/Pretty_Good_Privacy) is a public-key encryption standard used by security software worldwide.
+> The short version: the setup wizard generates two linked keys — a **public key** (safe to share) and a **private key** (only you keep it).
+> Data encrypted with your public key can only be decrypted with your private key.
+> Financial Finger's **[Learn section](#learn-financial-education)** inside the app explains this in plain language and walks through exactly what happens at each step of setup.
+> For the full cryptographic model and threat analysis, see **[SECURITY.md](SECURITY.md)**.
+
+On subsequent launches the **vault unlock screen** appears. Paste your private key (or click **Load from file** to select a saved `.asc` key file) and enter your passphrase. The screen also shows your PGP key fingerprint in an expandable panel so you can confirm it is the correct key before unlocking. The vault stays unlocked for the full browser session; closing all extension tabs re-locks it. You can also lock the vault manually at any time from **Settings → Security → Lock vault**.
 
 ---
 
@@ -220,9 +190,9 @@ On subsequent launches the **vault unlock screen** appears. Paste your private k
 
 ### Household & income
 
-**Household members** — Add named members to your household. Each member can have an avatar type (adult male, adult female, baby, child, teen). Members are used to assign income sources so you can see each person's contribution to household income.
+**Household members** — Add named members to your household. Each member has an avatar type that determines their icon throughout the app: **adult male**, **adult female**, **baby boy**, **baby girl**, **kid boy**, **kid girl**, **teen boy**, or **teen girl**. Members are used to assign income sources so you can see each person's contribution to household income.
 
-**Income sources** — Each member can have multiple income sources. The pay type can be **salary** (enter the amount at any frequency) or **hourly** (enter an hourly rate and hours per period — the app computes the per-period pay and shows a preview). Frequencies: hourly, weekly, biweekly, semi-monthly, monthly, annual, or one-time. Semi-monthly sources support unequal paychecks — different amounts on the 1st and 15th of the month. Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them. Income sources can optionally be linked to a bank account to feed the Accounts page balance projection.
+**Income sources** — Each member can have multiple income sources. The pay type can be **salary** (enter the amount at any frequency) or **hourly** (enter an hourly rate and hours per period — the app computes the per-period pay and shows a preview). Frequencies: **hourly, weekly, biweekly, semi-monthly, monthly, quarterly, annual, or one-time**. Semi-monthly sources support two features: unequal paychecks (different amounts on the 1st-of-month and 15th-of-month paydays) and a **schedule variant** (choose whether paydays fall on the 1st and 15th, or on the 15th and end-of-month). Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them. Income sources can optionally be linked to a bank account to feed the Accounts page balance projection.
 
 **Month navigation** — The Income page has **‹ / ›** arrows that let you browse any past month. The displayed income sources and totals adjust to the viewed month: recurring sources always appear (they apply to every month), while one-time sources only appear when their recorded date falls inside the viewed month. Navigating forward past the current month is disabled.
 
@@ -274,6 +244,8 @@ Both are visible at a glance on the account row. The Actual balance turns red wh
 
 **Cross-form hints** — The income source form and expense form both show a "No bank accounts" hint (with a direct link to the Accounts page) when no accounts exist yet, so you can add one without losing your place.
 
+**Online banking link** — Each account can store an optional URL for the bank's online portal. Click the link icon on the account row to open it in a new tab — useful for quickly jumping to your bank while reviewing transactions.
+
 **CSV import** — Download a statement from your bank as a CSV (or TSV / delimited text) file and import it directly into an account's transaction ledger. Click the **⬆** button on any account row to open the import wizard. See [Importing transactions](#importing-transactions) for the full workflow.
 
 ---
@@ -284,13 +256,19 @@ Both are visible at a glance on the account row. The Actual balance turns red wh
 
 **One-time expenses** — Record any single transaction: a new appliance, a vet bill, a vacation. Assigned to a category and optionally to a specific member.
 
-**Recurring expenses** — Mark any expense as recurring and set its frequency. These feed the monthly total calculation and the Budget page. Recurring expenses can optionally carry a **due day** to become tracked bills.
+**Recurring expenses** — Mark any expense as recurring and set its frequency (weekly, biweekly, semi-monthly, monthly, quarterly, or annual). These feed the monthly total calculation and the Budget page. Recurring expenses can optionally carry a **due day** to become tracked bills.
+
+**Billing portal link** — Any expense can store an optional URL for the biller's payment portal. The link icon on the expense row opens it directly so you can jump to the biller's site without leaving the app.
 
 ---
 
 ### Bill tracking
 
-A recurring expense becomes a **tracked bill** when you set a due day (1–28). Once a bill has a due day, the extension monitors its payment status each month:
+A recurring expense becomes a **tracked bill** when you set a due day (1–31). Once a bill has a due day, the extension monitors its payment status each month:
+
+<p align="center">
+  <img src="docs/screenshots/18-bills-status.png" alt="Bill status badges — Past Due and Due Soon" width="800" />
+</p>
 
 | Status | When it shows | Visual |
 |---|---|---|
@@ -299,6 +277,10 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–28). 
 | **Paid** | Marked paid this calendar month | Green left border, ✓ badge |
 
 **Mark Paid** — The Mark Paid button on a due or overdue bill opens a dialog asking for the **actual amount paid** (pre-filled with the bill's usual amount). This lets variable bills — electricity, water, gas — record what the bill actually was, not just what you expected. Submitting saves a payment record and resets the bill's paid status for the month.
+
+<p align="center">
+  <img src="docs/screenshots/19-bills-mark-paid.png" alt="Record Payment dialog with billing cycle selector" width="800" />
+</p>
 
 **Billing cycle selector** — If you are recording a payment outside the normal 14-day window (for example, paying a bill a few days early or catching up on a missed month), the Mark Paid dialog shows a **billing cycle selector** — two pill buttons: this month's due date and last month's. Select the cycle the payment covers. If the selected cycle is already paid, an error shows before you can submit. Cycles already covered by an existing payment record are visually struck through to prevent accidental double-entry.
 
@@ -323,6 +305,10 @@ Any recurring expense can have a **monthly threshold** — the maximum you expec
 - **Common Overage Offenders report** — historical view in the Reports page (see below)
 - **Daily briefing** — if a bill has exceeded its threshold 3 or more times in the last 6 months, it surfaces in the mascot's daily briefing as a persistent warning
 - **Mascot trend alert** — after you mark a bill paid with an over-threshold amount for the second consecutive time, Buck or Penny pops up with a pointed comment about adjusting your expectations
+
+<p align="center">
+  <img src="docs/screenshots/20-threshold-overage.png" alt="Inline overage warning in the Record Payment dialog" width="800" />
+</p>
 
 ---
 
@@ -359,7 +345,8 @@ The mascot fires automatically on the Budget page if you are running a deficit (
 - Minimum payment — fixed dollar amount or percentage of balance (with a $25 floor)
 - Payment cycle — weekly, biweekly, semi-monthly, or monthly
 - Due day — same tracking logic as bill tracking (past-due, due-soon badges)
-- Introductory 0% APR end date
+- Introductory 0% APR end date — tracked separately so you know exactly when the promotional rate expires and the regular APR kicks in
+- Billing portal link — optional URL to the card's payment portal for one-click access when making payments
 
 **Amortization schedule** — Each card shows a full date-stamped schedule: period, payment, principal, interest split, and remaining balance. The footer summarizes total paid and total interest.
 
@@ -381,28 +368,36 @@ When a card is paid off, its full minimum payment **rolls over** to the next foc
 
 **Card charges** — Log individual purchases against any card account to track spending at the merchant level. Charges appear in the Reports page as a separate spending category. You can also bulk-import charges from a credit card statement — click **⬆ Import CSV** in any card's charges panel. See [Importing transactions](#importing-transactions) for the full workflow.
 
+**Payoff milestone timeline** — A timeline card below the strategy tabs shows the projected payoff date for every debt account under the current strategy, ending with a **debt-free date** when the last account reaches zero. The timeline updates live as you change strategy tabs or adjust the extra payment amount.
+
+**Payoff horizon** — A 1–30 year slider on the balance projection chart lets you zoom in or out on the timeline. Compress it to see near-term payoff dates in detail; expand it to see a 10-year picture of how a strategy plays out.
+
 **Payment history** — Every payment you record is stored with a date, amount, and type (regular or extra). The Reports page uses this history to reconstruct balance trends over time.
 
-**Debt payoff celebration** — When a card reaches a zero balance, a full-screen overlay triggers with dancing mascots, confetti, and a congratulatory message. Both Buck and Penny dance if you have a household.
+**Debt payoff celebrations** — When a single card reaches zero, a full-screen overlay plays with dancing mascots and confetti. When **every** debt account reaches zero, a second distinct celebration fires — Buck and Penny together, with a debt-freedom message.
 
 ---
 
 ### Reports
 
-The Reports page provides date-range analytics across your full financial history. Use the preset buttons (This Month, Last 3 Mo., This Year, All Time, etc.) or set a custom date range.
+The Reports page provides date-range analytics across your full financial history. Use the preset buttons — **This Week, This Month, Last Month, Last 3 Mo., Last 6 Mo., This Year, Last Year, All Time** — or set a custom date range.
+
+All spending figures count **every outflow**: one-time expenses, bill payments (Mark Paid), card charges, and debt payments — nothing is double-counted.
 
 | Report card | What it shows |
 |---|---|
-| **KPI chips** | Total spending, total income, net cash flow, savings rate (or top spending category if no income is entered) |
-| **Spending Over Time** | Stacked bar chart — expenses and card charges by month |
+| **KPI chips** | Total spending, total income, net cash flow, and savings rate. Click **Total Spending** to expand a transaction list (with type badges and dates); click **Total Income** to expand the per-month income payment schedule. Only the clicked chip expands. |
+| **Leaky Bucket** | Day-by-day budget scrubber — the bucket drains as spending lands each day. A tear-off calendar in the top-right shows the current day (color-coded green/amber/red to match fill level). All outflows drain the bucket. |
+| **Spending Over Time** | Stacked bar chart by month: Expenses & Bills (rust), Card Charges (navy), and Debt Payments (gold) as separate layers |
 | **By Category** | Donut chart with a ranked table — spending share per category |
 | **Top Merchants** | Horizontal bar chart of your biggest card charge destinations |
-| **Income vs Spending** | Side-by-side bars per month with net cash flow chips below |
+| **Income vs Spending** | Side-by-side bars per month. Below the chart: an **Income Payment Schedule** with per-month chips showing every payday event, amount, and frequency for each income source. |
 | **Spending by Day** | Which day of the week sees the most spending |
 | **Biggest Transactions** | Top 12 individual expenses and card charges |
-| **Card Balance Trend** | Reconstructed balance history from your payment records — a rising line signals balance creep |
+| **Card Balance Trend** | Reconstructed balance history from payment records — a rising line signals balance creep |
 | **Spending by Week of Month** | Which week of the month costs the most |
 | **Recurring vs One-time** | What share of your spending is predictable each month |
+| **Payee Schedule** | Every recurring obligation grouped by frequency (annual → weekly) — payee name, per-period amount, annual total, and due day. Debt minimum payments included. Independent of the date range. |
 | **Common Overage Offenders** | Bills with a cost threshold set — month-by-month actual vs target, seasonal pattern detection |
 
 **Common Overage Offenders** is always all-time data (independent of the date range picker), because seasonal trends need multiple months to be meaningful. Each bill shows a grid of colored month cells: green with ✓ when under target, red with the overage amount when over. Bills with 3+ overages get a 🔥 marker. If a bill has 2+ overages clustering in the same season (summer, winter, spring, or fall), a seasonal pattern callout appears: "☀️ tends to spike in summer — plan ahead."
@@ -439,11 +434,14 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 
 - **Mascot** — switch between Buck and Penny; rename your mascot
 - **Household name** — updates the dashboard title
-- **Members** — add or remove household members; each shows an initial avatar; removing a member also removes their assigned income sources
+- **Members** — add or remove household members; each shows an avatar; removing a member also removes their assigned income sources
 - **Theme** — Light, Dark, or Auto (follows `prefers-color-scheme`)
-- **Security** — PGP fingerprint display and public key export
+- **Currency** — choose your display currency (20 supported); the symbol, decimal precision, and formatting apply everywhere money is shown
+- **Security** — PGP fingerprint display, public key export, and a **Lock vault** button to manually end the session without closing the browser
 - **Data Sharing** — store household members' public keys and export your database encrypted to any recipient; import a `.ffx` file received from another installation
 - **Export / Import** — back up your database encrypted to your own key, or receive a file from another household member and merge or replace your local data
+- **Import Rules** — view and manage the auto-match rules created by the CSV import wizard; toggle or delete rules to control which patterns are applied on future imports
+- **Reminders** — centralized view of all custom bell notifications (see [Custom Reminders](#custom-reminders))
 - **Snapshots** — automatic point-in-time backups every 30 minutes; restore any snapshot from Settings to recover from accidental data changes (see [Snapshots](#snapshots))
 - **Danger zone** — full vault wipe and IndexedDB reset
 - **Break Glass** — emergency direct-access panel for reading, editing, and deleting raw database records; includes an Orphan Scanner for finding broken references (see [Troubleshooting → Break Glass](#break-glass))
@@ -457,6 +455,10 @@ Step-by-step instructions for every page in the app.
 ### Dashboard
 
 The dashboard is your daily command center. It opens automatically after setup and every time you unlock the vault.
+
+<p align="center">
+  <img src="docs/screenshots/03-dashboard.png" alt="Dashboard" width="800" />
+</p>
 
 **Date navigation**
 
@@ -502,6 +504,10 @@ Click the gold tip card at the bottom to have Buck or Penny deliver today's fina
 ---
 
 ### Income
+
+<p align="center">
+  <img src="docs/screenshots/04-income.png" alt="Income page" width="800" />
+</p>
 
 **Adding household members**
 
@@ -564,14 +570,19 @@ A **Reminders** section appears at the bottom of the Add and Edit income source 
 
 ### Accounts
 
+<p align="center">
+  <img src="docs/screenshots/05-accounts.png" alt="Accounts page" width="800" />
+</p>
+
 **Adding a bank account**
 
 1. Click **+ Add Account** on the Accounts page.
 2. Choose the account type: **Checking**, **Savings**, **Money Market**, **Cash**, or **Other**. Use **Cash** for physical currency you keep on hand — a petty-cash envelope, a wallet, or an allowance jar.
 3. Choose ownership: **Individual** (select a household member), **Joint**, or **Household**.
 4. Enter an optional starting balance — this is the known balance at a point in time that the projection builds forward from.
-5. Choose a chart color to identify this account in the balance chart.
-6. Click **Save**.
+5. Optionally enter your bank's online portal URL. The link icon on the account row will open it directly.
+6. Choose a chart color to identify this account in the balance chart.
+7. Click **Save**.
 
 **Linking income to an account**
 
@@ -604,6 +615,10 @@ The stacked bar chart at the top of the page shows all accounts side by side acr
 
 ### Expenses
 
+<p align="center">
+  <img src="docs/screenshots/06-expenses.png" alt="Expenses page" width="800" />
+</p>
+
 **Creating categories**
 
 1. Click **+ Add Category** at the top of the Expenses page.
@@ -612,7 +627,11 @@ The stacked bar chart at the top of the page shows all accounts side by side acr
 
 **Filtering by category**
 
-Click any category chip to filter the list to that category. Click it again to clear the filter.
+Click any category chip to filter the list to that category. Click it again to clear the filter. You can also filter by type using the **All / Recurring / One-time** toggle.
+
+**Sorting**
+
+Each expense group has a sort dropdown: **Due date, Name, Amount**, or **Pay Type**. Category groups can be sorted by **Name** or **Total**. The selected sort persists while the page is open.
 
 **Editing a category**
 
@@ -622,14 +641,15 @@ Click any category pill in the management row to open the Edit Category modal. Y
 
 1. Click **+ Add Expense**.
 2. Fill in a description, amount, category, and date.
-3. Check **Recurring** to make it a recurring bill. This reveals:
-   - **Frequency** — weekly through annual.
-   - **Due day** (1–28) — turns the expense into a tracked bill monitored each month.
+3. Optionally enter a **billing portal URL** — the link icon on the expense row will open it directly.
+4. Check **Recurring** to make it a recurring bill. This reveals:
+   - **Frequency** — weekly through annual (including quarterly).
+   - **Due day** (1–31) — turns the expense into a tracked bill monitored each month.
    - **Monthly threshold** — the maximum you expect the bill to cost. If an actual payment exceeds this, the app warns you.
    - **Fixed amount** — check this when the bill is always exactly the same (e.g. a streaming subscription). The payment dialog pre-fills the amount and makes it read-only.
    - **Auto-pay** — check this for bills paid automatically by your bank. Auto-pay bills show an Auto-pay badge instead of a Record Payment button and do not appear in payment reminders.
    - **Charge to card** — link the expense to a debt account so payments automatically create a charge entry on that card.
-4. Click **Save**.
+5. Click **Save**.
 
 **Reminders on expenses**
 
@@ -649,30 +669,53 @@ To correct a recorded payment, click the 📋 icon on the bill row to open the *
 
 ### Calendar
 
-The Calendar page shows all tracked bills (recurring expenses with a due day set) laid out on a monthly grid.
+<p align="center">
+  <img src="docs/screenshots/07-calendar.png" alt="Payment Calendar" width="800" />
+</p>
+
+The Calendar page shows your entire financial month at a glance: bill due dates, paydays, one-time income and expenses, and recorded debt payments, all laid out on a day-by-day grid.
 
 **Navigating months**
 
 Use the **‹ / ›** arrows at the top to browse past or future months. Today's date is highlighted in the grid. Bills with due days on days 29–31 clamp to the last day of shorter months.
 
-**Reading the grid**
+**What appears on the grid**
 
-Each bill appears as a chip on its due-day cell. The summary bar above the grid shows a count of each status:
+Each day cell can show several types of chips:
 
-| Status | Color | Meaning |
+| Chip type | Color | What it represents |
 |---|---|---|
-| Past Due | Red | Payment window has passed this month |
-| Due Soon | Rust/amber | Due within 7 days |
-| Paid | Green | Marked paid this calendar month |
-| Upcoming | Sage | Due later in the month |
+| 💰 **Payday** | Gold | An income source's pay date at the correct frequency (biweekly, semi-monthly, etc.) |
+| 💵 **One-time income** | Gold | A one-time income payment recorded for this date |
+| **Bill — Upcoming** | Sage | A tracked bill due later in the month |
+| **Bill — Due Soon** | Amber | A tracked bill due within 7 days |
+| **Bill — Past Due** | Red (pulsing) | A tracked bill whose due day has passed without payment |
+| **Bill — Paid** | Green | A tracked bill marked paid this month |
+| **Debt payment due** | Amber/red | A debt account due date (same due-soon / past-due logic as bills) |
+| **Debt payment recorded** | Teal | A debt payment you have recorded, shown on its payment date |
+| **One-time expense** | Muted | A one-time expense recorded for this date |
+
+The summary bar above the grid shows a count of each status. Click a status chip in the bar to filter the grid to only that type.
 
 **Marking a bill paid from the Calendar**
 
 Click **✓ Mark Paid** below any unpaid bill chip. The same amount dialog as the Expenses page opens — enter the actual amount paid and confirm. The chip updates immediately.
 
+**Paint tool**
+
+The Calendar has a **paint toolbar** in the top-right corner. Choose one of five colors (green, blue, amber, red, purple) and click any day cell to color-code it with a personal marker — useful for flagging paydays, planned purchases, or anything else you want to track visually. Click the same cell again to clear it. Use **Clear month** to remove all marks for the current month at once.
+
+**Day memos**
+
+Click any day cell's **+ Memo** button (or the memo icon on a day that already has one) to add a freeform note. Memos can optionally be assigned to a household member. They appear as a small note card on the day cell and persist across sessions.
+
 ---
 
 ### Budget
+
+<p align="center">
+  <img src="docs/screenshots/08-budget.png" alt="Budget overview" width="800" />
+</p>
 
 The Budget page shows a real-time visual breakdown of your monthly spending.
 
@@ -683,6 +726,10 @@ The top bar shows total monthly income, total recurring expenses, and the surplu
 **Spending buckets**
 
 Wooden-bucket SVG icons represent each expense category. The fill level and color reflect how much of the category's monthly budget has been used: sage (under budget), amber (approaching the limit), rust (close to or at limit), and red (over). Click any bucket to open the **budget editor** for that category.
+
+<p align="center">
+  <img src="docs/screenshots/23-budget-bucket-editor.png" alt="Budget bucket editor showing this month's spending" width="800" />
+</p>
 
 **To-assign counter**
 
@@ -726,6 +773,10 @@ This makes it easy to cross-reference a budget total with its underlying transac
 
 ### Debt
 
+<p align="center">
+  <img src="docs/screenshots/09-debt.png" alt="Debt page" width="800" />
+</p>
+
 **Adding a debt account**
 
 1. Click **+ Add Account**.
@@ -733,8 +784,9 @@ This makes it easy to cross-reference a budget total with its underlying transac
 3. Enter: name, current balance, APR, credit limit (for cards), original principal and term (for mortgages, vehicle loans, and personal loans).
 4. Set the minimum payment: **fixed dollar amount** or **percentage of balance** (the app enforces a $25 floor on percentage minimums).
 5. Choose a payment cycle (weekly, biweekly, semi-monthly, monthly) and an optional due day.
-6. Optionally enter a 0% introductory APR end date for promotional-rate cards.
-7. Click **Save**.
+6. Optionally enter a **0% introductory APR end date** — the app tracks it separately so you know exactly when the promotional rate expires.
+7. Optionally enter the card's **billing portal URL** — the link icon on the debt card row opens it directly.
+8. Click **Save**.
 
 **Amortization schedule**
 
@@ -754,11 +806,25 @@ When the current focus card reaches zero, its entire payment rolls over to the n
 
 Enter an extra monthly payment in the grid field. The table instantly shows how many months sooner each card pays off and how much interest you avoid — compared to paying minimums only.
 
+**Payoff milestone timeline**
+
+Below the strategy tabs, a timeline shows the projected payoff date for every debt account under the current strategy, with a final **debt-free date** when the last account reaches zero. The timeline updates in real time as you switch strategies or change the extra payment amount. Use the **payoff horizon slider** (1–30 years) above the timeline to zoom in or out on the view.
+
 **Recording a payment**
 
 1. Click **Record Payment** on a debt card.
 2. Enter the payment amount and date. Check **Extra payment** if this is beyond the minimum.
 3. Click **Save**. The balance and amortization schedule update, and the notifier refreshes.
+
+<p align="center">
+  <img src="docs/screenshots/21-debt-pay-modal.png" alt="Make a Payment dialog" width="800" />
+</p>
+
+Payment history is stored per card and shown in a calendar-style grid — each month's payment tiles with the amount and a ✓ confirmation:
+
+<p align="center">
+  <img src="docs/screenshots/22-debt-pay-history.png" alt="Payment history expanded on a debt card" width="800" />
+</p>
 
 **Logging a card charge**
 
@@ -768,25 +834,30 @@ Enter an extra monthly payment in the grid field. The table instantly shows how 
 
 **Reminders on debt accounts**
 
-A **Reminders** section appears at the bottom of the Add and Edit debt account forms (not the "Complete Account Setup" payment-details step). Click **+ Add reminder** to attach a custom notification — for example, a monthly reminder on your payment due date, or a one-time reminder to call about an introductory APR expiry. All linked reminders are also manageable from **Settings → Reminders**.
+A **Reminders** section appears at the bottom of the Add and Edit debt account forms. Click **+ Add reminder** to attach a custom notification — for example, a monthly reminder on your payment due date, or a one-time reminder to call about an introductory APR expiry. All linked reminders are also manageable from **Settings → Reminders**.
 
-**Debt payoff celebration**
+**Debt payoff celebrations**
 
-When you record a payment that brings a card balance to zero, a full-screen overlay plays with dancing mascots and confetti. Both Buck and Penny dance if your household has multiple members.
+When you record a payment that brings a **single card** to zero, a full-screen overlay plays with dancing mascots and confetti. When **every debt account** reaches zero, a separate all-debt-free celebration fires — Buck and Penny together, with a debt-freedom message unique to the occasion.
 
 ---
 
 ### Reports
 
+<p align="center">
+  <img src="docs/screenshots/10-reports.png" alt="Reports page" width="800" />
+</p>
+
 **Setting the date range**
 
-Use the preset buttons — **This Month**, **Last 3 Mo.**, **Last 6 Mo.**, **This Year**, **All Time** — or click **Custom** and enter start and end dates.
+Use the preset buttons — **This Week, This Month, Last Month, Last 3 Mo., Last 6 Mo., This Year, Last Year, All Time** — or click **Custom** and enter start and end dates.
 
 **Report cards at a glance**
 
 | Card | Use it to |
 |---|---|
 | KPI chips | Get one-glance totals: spending, income, net cash flow, savings rate |
+| Leaky Bucket | See spending as water draining from a bucket — scrub through months to see which categories and days are draining the most |
 | Spending Over Time | See which months were expensive and which categories drove it |
 | By Category | Find where your money actually went |
 | Top Merchants | Identify your biggest card-charge destinations |
@@ -871,21 +942,34 @@ The Learn page provides plain-language financial education with interactive calc
 - **Why Your Savings Rate Matters More Than Returns** — explains why the amount you save each month has more leverage than chasing return percentages.
 - **The Opportunity Cost of Debt** — explains why paying off high-interest debt is the best guaranteed return available.
 
+**Privacy & Security tab**
+
+- **Public & Private Keys Basics** — plain-language explanation of asymmetric cryptography: what a key pair is, why the public key is safe to share, and why the private key is the only thing that can unlock your data.
+- **How Financial Finger Uses Your Keys** — step-by-step walkthrough of the 4-stage flow: key generation → vault key creation → session unlock → per-record encryption. Explains what is stored where and why the extension can never recover your data without the private key.
+- **Passphrases vs. Passwords** — explains why a strong passphrase protects your private key, how to choose one, and why length beats complexity.
+- **The Same Ideas Everywhere** — shows how the same public-key concepts underlie HTTPS, SSH, Signal, and code signing — so users who later encounter PGP elsewhere already understand the mental model.
+
 ---
 
 ### Settings
 
+<p align="center">
+  <img src="docs/screenshots/11-settings.png" alt="Settings page" width="800" />
+</p>
+
 | Setting | How to use it |
 |---|---|
-| **Mascot** | Click Buck or Penny to switch; type in the name field to rename your mascot. Changes apply immediately. |
-| **Household name** | Edit the field and save. Updates the title on the Dashboard. |
-| **Members** | Click **+ Add Member** to add a household member. Click the trash icon to remove one — a confirmation dialog warns you that all assigned income sources will also be removed. |
+| **Mascot** | Click Buck or Penny to switch; type in the name field to rename your mascot (up to 24 characters). Changes apply immediately. |
+| **Household name** | Edit the field and save. Updates the title on the Dashboard (up to 48 characters). |
+| **Members** | Click **+ Add Member** to add a household member and choose their avatar type (adult male/female, baby boy/girl, kid boy/girl, teen boy/girl). Click the trash icon to remove a member — a confirmation dialog warns that all assigned income sources will also be removed. |
 | **Theme** | Choose Light, Dark, or Auto (follows your OS preference). Applies immediately without a reload. |
+| **Currency** | Choose your display currency from 20 options. The currency symbol, decimal precision, and formatting apply everywhere money is shown in the app. |
 | **Reminders** | View, add, edit, and delete all custom bell notifications. Each card shows the label, when the reminder fires, and active/inactive status. Reminders can also be created and deleted from within the Add/Edit forms on the Income, Expenses, Debt, and Accounts pages — they all appear here for centralized management. |
-| **Security** | View your PGP fingerprint. Click **Export public key** to copy the armored public key to clipboard. |
+| **Security & Keys** | View your PGP key fingerprint. Click **Export public key** to copy the armored public key to clipboard or save it as a `.asc` file. Click **Lock vault** to end the current session without closing the browser — useful when stepping away from a shared computer. |
 | **Sharing keys** | Store a household member's or spouse's public key here so you can quickly encrypt exports to them without pasting their key every time. |
 | **Export** | Encrypts your database and downloads a `.ffx` file. You choose a recipient: a saved sharing key, a one-time paste, or your own key (for a personal backup). Only the holder of the matching private key can open the file. |
 | **Import** | Decrypts a `.ffx` file shared from another Financial Finger installation using your private key and passphrase. Choose **Merge** to add incoming records alongside your existing data, or **Replace** to wipe your database first. |
+| **Import Rules** | View and manage the auto-match patterns that the CSV import wizard has learned. Toggle a rule off to stop auto-applying it on future imports, or delete it entirely. |
 | **Snapshots** | Lists automatic and manual point-in-time snapshots of your data. Click **Snapshot now** to capture immediately. Click **Restore** on any row to roll back to that point — your current data is safety-snapshotted first, then the selected snapshot is applied, and the app reloads. See [Snapshots](#snapshots). |
 | **Danger zone** | Wipes the vault completely. All data, settings, and the vault key are deleted. The extension returns to the first-run setup wizard. This is permanent and irreversible. |
 | **Break Glass** | Emergency direct-access panel. Opens the Break Glass data browser where you can read, edit, or delete any raw record in the database. Also contains the Orphan Scanner for finding records with broken FK references. See [Troubleshooting → Break Glass](#break-glass) for full details. |
@@ -964,6 +1048,31 @@ A practical cadence:
 - **Quarterly or annually**: Both people export to their own key as a personal backup, stored somewhere separate from the machine.
 
 If both people enter data independently on their own machines, merge mode will combine records from both sides on import. Because records use unique IDs, merge will not create duplicates for records already shared. It will, however, bring in records the other person entered that you don't have yet — which is the point.
+
+---
+
+### Help
+
+Financial Finger includes a built-in **Help** page accessible from the navigation sidebar. It covers every section of the app with plain-language explanations and examples — no internet connection required.
+
+The Help page is organized into **12 topic tabs**:
+
+| Tab | What it covers |
+|---|---|
+| **Setup & Security** | The setup wizard, key generation, vault unlock, and what to do if you lose access |
+| **Dashboard** | Reading summary cards, financial health chips, payment reminders, and the activity widget |
+| **Income** | Adding members and income sources, pay types, frequencies, and month navigation |
+| **Accounts** | Bank account types, balance display, ledger, and balance projection |
+| **Expenses & Bills** | Categories, recurring vs. one-time, bill tracking, thresholds, and the Mark Paid flow |
+| **Calendar** | Grid layout, chip types, paint tool, memos, and marking payments |
+| **Budget** | Spending buckets, to-assign counter, donut chart, and zero-based budgeting |
+| **Debt** | Adding debt accounts, amortization, payoff strategies, what-if grid, and recording payments |
+| **Reports** | Date range presets, all report cards, and Common Overage Offenders |
+| **What If?** | Creating scenario films, adding items, activating films, and layering scenarios |
+| **Learn** | Overview of the financial education tabs and interactive calculators |
+| **Settings & Data** | Mascot, theme, currency, security, data sharing, import rules, snapshots, and Break Glass |
+
+Help pages are context-sensitive — some pages in the app include a **?** icon that deep-links directly into the relevant Help tab so you can read the explanation without losing your place.
 
 ---
 
@@ -1181,6 +1290,10 @@ The delimiter is auto-detected from the first few lines. You can override it man
 
 **Step 1 — Load file:** Drag a file onto the drop zone or click to browse. The detected delimiter is highlighted automatically. A raw text preview appears so you can confirm the file looks right before proceeding. You can also adjust the quote character (double, single, or none) if your file uses non-standard quoting.
 
+<p align="center">
+  <img src="docs/screenshots/12-import-step1.png" alt="Import wizard — Step 1: load file" width="800" />
+</p>
+
 **Step 2 — Map columns:** The full file is rendered in a scrollable table. Each column header has a dropdown — assign a role to every column you want to import:
 
 | Role | Used for |
@@ -1194,6 +1307,10 @@ The delimiter is auto-detected from the first few lines. You can override it man
 | `(skip)` | Ignore this column |
 
 For bank accounts, if your export shows debits as **positive** numbers, enable **Invert sign** before proceeding. You can re-parse with a different delimiter here without going back to Step 1.
+
+<p align="center">
+  <img src="docs/screenshots/13-import-step2.png" alt="Import wizard — Step 2: column mapping" width="800" />
+</p>
 
 **Step 3 — Row-by-row review:** The wizard shows one transaction at a time. For each you choose what it represents:
 
@@ -1211,7 +1328,21 @@ The wizard **pre-selects the most likely category** for you: it checks your repe
 - **Repeat detection:** after confirming the same pattern several times, the wizard prompts to create an auto-manage rule for future imports.
 - **Backdrop click protection:** the modal cannot be closed by clicking outside it — use the Cancel button or ✕ to exit deliberately.
 
+<p align="center">
+  <img src="docs/screenshots/14-import-step3.png" alt="Import wizard — Step 3: row-by-row review" width="800" />
+</p>
+
 **Step 4 — Snapshot & import:** Review the summary (row count, date range, totals, categorization breakdown). A duplicate warning appears if this file was imported before. Click **Take snapshot & import** — a snapshot is saved automatically before any data is written.
+
+<p align="center">
+  <img src="docs/screenshots/15-import-step4.png" alt="Import wizard — Step 4: confirm and snapshot" width="800" />
+</p>
+
+After importing, the account's transaction ledger shows every row you confirmed, with a running balance:
+
+<p align="center">
+  <img src="docs/screenshots/16-import-ledger.png" alt="Account ledger after import" width="800" />
+</p>
 
 ### Column mapping
 
@@ -1276,6 +1407,10 @@ Financial Finger takes an automatic point-in-time snapshot of your data every 30
 
 ### Taking a manual snapshot
 
+<p align="center">
+  <img src="docs/screenshots/17-snapshots.png" alt="Snapshots in Settings" width="800" />
+</p>
+
 Go to **Settings → Snapshots** and click **Snapshot now**. This is useful before:
 - Running a large data import
 - Making bulk edits
@@ -1310,17 +1445,29 @@ The **Break Glass** tool is an emergency access panel that gives you direct read
 
 1. Go to **Settings** and scroll to the bottom.
 2. Click **🔧 Open Break Glass**. Your mascot will appear with a warning — this tool has no guardrails and no undo after saving.
-3. Click **"I hear ya — open 'er up"** to confirm.
+3. Type **`break glass`** in the confirmation input, then click **"I hear ya — open 'er up"**.
+
+<p align="center">
+  <img src="docs/screenshots/24-break-glass-warning.png" alt="Break Glass confirmation warning" width="800" />
+</p>
 
 **Data Browser**
 
 The left panel shows a store selector (Members, Income Sources, Expenses, Debt Accounts, etc.) and a list of every record in that store. Click any record to open it in the detail pane on the right.
+
+<p align="center">
+  <img src="docs/screenshots/25-break-glass-browser.png" alt="Break Glass data browser" width="800" />
+</p>
 
 | Mode | How to enter | What it does |
 |---|---|---|
 | **View** | Click a record | Shows all fields with human-readable labels and formatted values — dates rendered as readable timestamps, currency as `$X.XX`, percentages as `XX.XX%` |
 | **Edit** | Click **Edit** | Opens a per-field form with type-appropriate controls — a date/time picker for epoch timestamps, a dollar input for currency fields, a checkbox for booleans |
 | **Edit Raw JSON** | Click **Edit Raw JSON** | Opens the raw JSON in a textarea — for edge cases where you need to change a field the field editor does not surface, or paste in a corrected blob |
+
+<p align="center">
+  <img src="docs/screenshots/26-break-glass-editor.png" alt="Break Glass field editor for a record" width="800" />
+</p>
 
 UUID reference fields (like `memberId` on an income source) are rendered as **clickable links** in view mode. Clicking one navigates directly to the referenced record in the correct store — useful for verifying a relationship is pointing to the right place before making a correction.
 
@@ -1351,6 +1498,10 @@ A clean database shows a ✅ Clean result. If issues are found, the scanner grou
 - **Dangling FK issues** — the store, record name, broken field, and what it points to. A **View in Browser** button jumps directly to the orphaned record in the Data Browser.
 - **Consistency issues** — a description of the semantic problem and a **Fix** button. Clicking Fix runs an automatic correction (e.g. resets the bill's paid date to "never paid", or deletes the orphaned charge) after a confirmation prompt.
 
+<p align="center">
+  <img src="docs/screenshots/27-break-glass-orphan.png" alt="Orphan Scanner showing a dangling FK issue" width="800" />
+</p>
+
 **Fixing orphans manually**
 
 With the orphaned record open in the Data Browser:
@@ -1363,6 +1514,25 @@ Re-run the scan after each fix to confirm the database is clean.
 ---
 
 ## FAQ
+
+### I lost my private key / forgot my passphrase. Can I recover my data?
+
+**No.** There is no recovery mechanism, reset option, or backdoor.
+
+The vault key is encrypted to your PGP public key using OpenPGP.js. Decrypting it requires your private key and your passphrase. The private key is never stored anywhere by the extension — it is only held in memory during the session you paste it. If you lose the private key, the vault key is permanently inaccessible, and every encrypted record in IndexedDB is unrecoverable. The math is the security model: without the key, the ciphertext is noise.
+
+**What to try if you think you lost access:**
+
+1. **Check your password manager.** During setup, the wizard showed you the private key and strongly suggested copying it there. Most password managers let you search by URL, site name ("Financial Finger"), or note content.
+2. **Check old email or cloud sync.** If you saved the key to a note, draft email, or cloud document at setup, search for the PGP header `-----BEGIN PGP PRIVATE KEY BLOCK-----`.
+3. **Try saved key files.** The wizard offers a "Load from file" option at unlock — check your Downloads folder and any USB drives or backups from around the time you set up the extension.
+4. **Check all passphrase variations.** OpenPGP.js passphrases are case-sensitive. Try uppercase/lowercase variations of what you remember.
+
+If none of these work, the only path forward is to wipe the vault in Settings → Danger zone and start over. You will lose all data.
+
+**Going forward:** store the private key in a dedicated password manager (Bitwarden, 1Password, KeePass) and set a memorable passphrase. The key is not a secret that expires — you can store it the same way you store any other critical credential.
+
+---
 
 ### Why can't I connect my bank or financial services directly via API?
 
@@ -1426,7 +1596,7 @@ Because Financial Finger uses PGP encryption for exports, the teacher controls e
 
 ### Student onboarding
 
-1. **Install Financial Finger** in Chrome, Edge, or Firefox following the Quick Start instructions.
+1. **Install Financial Finger** in Chrome, Edge, or Firefox — download a release zip from the [Releases page](https://github.com/sormondocom/finance-finger/releases) and load it unpacked following the [Quick start](#quick-start) instructions above.
 
 2. **Complete the six-step setup wizard.** Each student generates their own key pair and names their own household. Their vault is completely separate from the template and from every other student's installation.
 
@@ -1456,359 +1626,6 @@ Because Financial Finger uses PGP encryption for exports, the teacher controls e
 
 ---
 
-Financial Finger uses **Playwright** for end-to-end tests that load the actual built Chromium extension into a real browser. There is no mocking — tests interact with the live extension UI from the outside, the same way a user would.
-
-Each spec file gets its own **isolated extension context**: a fresh Chromium process with a temporary user data directory. This means every file starts from a clean vault with no prior data, and test files cannot interfere with each other. The user data directory is deleted after each suite completes.
-
-Tests run **sequentially within each file** (one worker, `fullyParallel: false`) because they build on each other — you must set up a category before you can add an expense to it, for example. Test files themselves run sequentially as well to avoid resource contention.
-
-Every meaningful step takes a **screenshot**, stored in `tests/screenshots/`. Screenshots are always captured (not just on failure). Video and traces are retained on failure for post-mortem debugging. An HTML report is generated at `tests/playwright-report/` after every run.
-
-### What is covered
-
-| Spec file | Coverage |
-|---|---|
-| `01-setup.spec.ts` | Six-step setup wizard, key generation, vault creation |
-| `02-income.spec.ts` | Members add/remove, income source add/edit/delete, frequency options |
-| `03-expenses.spec.ts` | Category CRUD, expense add/edit/delete, filters, monthly total |
-| `03b-expense-bills.spec.ts` | Recurring bills with due days, payment status badges (past-due, due-soon, paid), Mark Paid modal, date label, dashboard reminders card |
-| `04-debt.spec.ts` | Debt account CRUD, amortization, strategy tabs, what-if grid, utilization bars, celebration overlay |
-| `04b-debt-payments.spec.ts` | Payment recording, payment history display, balance updates |
-| `04c-debt-charges.spec.ts` | Card charge add/edit/delete, charge list |
-| `04d-debt-payment-status.spec.ts` | Due-soon and past-due badge logic on debt accounts |
-| `05-dashboard.spec.ts` | Summary stats, income panel, reminders card, mascot greeting and briefing |
-| `06-export-import.spec.ts` | Encrypted vault export and import round-trip |
-| `07-settings.spec.ts` | Household name update, member add/remove with confirm dialog |
-| `08-budget.spec.ts` | Empty state, income stat, expense stat, surplus math, chart cards |
-| `09-expense-thresholds.spec.ts` | Threshold field visibility, threshold badge on row, threshold persists through edit, Mark Paid modal flow, inline overage warning, mascot expense-trend alert after repeated overages |
-| `10-bill-calendar.spec.ts` | Calendar page: bill chips on correct day, status colors, Mark Paid updates chip, month navigation, summary bar counts |
-| `10b-calendar-paydays.spec.ts` | Income source payday reference date, gold 💰 payday chips rendered at correct frequency intervals on the Calendar |
-| `11-budget-buckets.spec.ts` | Budget bucket grid: fill percentage, to-assign counter, unbudgeted category pills, clicking a bucket opens the budget editor |
-| `12-debt-milestones.spec.ts` | Milestone timeline card, per-account payoff dates, debt-freedom banner, Dashboard DTI and credit utilization chips |
-| `13-settings-currency.spec.ts` | Currency picker in Settings, symbol persists across navigation, new symbol appears in rendered money values |
-| `14-dashboard-reminders.spec.ts` | Reminder row sort order (most overdue first), row-click navigation to Debt or Expenses, active nav link update |
-| `15-reports.spec.ts` | Reports page structure, Leaky Bucket chart: scrubber, prev/next step buttons, day label, expense and payday chips |
-| `16-form-validation.spec.ts` | Enter key submits on last field, no-submit on non-last field, multi-field error list on blank submission |
-| `17-expense-card-link.spec.ts` | Expense-to-card-charge linking: auto-charge creation, Auto badge, edit/card-swap/unlink/delete sync across both records |
-| `18-category-edit.spec.ts` | Category edit modal: pre-fill, rename, color change, budget change, clear budget, duplicate name validation (case-insensitive), keyboard Enter |
-| `19-expense-payments.spec.ts` | Expense payment recording: fixed-amount pre-fill, auto-pay badge, variable bill flow, form label changes between regular and recurring modes |
-| `20-accounts.spec.ts` | Bank accounts CRUD, account types, ownership (individual/joint/household), chart color picker, starting balance, balance projection, month navigation, Income by Account dashboard card |
-| `21-no-accounts-hints.spec.ts` | "No bank accounts" and "no credit cards" inline hints with navigation links in the income source form and expense form |
-| `22-dashboard-card-conditions.spec.ts` | Income by Account card conditional rendering: absent when no accounts exist, absent when account has no linked income |
-| `23-income-pay-type.spec.ts` | Income pay type: salary vs. hourly inputs, rate × hours preview, hourly source display in list, semi-monthly payday schedule dropdown |
-| `24-calendar-income.spec.ts` | Calendar one-time income chips (💵), semi-monthly unequal paychecks showing correct amounts on 1st and 15th |
-| `25-accounts-balance.spec.ts` | Account balance: starting balance field, balance calculation from linked income, month navigation, next-month disabled guard |
-| `26-expense-payment-display.spec.ts` | Expense payment display and edit: actual-amount row visibility after payment, under/over threshold sub-labels, edit payment flow |
-| `27-break-glass.spec.ts` | Break Glass tool: warning overlay, data browser (columnar view, field editor, raw JSON editor, store switching), FK navigation links, orphan scanner (clean pass + dangling FK detection + View in Browser), record deletion, refresh |
-| `28-custom-reminders.spec.ts` | Custom reminders: Reminders section visible in create and edit forms for Income, Expenses, Debt, and Accounts; reminder added during create persists after save; linked reminders visible in edit form; all reminders appear in Settings → Reminders |
-| `29-bill-ledger-and-stale.spec.ts` | Billing cycle pill selector (new and edit payment), catch-up checkbox for missed cycles, ledger edit button, ledger delete cascade (expense.date rollback), stale-status detection (⚠ Sync issue badge + ↺ Reset Status), Break Glass scanner auto-run on tab switch |
-
-### Running the tests
-
-> **Important:** Tests load the **built** extension from `dist/chrome/`. Always build before running.
-
-```bash
-# 1. Build the extension
-npm run build:chrome
-
-# 2. Run all E2E tests
-npm run test:e2e
-
-# 3. Run a single spec file
-npx playwright test tests/e2e/09-expense-thresholds.spec.ts
-
-# 4. Open the interactive UI mode (time-travel debugger)
-npm run test:e2e:ui
-
-# 5. View the HTML report from the last run
-npm run test:e2e:report
-```
-
-On CI, `--headless=new` is applied automatically via the `CI` environment variable. The config also enables one retry per test on CI to handle transient timing issues.
-
-### Unit tests
-
-Pure business-logic modules have **Vitest** unit tests that run in Node — no browser, no IndexedDB, no extension context required:
-
-| File | What's tested |
-|---|---|
-| `src/engine/amortize.test.ts` | `amortizeSingleCard`, `amortizeMultiCard` (avalanche/snowball/rollover), `detectMinimumPaymentTrap`, `comparePayoffScenarios` |
-| `src/utils/billStatus.test.ts` | `computeBillStatus` (paid/due-soon/past-due/ok), `computeNextDue` |
-| `src/utils/paymentStatus.test.ts` | `computeMinPayment` (fixed/percentage/floor), `computePaymentStatus` |
-| `src/utils/paydays.test.ts` | `getPaydaysInMonth` (monthly/biweekly/weekly/semimonthly) |
-| `src/utils/finance.test.ts` | `toMonthly`, `sourceMonthly`, `MONTHLY_FACTORS` correctness |
-
-```bash
-npm test           # run once
-npm run test:watch # watch mode
-```
-
-### Code coverage
-
-Coverage is generated with [Vitest's V8 provider](https://vitest.dev/guide/coverage) and written to `coverage/` (git-ignored). `npm run setup` runs it automatically as part of the build pipeline — look for the summary in the terminal and open the report in a browser for line-level detail:
-
-```bash
-# Generate the report manually
-npm run coverage
-
-# Open the HTML report (macOS / Linux)
-open coverage/index.html
-
-# Open the HTML report (Windows)
-start coverage/index.html
-```
-
-The report covers all `src/**/*.ts` files excluding test files. Add a test file co-located with a source file (`*.test.ts` alongside the module) to bring any new pure-logic module under coverage.
-
----
-
-## CI / CD
-
-### Pipeline overview
-
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `main`, on every pull request, and on version tags (`v*.*.*`). It has eight jobs with a deliberate dependency chain: **the Firefox build never starts until Chrome E2E tests pass**.
-
-```
-unit ─────────────────────────────────────────────────────────────────────────┐
-build-chrome → e2e-chrome → build-firefox → e2e-firefox ──────────────────────┤
-docs ─────────────────────────────────────────────────────────────────────────┤
-                                                                              ↓
-                                                                           package (push)
-                                                                              ↓
-                                                                           attest (tags)
-                                                                              ↓
-                                                                           release (tags)
-```
-
-| Job | Needs | What it does |
-|---|---|---|
-| **unit** | — | `npm test` (Vitest); runs in parallel with everything |
-| **build-chrome** | — | `npm run build:chrome`; uploads `dist-chrome` artifact |
-| **e2e-chrome** | build-chrome | Downloads `dist-chrome`, installs Playwright Chromium, runs `npm run test:e2e` with `CI=true` |
-| **build-firefox** | e2e-chrome | `npm run build:firefox`; only starts if Chrome E2E passes; uploads `dist-firefox` artifact |
-| **e2e-firefox** | build-firefox | Downloads `dist-firefox`, installs Playwright Firefox, runs `npm run test:e2e` with `CI=true BROWSER=firefox` |
-| **docs** | — | Runs `npm run docs` and fails if the committed `docs/data-model.md` is stale |
-| **package** | unit + e2e-firefox + docs | Downloads both dist artifacts, zips them, names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
-| **attest** | package (tags only) | SLSA Build Level 2 provenance via `actions/attest-build-provenance@v2` for both zips |
-| **release** | attest (tags only) | Creates a GitHub Release; marks pre-release if tag contains a hyphen (e.g. `v1.0.0-beta.1`) |
-
-### Creating a release
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-This triggers the full pipeline. After `attest` completes, the release job publishes a GitHub Release with auto-generated release notes and both zip files as assets.
-
-### Verifying build attestations
-
-Each release asset has a corresponding SLSA provenance attestation that proves the zip was built from a specific commit via the Actions workflow — not tampered with outside CI. To verify after downloading:
-
-```bash
-gh attestation verify financial-finger-1.0.0-chrome.zip \
-  --repo sormondocom/finance-finger
-```
-
-The attestation records the exact workflow run, the Git commit SHA, and the build inputs. Anyone who downloads a release zip can independently verify its provenance.
-
-### Test artifacts on failure
-
-When E2E tests fail, the workflow uploads browser-specific artifacts:
-- **`playwright-report-chrome`** / **`playwright-report-firefox`** — full HTML report with timeline, errors, and steps (retained 30 days)
-- **`playwright-screenshots-chrome`** / **`playwright-screenshots-firefox`** — screenshots from every test step (retained 14 days)
-
-Download these from the **Artifacts** section of the failed workflow run to diagnose the failure. Each browser's report is independent, so a Firefox failure doesn't overwrite the Chrome report.
-
-### Running Firefox E2E tests locally
-
-On macOS/Linux:
-```bash
-BROWSER=firefox npm run test:e2e
-```
-
-On Windows (PowerShell):
-```powershell
-$env:BROWSER='firefox'; npm run test:e2e
-```
-
-> **Note:** `npm run build:firefox` must be run first — the Firefox tests load from `dist/firefox/`.
-
----
-
-## Architecture
-
-### Why a browser extension?
-
-This is a deliberate platform choice, not a default. The alternatives — a native desktop app, an Electron wrapper, a web app with a backend, a mobile app — were each considered and rejected for reasons that matter for a privacy-first, offline-first financial tool.
-
-**Cross-platform by default**
-
-The browser is the most widely deployed cross-platform runtime in existence. A browser extension runs identically on Windows, macOS, Linux, and ChromeOS — wherever a supported browser runs. There are no separate operating system builds, no platform-specific installers, no OS-level permission dialogs, and no code-signing certificates required for local development. The same TypeScript source and a single Vite build pipeline produce a working extension for both Chromium and Firefox with minimal per-target configuration.
-
-**A well-known, stable technology stack**
-
-HTML, CSS, and TypeScript are the most widely understood technologies in software development. The WebExtension API is a W3C-aligned standard implemented consistently across every major browser. The full tooling ecosystem — Vite, Playwright, npm, VS Code — is mature, well-documented, and available everywhere. This means the codebase is approachable to any web developer without learning platform-specific SDKs, and every dependency has a massive support community behind it.
-
-**A security model enforced by the browser itself**
-
-Browser extensions run in a sandboxed context. Permissions are declared explicitly in the manifest, visible to anyone who reads it, and enforced by the browser at runtime. Financial Finger declares exactly what it needs: `storage` (for the encrypted vault config) and nothing else. It cannot make arbitrary network requests, cannot access other tabs, and cannot read the filesystem. This isolation is structural — it does not depend on the application code being bug-free, it is enforced by the container.
-
-**Local storage without a server**
-
-IndexedDB is a full-featured, transactional, asynchronous database built into every browser. It persists across sessions, handles large datasets efficiently, and is never transmitted to a network unless the application code explicitly does so. Combined with the Web Crypto API and OpenPGP.js, the complete encryption and storage stack is available without any external service, server infrastructure, or cloud dependency. The extension has no backend. There is nothing to host, nothing to maintain, and no subscription to fund.
-
-**No Electron**
-
-The most common alternative for offline desktop tools with a web UI is Electron — which bundles a full Chromium runtime (~150 MB), requires platform-specific packaging, and introduces a large attack surface. Tauri reduces the binary size but requires Rust tooling and platform-specific webview integration. A browser extension is leaner, more transparent, and delegates its security model to a browser the user already trusts and keeps updated. The trade-off is that the user must have a browser installed — which, in practice, every user already does.
-
----
-
-### Extension structure
-
-```
-Financial Finger
-├── Background service worker    (MV3 — handles toolbar click → opens app tab)
-└── Full-page app                (chrome-extension:// tab, hash router, no popup)
-```
-
-Clicking the toolbar icon opens `src/app/index.html` as a dedicated full-page tab. This allows a proper layout while keeping all data access inside the extension's secure context. There is no popup.
-
-### Crypto layer
-
-```
-Setup wizard
-  └─ generateKeyPair()          ECC curve25519 via OpenPGP.js v6
-       ├─ publicKeyArmored  →   stored in chrome.storage.local (VaultConfig)
-       └─ privateKeyArmored →   shown once; user stores offsite
-
-On unlock
-  └─ openVault(encryptedVaultKey, privateKey, passphrase)
-       └─ decryptWithPrivateKey()   OpenPGP.js decrypts the armored vault key
-            └─ AES-256-GCM CryptoKey   held in module-level memory only
-
-Every DB write
-  └─ encryptRecord(plaintext)   → EncryptedRecord { iv: number[], data: number[] }
-
-Every DB read
-  └─ decryptRecord<T>(record)   → typed domain object
-```
-
-The vault key is a random 32-byte `CryptoKey` generated at setup, encrypted to the PGP public key, and stored as an OpenPGP armored message in `VaultConfig.encryptedVaultKey`. The raw key is never persisted — it only exists in memory while the vault is unlocked.
-
-### Data layer
-
-All financial records are stored in **IndexedDB** via [`idb`](https://github.com/jakearchibald/idb) with a typed schema. Every value is an `EncryptedRecord` — the raw domain object is never written to disk. For a full field-by-field reference, see the auto-generated [Data Model](docs/data-model.md).
-
-```
-IndexedDB: "financial-finger" (v5)
-  ├─ members                (key: id)
-  ├─ income_sources         (key: id, index: by_member)
-  ├─ expense_categories     (key: id)
-  ├─ expenses               (key: id, indexes: by_category, by_date)
-  ├─ credit_cards           (key: id)      ← stores all debt account types
-  ├─ debt_payments          (key: id)
-  ├─ card_charges           (key: id)
-  ├─ scenarios              (key: id)
-  ├─ expense_paid_records   (key: id)      ← actual paid amounts per bill per month
-  └─ settings               (key: string)
-```
-
-Non-sensitive configuration (vault key ciphertext, public key, mascot settings, theme preference) lives in **`chrome.storage.local`** — either public by nature (PGP public key) or non-sensitive (theme choice).
-
-### Notifier module
-
-`src/utils/notifier.ts` is a singleton that centralizes alert computation and badge updates. It queries the DB for payment status and bill status on demand, maintains a current alert list, and notifies any subscriber (the mascot briefing system) via callback.
-
-- `refreshNotifier()` — re-queries DB, updates the badge text/color, fires the callback
-- `subscribeToAlerts(cb)` — registers a single callback (replaces the previous one)
-- `getCurrentAlerts()` — returns the last computed alert list synchronously
-- `getOverageTrend(expenseId, threshold)` — counts how many of the last 6 paid records for a bill exceeded the threshold; used by the Mark Paid flow to decide whether to fire the expense-trend mascot
-
-The extension icon badge shows `!` when any alert exists — red (`#dc2626`) for critical alerts (past-due), amber (`#f59e0b`) for warnings only.
-
-### Amortization engine
-
-`src/engine/amortize.ts` is pure TypeScript with no DOM dependencies.
-
-| Function | Purpose |
-|---|---|
-| `amortizeSingleCard(card, extra, startDate)` | Full schedule for one card using its own payment cycle |
-| `amortizeMultiCard(cards, strategy, extra, startDate)` | Multi-card normalized to monthly; payment rollover on payoff |
-| `sortByStrategy(cards, strategy)` | Avalanche / Snowball / Custom ordering |
-| `comparePayoffScenarios(cards, strategy, extra)` | Runs both min-only and with-extra, returns the diff |
-| `detectMinimumPaymentTrap(card)` | Flags if >3 years or interest ratio >50% |
-
-Edge cases handled: payment capped at `balance + interest`, percentage-minimum floor of $25, 1,200-period safety cap, floating-point zero threshold of $0.005.
-
-### Directory layout
-
-```
-src/
-├─ app/
-│   ├─ index.html          Entry point
-│   ├─ main.ts             Boot, theme, nav registration, route wiring
-│   ├─ router.ts           Hash router with route-change callback
-│   └─ styles/             variables.css, base.css, nav.css
-├─ background/
-│   └─ index.ts            Service worker — opens app tab on toolbar click
-├─ components/
-│   └─ Modal.ts            openModal / openFormModal (native <dialog>)
-├─ crypto/
-│   ├─ pgp.ts              generateKeyPair, encrypt, decrypt, readKeyInfo
-│   └─ vault.ts            AES-GCM session key, encryptRecord, decryptRecord
-├─ db/
-│   ├─ schema.ts           idb typed schema (v5)
-│   └─ index.ts            CRUD functions for all entities
-├─ engine/
-│   └─ amortize.ts         Pure amortization and trap-detection functions
-├─ mascot/
-│   ├─ svgs.ts             Inline SVG for Buck and Penny
-│   ├─ mascot.css          Mosey-in, idle, react, leaving, celebration animations
-│   ├─ messages.ts         Dialogue banks, tip banks, getDailyTip, getLines
-│   └─ Mascot.ts           showMascot, updateMascotItems, greet, celebration overlay
-├─ pages/
-│   ├─ setup/              6-step onboarding wizard
-│   ├─ unlock/             Vault unlock screen
-│   ├─ dashboard/          Summary stats, reminders card, mascot briefing
-│   ├─ income/             Member chips, income source CRUD, pay type, hourly rate
-│   ├─ accounts/           Bank account CRUD, balance projection, balance chart
-│   ├─ expenses/           Categories, expense list, bill tracking, threshold entry
-│   ├─ budget/             Donut chart, category bars, cash flow chart
-│   ├─ debt/               Debt CRUD, strategy tabs, amortization, what-if grid
-│   ├─ reports/            Date-range analytics, overage offenders
-│   ├─ insights/           Financial education with live calculators
-│   ├─ afford/             Scenario films — what-if budget overlays
-│   ├─ break-glass/        Emergency raw data editor and orphan scanner
-│   └─ settings/           Mascot, household, theme, security, export/import
-├─ types/
-│   └─ index.ts            All domain types (no runtime code)
-└─ utils/
-    ├─ finance.ts          toMonthly, fmt, fmtCents, CATEGORY_COLORS
-    ├─ billStatus.ts       computeBillStatus — paid / due-soon / past-due logic
-    ├─ paymentStatus.ts    computePaymentStatus — debt payment tracking
-    ├─ notifier.ts         Alert computation, badge updates, mascot callback
-    └─ notificationModal.ts  openAddNotificationModal, buildLinkedRemindersSection — shared reminder UI for all forms
-tests/
-├─ e2e/                    Playwright spec files (33 files)
-└─ helpers/
-    ├─ extension.ts        launchExtensionContext — isolated Chromium + extension
-    └─ setup-wizard.ts     completeSetupWizard, navigateTo helpers
-```
-
-### Build targets
-
-| Command | Output |
-|---|---|
-| `npm run build:chrome` | Chromium MV3 extension → `dist/chrome/` |
-| `npm run build:firefox` | Firefox MV3 extension → `dist/firefox/` |
-| `npm run build` | Both targets |
-| `npm run zip:chrome` | Packages `dist/chrome/` → `artifacts/chrome/` |
-| `npm run zip:firefox` | Packages `dist/firefox/` → `artifacts/firefox/` |
-| `npm run zip` | Both zips |
-
----
-
 ## Dependencies
 
 | Package | Purpose |
@@ -1818,7 +1635,7 @@ tests/
 | `chart.js ^4.4.4` | Budget donut, spending charts, compound interest visualizer |
 | `webextension-polyfill ^0.12.0` | Cross-browser `browser.*` API namespace |
 
-All dependencies are auditable, actively maintained open-source libraries with no telemetry. Dev dependencies include `@playwright/test`, `vitest`, `vite`, `vite-plugin-web-extension`, and `web-ext`.
+All dependencies are auditable, actively maintained open-source libraries with no telemetry.
 
 ---
 

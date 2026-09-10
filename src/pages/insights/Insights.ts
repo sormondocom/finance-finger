@@ -37,7 +37,7 @@ export class InsightsPage {
   render(): HTMLElement {
     this.container = document.createElement('div');
     this.container.className = 'insights-page';
-    this.load();
+    void this.load();
     return this.container;
   }
 

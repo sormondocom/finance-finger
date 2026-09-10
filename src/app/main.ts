@@ -1,8 +1,9 @@
 import './styles/base.css';
 import './styles/nav.css';
 import browser from 'webextension-polyfill';
-import { register, navigate, navigateReplace, currentRoute, initRouter, onRouteChange } from './router';
+import { register, navigate, navigateReplace, initRouter, onRouteChange } from './router';
 import { isVaultOpen, closeVault } from '@/crypto/vault';
+import { showToast } from '@/utils/errorUI';
 import { setCurrency } from '@/utils/finance';
 import type { VaultConfig } from '@/types';
 
@@ -142,12 +143,20 @@ function launchApp(): void {
   // Replace the setup/unlock history entry so Back doesn't return to the gate.
   navigateReplace('/dashboard');
 
+  // Surface any background auto-snapshot error from the previous session.
+  void browser.storage.local.get('lastSnapshotError').then((result) => {
+    const err = result['lastSnapshotError'] as { message: string; time: number } | undefined;
+    if (err) {
+      showToast(`Auto-backup failed: ${err.message}`, 'warning', 8000);
+    }
+  });
+
   // Check for any due custom notifications after the dashboard has rendered, then
   // align the repeating poll to the top of each clock minute so time-triggered
   // notifications fire as close to HH:MM:00 as possible rather than at whatever
   // fractional second the app happened to launch.
   setTimeout(() => {
-    import('@/utils/notifications').then(({ checkAndFireNotifications }) => {
+    void import('@/utils/notifications').then(({ checkAndFireNotifications }) => {
       void checkAndFireNotifications();
 
       // Wait until the next whole minute, then tick every 60 s from there.
@@ -199,4 +208,18 @@ async function boot(): Promise<void> {
   launchApp();
 }
 
-boot();
+// Surface storage-full errors regardless of which save operation triggered them.
+// QuotaExceededError is an infrastructure failure — no individual page handler
+// is well-positioned to catch it, and silent swallowing causes invisible data loss.
+window.addEventListener('unhandledrejection', (e) => {
+  if (e.reason instanceof DOMException && e.reason.name === 'QuotaExceededError') {
+    e.preventDefault();
+    showToast(
+      'Storage full — your browser is out of space for this extension. Free up storage or delete old snapshots in Settings.',
+      'error',
+      12000,
+    );
+  }
+});
+
+void boot();

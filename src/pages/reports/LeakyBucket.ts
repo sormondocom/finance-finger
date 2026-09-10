@@ -1,6 +1,7 @@
 import { sourceMonthly, fmtCents } from '@/utils/finance';
 import { getPaydaysInMonth } from '@/utils/paydays';
-import type { Expense, CardCharge, IncomeSource, ExpensePaidRecord } from '@/types';
+import type { Expense, CardCharge, IncomeSource, ExpensePaidRecord, DebtPayment, DebtAccount } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 // ── Bucket interior geometry (SVG viewBox coordinates) ───────────────────────
 const INT_TOP = 68;
@@ -24,6 +25,8 @@ export interface LeakyBucketOpts {
   charges:        CardCharge[];
   incomeSources:  IncomeSource[];
   paidRecords:    ExpensePaidRecord[];
+  payments:       DebtPayment[];
+  accounts:       DebtAccount[];
   mascotSvg:      string;
 }
 
@@ -128,6 +131,12 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
         <div class="lb-stat"><span class="lb-sk">Remaining</span><span class="lb-sv lb-sv-green" id="lbs-rem">—</span></div>
         <div class="lb-stat"><span class="lb-sk">% used</span><span class="lb-sv" id="lbs-pct">—</span></div>
       </div>
+
+      <div class="lb-cal" id="lb-cal">
+        <div class="lb-cal-wd" id="lb-cal-wd">—</div>
+        <div class="lb-cal-day" id="lb-cal-day">—</div>
+        <div class="lb-cal-mo" id="lb-cal-mo">—</div>
+      </div>
     </div>
 
     <div class="lb-day-row">
@@ -163,6 +172,9 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
   const spentEl   = card.querySelector<HTMLElement>('#lbs-spent')!;
   const remEl     = card.querySelector<HTMLElement>('#lbs-rem')!;
   const pctEl     = card.querySelector<HTMLElement>('#lbs-pct')!;
+  const calWdEl   = card.querySelector<HTMLElement>('#lb-cal-wd')!;
+  const calDayEl  = card.querySelector<HTMLElement>('#lb-cal-day')!;
+  const calMoEl   = card.querySelector<HTMLElement>('#lb-cal-mo')!;
 
   // CSS transitions
   waterEl.style.transition  = 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -178,7 +190,7 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const opt = document.createElement('option');
     opt.value = `${d.getFullYear()}-${d.getMonth()}`;
-    opt.textContent = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    opt.textContent = d.toLocaleDateString(userLocale, { month: 'long', year: 'numeric' });
     if (d.getFullYear() === year && d.getMonth() === month) opt.selected = true;
     monthSel.appendChild(opt);
   }
@@ -267,6 +279,21 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
     pctEl.textContent    = `${pct}%`;
     balVal.textContent   = rem < 0 ? `-${fmtCents.format(-rem)}` : fmtCents.format(rem);
     balVal.className     = `lb-balance-val${ratio < 0.15 ? ' lb-danger' : ratio < 0.35 ? ' lb-warning' : ''}`;
+
+    // Calendar date widget
+    const calColor = ratio > 0.35 ? 'var(--ff-green)' : ratio > 0.15 ? 'var(--ff-gold-dark)' : 'var(--color-danger)';
+    if (!data) {
+      calWdEl.textContent  = new Date(year, month, 1).toLocaleDateString(userLocale, { month: 'long' });
+      calDayEl.textContent = '—';
+      calMoEl.textContent  = String(year);
+      calWdEl.style.background = 'var(--color-text-muted)';
+    } else {
+      const d = new Date(year, month, data.day);
+      calWdEl.textContent  = d.toLocaleDateString(userLocale, { weekday: 'long' });
+      calDayEl.textContent = String(data.day);
+      calMoEl.textContent  = d.toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
+      calWdEl.style.background = calColor;
+    }
 
     // Day info
     if (!data) {
@@ -418,7 +445,7 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
 // ── Compute day-by-day data ───────────────────────────────────────────────────
 
 function computeDayData(year: number, month: number, opts: LeakyBucketOpts) {
-  const { expenses, charges, incomeSources, paidRecords } = opts;
+  const { expenses, charges, incomeSources, paidRecords, payments, accounts } = opts;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const t0 = new Date(year, month,     1).getTime();
   const t1 = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
@@ -435,12 +462,14 @@ function computeDayData(year: number, month: number, opts: LeakyBucketOpts) {
   const totalSpend =
     expenses.filter(e => !e.recurring && e.date >= t0 && e.date <= t1).reduce((s, e) => s + e.amount, 0) +
     paidRecords.filter(r => r.date >= t0 && r.date <= t1).reduce((s, r) => s + r.amount, 0) +
-    charges.filter(c => c.date >= t0 && c.date <= t1).reduce((s, c) => s + c.amount, 0);
+    charges.filter(c => c.date >= t0 && c.date <= t1).reduce((s, c) => s + c.amount, 0) +
+    payments.filter(p => p.date >= t0 && p.date <= t1).reduce((s, p) => s + p.amount, 0);
 
   const cap = monthlyRate + onceAmt || totalSpend || 1;
 
   // Spend per day
   const spendMap = new Map<number, { name: string; amount: number }[]>();
+  const accountMap = new Map(accounts.map(a => [a.id, a]));
 
   expenses.filter(e => !e.recurring && e.date >= t0 && e.date <= t1).forEach(e => {
     const d = new Date(e.date).getDate();
@@ -457,6 +486,12 @@ function computeDayData(year: number, month: number, opts: LeakyBucketOpts) {
   charges.filter(c => c.date >= t0 && c.date <= t1).forEach(c => {
     const d = new Date(c.date).getDate();
     spendMap.set(d, [...(spendMap.get(d) ?? []), { name: c.merchant, amount: c.amount }]);
+  });
+
+  payments.filter(p => p.date >= t0 && p.date <= t1).forEach(p => {
+    const acctName = accountMap.get(p.accountId)?.name ?? 'Debt payment';
+    const d = new Date(p.date).getDate();
+    spendMap.set(d, [...(spendMap.get(d) ?? []), { name: acctName, amount: p.amount }]);
   });
 
   // Payday markers
@@ -478,7 +513,7 @@ function computeDayData(year: number, month: number, opts: LeakyBucketOpts) {
 
     days.push({
       day:      d,
-      label:    new Date(year, month, d).toLocaleDateString('en-US', {
+      label:    new Date(year, month, d).toLocaleDateString(userLocale, {
                   weekday: 'short', month: 'short', day: 'numeric',
                 }),
       spend,

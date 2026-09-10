@@ -5,6 +5,8 @@ import type { MascotGender } from '@/types';
 
 const WARNED_KEY = 'bg-warned';
 
+const CONFIRM_PHRASE = 'break glass';
+
 function showEntryWarning(mascotGender: MascotGender | null | undefined, onConfirm: () => void): void {
   const svg = (mascotGender ?? 'buck') === 'penny' ? PENNY_SVG : BUCK_SVG;
 
@@ -24,14 +26,39 @@ function showEntryWarning(mascotGender: MascotGender | null | undefined, onConfi
     </div>
   `;
 
+  const confirmPrompt = document.createElement('p');
+  confirmPrompt.className = 'bg-warning-confirm-prompt';
+  confirmPrompt.innerHTML = `Type <strong>${CONFIRM_PHRASE}</strong> to continue:`;
+  card.appendChild(confirmPrompt);
+
+  const confirmInput = document.createElement('input');
+  confirmInput.type = 'text';
+  confirmInput.className = 'bg-warning-confirm-input';
+  confirmInput.setAttribute('data-testid', 'bg-warning-confirm-input');
+  confirmInput.placeholder = CONFIRM_PHRASE;
+  confirmInput.autocomplete = 'off';
+  card.appendChild(confirmInput);
+
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'btn btn-danger bg-warning-btn';
   confirmBtn.dataset['testid'] = 'bg-warning-confirm';
   confirmBtn.textContent = "I hear ya — open 'er up";
+  confirmBtn.disabled = true;
   confirmBtn.addEventListener('click', () => {
     sessionStorage.setItem(WARNED_KEY, '1');
     overlay.remove();
     onConfirm();
+  });
+
+  confirmInput.addEventListener('input', () => {
+    confirmBtn.disabled = confirmInput.value.trim().toLowerCase() !== CONFIRM_PHRASE;
+  });
+  confirmInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !confirmBtn.disabled) {
+      sessionStorage.setItem(WARNED_KEY, '1');
+      overlay.remove();
+      onConfirm();
+    }
   });
 
   overlay.addEventListener('click', (e) => {

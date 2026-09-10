@@ -1,5 +1,6 @@
 import './reports.css';
 import { makeHelpBtn } from '@/utils/helpNav';
+import { showPageError } from '@/utils/errorUI';
 import browser from 'webextension-polyfill';
 import {
   Chart,
@@ -9,7 +10,6 @@ import {
   LinearScale, CategoryScale,
   Tooltip, Legend,
 } from 'chart.js';
-import type { ChartDataset } from 'chart.js';
 import {
   getExpenses, getCategories, getCardCharges, getIncomeSources,
   getDebtAccounts, getDebtPayments, getExpensePaidRecords,
@@ -17,10 +17,21 @@ import {
 import { fmtCents, sourceMonthly } from '@/utils/finance';
 import { buildLeakyBucketCard } from './LeakyBucket';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
+import { USD, monthKeys } from './ReportsUtils';
+import { buildSpendingOverTime, buildIncomeVsSpending, buildCardBalanceTrend } from './ReportsTrends';
+import { buildPayeeSchedule } from './ReportsPayeeSchedule';
+import {
+  buildCategoryBreakdown, buildTopMerchants, buildSpendingByDay,
+  buildBiggestTransactions, buildSpendingByWeekOfMonth, buildRecurringVsOneTime,
+} from './ReportsBreakdowns';
+import { buildOverageOffenders } from './ReportsOffenders';
 import type {
   Expense, ExpenseCategory, CardCharge, IncomeSource, DebtAccount, DebtPayment, ExpensePaidRecord,
   MascotGender,
 } from '@/types';
+import { userLocale } from '@/utils/locale';
+import { getPaydaysInMonth } from '@/utils/paydays';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 Chart.register(
   BarController, BarElement, ArcElement, DoughnutController,
@@ -28,54 +39,9 @@ Chart.register(
   Tooltip, Legend,
 );
 
-// ── Palette ───────────────────────────────────────────────────────────────────
-
-const C = {
-  rust:   '#B45309',
-  navy:   '#1B2A4A',
-  green:  '#2D5A27',
-  gold:   '#C9A84C',
-  danger: '#DC2626',
-  blue:   '#2563EB',
-};
-
-const SERIES = [
-  '#2D5A27', '#1B2A4A', '#C9A84C', '#B45309', '#7C3AED',
-  '#0891B2', '#BE185D', '#374151', '#065F46', '#6B21A8',
-  '#1D4ED8', '#0F766E', '#B91C1C', '#92400E', '#6D28D9',
-];
-
-// ── Date helpers ──────────────────────────────────────────────────────────────
-
 function localStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
-function mKey(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function mLabel(key: string): string {
-  const [y, m] = key.split('-').map(Number);
-  return new Date(y!, m! - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-}
-
-function monthKeys(start: Date, end: Date): string[] {
-  const keys: string[] = [];
-  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-  const endTs = new Date(end.getFullYear(), end.getMonth(), 1).getTime();
-  while (cur.getTime() <= endTs) {
-    keys.push(mKey(cur.getTime()));
-    cur.setMonth(cur.getMonth() + 1);
-  }
-  return keys;
-}
-
-const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-const USD2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// ── Preset ranges ─────────────────────────────────────────────────────────────
 
 type PresetKey = 'this-week' | 'this-month' | 'last-month' | 'last-3' | 'last-6' | 'this-year' | 'last-year' | 'all-time' | 'custom';
 
@@ -107,8 +73,6 @@ function presetRange(key: PresetKey): { start: Date; end: Date } {
   }
 }
 
-// ── Page class ────────────────────────────────────────────────────────────────
-
 export class ReportsPage {
   private container!: HTMLElement;
   private preset: PresetKey = 'this-month';
@@ -137,22 +101,26 @@ export class ReportsPage {
     this.container = document.createElement('div');
     this.container.className = 'reports-page';
     this.container.innerHTML = '<p class="text-muted" style="padding:var(--space-6)">Loading…</p>';
-    this.load();
+    void this.load();
     return this.container;
   }
 
   private async load(): Promise<void> {
-    const [configResult, ...rest] = await Promise.all([
-      browser.storage.local.get('vaultConfig'),
-      getExpenses(), getCategories(), getCardCharges(),
-      getIncomeSources(), getDebtAccounts(), getDebtPayments(), getExpensePaidRecords(),
-    ]);
-    const cfg = (configResult as Record<string, unknown>)['vaultConfig'] as { mascotGender?: MascotGender } | undefined;
-    this.mascotGender = cfg?.mascotGender ?? 'buck';
-    [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords] = rest as [
-      Expense[], ExpenseCategory[], CardCharge[], IncomeSource[], DebtAccount[], DebtPayment[], ExpensePaidRecord[]
-    ];
-    this.paint();
+    try {
+      const [configResult, ...rest] = await Promise.all([
+        browser.storage.local.get('vaultConfig'),
+        getExpenses(), getCategories(), getCardCharges(),
+        getIncomeSources(), getDebtAccounts(), getDebtPayments(), getExpensePaidRecords(),
+      ]);
+      const cfg = (configResult as Record<string, unknown>)['vaultConfig'] as { mascotGender?: MascotGender } | undefined;
+      this.mascotGender = cfg?.mascotGender ?? 'buck';
+      [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords] = rest as [
+        Expense[], ExpenseCategory[], CardCharge[], IncomeSource[], DebtAccount[], DebtPayment[], ExpensePaidRecord[]
+      ];
+      this.paint();
+    } catch (err) {
+      showPageError(this.container, err instanceof Error ? err.message : 'Failed to load reports', () => { void this.load(); });
+    }
   }
 
   private paint(): void {
@@ -169,51 +137,47 @@ export class ReportsPage {
     this.container.appendChild(this.buildRangePicker());
     this.container.appendChild(this.buildKpis(expenses, charges, startTs, endTs));
 
-    // Full-width: Leaky Bucket animation
     const mascotSvg = this.mascotGender === 'buck' ? BUCK_SVG : PENNY_SVG;
     this.container.appendChild(buildLeakyBucketCard({
       expenses:      this.expenses,
       charges:       this.charges,
       incomeSources: this.incomeSources,
       paidRecords:   this.paidRecords,
+      payments:      this.payments,
+      accounts:      this.accounts,
       mascotSvg,
     }));
 
-    // Full-width: Spending Over Time
-    this.container.appendChild(this.buildSpendingOverTime(expenses, charges));
+    this.container.appendChild(buildSpendingOverTime(expenses, charges, this.paidRecords, this.payments, this.rangeStart, this.rangeEnd, this.activeCharts));
 
-    // Half/Half: Category breakdown + Top Merchants
     const row1 = document.createElement('div');
     row1.className = 'reports-grid-2';
-    row1.appendChild(this.buildCategoryBreakdown(expenses, charges));
-    row1.appendChild(this.buildTopMerchants(charges));
+    row1.appendChild(buildCategoryBreakdown(expenses, charges, this.categories, this.activeCharts));
+    row1.appendChild(buildTopMerchants(charges, this.activeCharts));
     this.container.appendChild(row1);
 
-    // Full-width: Income vs Spending
-    this.container.appendChild(this.buildIncomeVsSpending(expenses, charges, startTs, endTs));
+    this.container.appendChild(buildIncomeVsSpending(expenses, charges, this.paidRecords, this.payments, startTs, endTs, this.rangeStart, this.rangeEnd, this.incomeSources, this.activeCharts));
 
-    // Half/Half: Day of week + Biggest transactions
     const row2 = document.createElement('div');
     row2.className = 'reports-grid-2';
-    row2.appendChild(this.buildSpendingByDay(expenses, charges));
-    row2.appendChild(this.buildBiggestTransactions(expenses, charges));
+    row2.appendChild(buildSpendingByDay(expenses, charges, this.activeCharts));
+    row2.appendChild(buildBiggestTransactions(expenses, charges));
     this.container.appendChild(row2);
 
-    // Full-width: Card Balance Trend (only if card accounts exist with payments)
     const cardAccounts = this.accounts.filter((a) => a.type === 'card');
     if (cardAccounts.length > 0) {
-      this.container.appendChild(this.buildCardBalanceTrend(cardAccounts));
+      this.container.appendChild(buildCardBalanceTrend(cardAccounts, this.payments, this.activeCharts));
     }
 
-    // Half/Half: Spending by week-of-month + Recurring vs One-time
     const row3 = document.createElement('div');
     row3.className = 'reports-grid-2';
-    row3.appendChild(this.buildSpendingByWeekOfMonth(expenses, charges));
-    row3.appendChild(this.buildRecurringVsOneTime(expenses));
+    row3.appendChild(buildSpendingByWeekOfMonth(expenses, charges, this.activeCharts));
+    row3.appendChild(buildRecurringVsOneTime(expenses, this.activeCharts));
     this.container.appendChild(row3);
 
-    // Full-width: Common Overage Offenders (always shows all-time data when thresholds exist)
-    this.container.appendChild(this.buildOverageOffenders());
+    this.container.appendChild(buildOverageOffenders(this.expenses, this.paidRecords));
+
+    this.container.appendChild(buildPayeeSchedule(this.expenses, this.accounts));
   }
 
   // ── Range picker ───────────────────────────────────────────────────────────
@@ -234,11 +198,13 @@ export class ReportsPage {
     const presets = document.createElement('div');
     presets.className = 'reports-presets';
 
+    // eslint-disable-next-line prefer-const -- forward-referenced inside PRESETS forEach click handler before assignment below
     let customRow: HTMLElement;
 
     PRESETS.forEach(({ key, label }) => {
       const btn = document.createElement('button');
       btn.className = `reports-preset-btn${this.preset === key ? ' active' : ''}`;
+      btn.dataset['testid'] = `reports-preset-${key}`;
       btn.textContent = label;
       btn.addEventListener('click', () => {
         if (key === 'custom') {
@@ -258,7 +224,6 @@ export class ReportsPage {
     });
     wrap.appendChild(presets);
 
-    // Custom date row
     customRow = document.createElement('div');
     customRow.className = 'reports-custom-row';
     customRow.style.display = this.preset === 'custom' ? 'flex' : 'none';
@@ -266,6 +231,7 @@ export class ReportsPage {
     const startInput = document.createElement('input');
     startInput.type = 'date';
     startInput.value = this.customStartStr || localStr(this.rangeStart);
+    startInput.dataset['testid'] = 'reports-custom-start';
 
     const arrow = document.createElement('span');
     arrow.textContent = '→';
@@ -274,10 +240,12 @@ export class ReportsPage {
     const endInput = document.createElement('input');
     endInput.type = 'date';
     endInput.value = this.customEndStr || localStr(this.rangeEnd);
+    endInput.dataset['testid'] = 'reports-custom-end';
 
     const apply = document.createElement('button');
     apply.className = 'btn btn-primary btn-sm';
     apply.textContent = 'Apply';
+    apply.dataset['testid'] = 'reports-custom-apply';
     apply.addEventListener('click', () => {
       if (!startInput.value || !endInput.value) return;
       this.customStartStr = startInput.value;
@@ -295,7 +263,8 @@ export class ReportsPage {
 
     const lbl = document.createElement('p');
     lbl.className = 'text-xs text-muted reports-range-label';
-    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    lbl.dataset['testid'] = 'reports-range-label';
+    const fmt = (d: Date) => d.toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
     lbl.textContent = `${fmt(this.rangeStart)} – ${fmt(this.rangeEnd)}`;
     wrap.appendChild(lbl);
 
@@ -305,16 +274,20 @@ export class ReportsPage {
   // ── KPI chips ─────────────────────────────────────────────────────────────
 
   private buildKpis(expenses: Expense[], charges: CardCharge[], startTs: number, endTs: number): HTMLElement {
-    const totalSpending = expenses.reduce((s, e) => s + e.amount, 0)
-                        + charges.reduce((s, c) => s + c.amount, 0);
+    const filteredPaidRecs = this.paidRecords.filter(r => r.date >= startTs && r.date < endTs);
+    const filteredPayments = this.payments.filter(p => p.date >= startTs && p.date < endTs);
+
+    const totalSpending = expenses.filter(e => !e.recurring).reduce((s, e) => s + e.amount, 0)
+                        + charges.reduce((s, c) => s + c.amount, 0)
+                        + filteredPaidRecs.reduce((s, r) => s + r.amount, 0)
+                        + filteredPayments.reduce((s, p) => s + p.amount, 0);
 
     const months = monthKeys(this.rangeStart, this.rangeEnd);
     const active = this.incomeSources.filter((s) => s.active && s.frequency !== 'once');
     const onceItems = this.incomeSources.filter((s) => s.frequency === 'once' && s.date !== undefined && s.date >= startTs && s.date < endTs);
 
     const monthlyRate = active.reduce((s, src) => s + sourceMonthly(src), 0);
-    const totalIncome = monthlyRate * months.length
-                      + onceItems.reduce((s, src) => s + src.amount, 0);
+    const totalIncome = monthlyRate * months.length + onceItems.reduce((s, src) => s + src.amount, 0);
 
     const hasIncome = totalIncome > 0;
     const net = totalIncome - totalSpending;
@@ -329,749 +302,190 @@ export class ReportsPage {
     const grid = document.createElement('div');
     grid.className = 'reports-kpis';
 
-    const chips: { label: string; value: string; sub?: string; color: string }[] = [
-      {
-        label: 'Total Spending',
-        value: fmtCents.format(totalSpending),
-        sub: `${expenses.length + charges.length} transactions`,
-        color: 'var(--ff-rust)',
-      },
-      {
-        label: 'Total Income',
-        value: hasIncome ? USD.format(totalIncome) : '—',
-        sub: hasIncome ? `${months.length} month${months.length !== 1 ? 's' : ''} of data` : 'No income sources',
-        color: 'var(--ff-green)',
-      },
-      {
-        label: 'Net Cash Flow',
-        value: hasIncome ? (net >= 0 ? '+' : '') + USD.format(net) : '—',
-        ...(hasIncome ? { sub: net >= 0 ? 'surplus' : 'deficit' } : {}),
-        color: !hasIncome ? 'var(--color-text-muted)' : net >= 0 ? 'var(--ff-green)' : 'var(--color-danger)',
-      },
-      {
-        label: hasIncome ? 'Savings Rate' : 'Top Category',
-        value: hasIncome ? savingsRate.toFixed(1) + '%' : topCatName,
-        ...(hasIncome ? { sub: savingsRate >= 20 ? '✓ On track' : savingsRate < 0 ? 'Spending exceeds income' : 'Below 20% target' } : {}),
-        color: hasIncome
-          ? (savingsRate >= 20 ? 'var(--ff-green)' : savingsRate < 0 ? 'var(--color-danger)' : 'var(--ff-gold-dark)')
-          : 'var(--color-text)',
-      },
-    ];
-
-    chips.forEach(({ label, value, sub, color }) => {
-      const chip = document.createElement('div');
-      chip.className = 'reports-kpi';
-      chip.innerHTML = `
-        <span class="reports-kpi-label">${label}</span>
-        <span class="reports-kpi-value" style="color:${color}">${value}</span>
-        ${sub ? `<span class="reports-kpi-sub">${sub}</span>` : ''}
-      `;
-      grid.appendChild(chip);
+    // ── Total Spending (expandable) ──────────────────────────────────────────
+    const txCount = expenses.filter(e => !e.recurring).length + charges.length + filteredPaidRecs.length + filteredPayments.length;
+    const spendChip = document.createElement('div');
+    spendChip.className = 'reports-kpi reports-kpi--expandable';
+    spendChip.dataset['testid'] = 'reports-kpi-spending';
+    spendChip.innerHTML = `
+      <span class="reports-kpi-label">Total Spending</span>
+      <span class="reports-kpi-value" style="color:var(--ff-rust)">${fmtCents.format(totalSpending)}</span>
+      <span class="reports-kpi-sub reports-kpi-toggle">${txCount} transactions ▾</span>
+    `;
+    const spendDetail = this.buildSpendingDetail(expenses, charges, filteredPaidRecs, filteredPayments);
+    spendChip.appendChild(spendDetail);
+    spendChip.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.reports-kpi-detail')) return;
+      spendDetail.hidden = !spendDetail.hidden;
+      const t = spendChip.querySelector<HTMLElement>('.reports-kpi-toggle');
+      if (t) t.textContent = `${txCount} transactions ${spendDetail.hidden ? '▾' : '▴'}`;
     });
+    grid.appendChild(spendChip);
+
+    // ── Total Income (expandable) ────────────────────────────────────────────
+    const incomeChip = document.createElement('div');
+    incomeChip.className = `reports-kpi${hasIncome ? ' reports-kpi--expandable' : ''}`;
+    incomeChip.dataset['testid'] = 'reports-kpi-income';
+    incomeChip.innerHTML = `
+      <span class="reports-kpi-label">Total Income</span>
+      <span class="reports-kpi-value" style="color:var(--ff-green)">${hasIncome ? fmtCents.format(totalIncome) : '—'}</span>
+      <span class="reports-kpi-sub reports-kpi-toggle">${hasIncome ? `${months.length} month${months.length !== 1 ? 's' : ''} of data ▾` : 'No income sources'}</span>
+    `;
+    if (hasIncome) {
+      const incomeDetail = this.buildIncomeDetail(months);
+      incomeChip.appendChild(incomeDetail);
+      incomeChip.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.reports-kpi-detail')) return;
+        incomeDetail.hidden = !incomeDetail.hidden;
+        const t = incomeChip.querySelector<HTMLElement>('.reports-kpi-toggle');
+        if (t) t.textContent = `${months.length} month${months.length !== 1 ? 's' : ''} of data ${incomeDetail.hidden ? '▾' : '▴'}`;
+      });
+    }
+    grid.appendChild(incomeChip);
+
+    // ── Net Cash Flow ────────────────────────────────────────────────────────
+    const netChip = document.createElement('div');
+    netChip.className = 'reports-kpi';
+    netChip.dataset['testid'] = 'reports-kpi-net';
+    const netColor = !hasIncome ? 'var(--color-text-muted)' : net >= 0 ? 'var(--ff-green)' : 'var(--color-danger)';
+    netChip.innerHTML = `
+      <span class="reports-kpi-label">Net Cash Flow</span>
+      <span class="reports-kpi-value" style="color:${netColor}">${hasIncome ? (net >= 0 ? '+' : '') + USD.format(net) : '—'}</span>
+      ${hasIncome ? `<span class="reports-kpi-sub">${net >= 0 ? 'surplus' : 'deficit'}</span>` : ''}
+    `;
+    grid.appendChild(netChip);
+
+    // ── Savings Rate / Top Category ──────────────────────────────────────────
+    const srChip = document.createElement('div');
+    srChip.className = 'reports-kpi';
+    srChip.dataset['testid'] = 'reports-kpi-savings';
+    const srColor = hasIncome
+      ? (savingsRate >= 20 ? 'var(--ff-green)' : savingsRate < 0 ? 'var(--color-danger)' : 'var(--ff-gold-dark)')
+      : 'var(--color-text)';
+    srChip.innerHTML = `
+      <span class="reports-kpi-label">${hasIncome ? 'Savings Rate' : 'Top Category'}</span>
+      <span class="reports-kpi-value" style="color:${srColor}">${hasIncome ? savingsRate.toFixed(1) + '%' : topCatName}</span>
+      ${hasIncome ? `<span class="reports-kpi-sub">${savingsRate >= 20 ? '✓ On track' : savingsRate < 0 ? 'Spending exceeds income' : 'Below 20% target'}</span>` : ''}
+    `;
+    grid.appendChild(srChip);
 
     return grid;
   }
 
-  // ── Spending Over Time ──────────────────────────────────────────────────
+  private buildSpendingDetail(
+    expenses: Expense[], charges: CardCharge[],
+    paidRecs: ExpensePaidRecord[], payments: DebtPayment[],
+  ): HTMLElement {
+    const detail = document.createElement('div');
+    detail.className = 'reports-kpi-detail';
+    detail.hidden = true;
 
-  private buildSpendingOverTime(expenses: Expense[], charges: CardCharge[]): HTMLElement {
-    const card = this.card('Spending Over Time', 'Monthly totals for all tracked expenses and card charges');
+    const rows: { date: number; name: string; amount: number; badge: string }[] = [];
+    expenses.filter(e => !e.recurring).forEach(e =>
+      rows.push({ date: e.date, name: e.description, amount: e.amount, badge: 'expense' }));
+    charges.forEach(c =>
+      rows.push({ date: c.date, name: c.merchant, amount: c.amount, badge: 'charge' }));
+    paidRecs.forEach(r => {
+      const ex = this.expenses.find(e => e.id === r.expenseId);
+      rows.push({ date: r.date, name: ex?.description ?? 'Bill payment', amount: r.amount, badge: 'bill' });
+    });
+    payments.forEach(p => {
+      const acct = this.accounts.find(a => a.id === p.accountId);
+      rows.push({ date: p.date, name: acct?.name ?? 'Debt payment', amount: p.amount, badge: 'debt' });
+    });
+    rows.sort((a, b) => b.date - a.date);
 
-    const keys = monthKeys(this.rangeStart, this.rangeEnd);
-    if (keys.length === 0 || (expenses.length === 0 && charges.length === 0)) {
-      card.appendChild(this.empty('No spending data in this range'));
-      return card;
+    if (rows.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'reports-kpi-detail-empty';
+      empty.textContent = 'No transactions in this range';
+      detail.appendChild(empty);
+      return detail;
     }
 
-    const expMap = new Map(keys.map((k) => [k, 0]));
-    const chgMap = new Map(keys.map((k) => [k, 0]));
-    expenses.forEach((e) => { const k = mKey(e.date); if (expMap.has(k)) expMap.set(k, expMap.get(k)! + e.amount); });
-    charges.forEach((c)  => { const k = mKey(c.date); if (chgMap.has(k)) chgMap.set(k, chgMap.get(k)! + c.amount); });
+    rows.forEach(tx => {
+      const row = document.createElement('div');
+      row.className = 'reports-kpi-tx-row';
+      const dateStr = new Date(tx.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric' });
+      row.innerHTML = `
+        <span class="reports-kpi-tx-date">${escapeHtml(dateStr)}</span>
+        <span class="reports-kpi-tx-name">${escapeHtml(tx.name)}</span>
+        <span class="reports-kpi-tx-badge reports-kpi-tx-badge--${tx.badge}">${tx.badge}</span>
+        <span class="reports-kpi-tx-amt">${fmtCents.format(tx.amount)}</span>
+      `;
+      detail.appendChild(row);
+    });
 
-    const labels   = keys.map(mLabel);
-    const expData  = keys.map((k) => expMap.get(k)!);
-    const chgData  = keys.map((k) => chgMap.get(k)!);
-    const hasChg   = charges.length > 0;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--lg';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    const datasets: ChartDataset<'bar', number[]>[] = [];
-    if (hasChg) {
-      datasets.push({ label: 'Card Charges', data: chgData, backgroundColor: C.navy + 'CC', borderRadius: 3, stack: 'spending' });
-    }
-    datasets.push({ label: 'Expenses', data: expData, backgroundColor: C.rust + 'CC', borderRadius: 3, stack: 'spending' });
-
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'bar',
-      data: { labels, datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
-          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${USD2.format(c.parsed.y ?? 0)}` } },
-        },
-        scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-        },
-      },
-    }));
-    return card;
+    return detail;
   }
 
-  // ── Category Breakdown ──────────────────────────────────────────────────
+  private buildIncomeDetail(months: string[]): HTMLElement {
+    const detail = document.createElement('div');
+    detail.className = 'reports-kpi-detail';
+    detail.hidden = true;
 
-  private buildCategoryBreakdown(expenses: Expense[], charges: CardCharge[]): HTMLElement {
-    const card = this.card('By Category', 'Spending share across expense categories');
-
-    const catMap = new Map(this.categories.map((c) => [c.id, c]));
-    const totals = new Map<string, { cat: ExpenseCategory; total: number }>();
-
-    const addToCategory = (categoryId: string | undefined, amount: number) => {
-      if (!categoryId) return;
-      const cat = catMap.get(categoryId);
-      if (!cat) return;
-      const entry = totals.get(categoryId) ?? { cat, total: 0 };
-      entry.total += amount;
-      totals.set(categoryId, entry);
+    const FREQ_TAG: Record<string, string> = {
+      weekly: 'weekly', biweekly: 'biweekly', semimonthly: '2×/mo',
+      monthly: 'monthly', quarterly: 'quarterly', annual: 'annual', once: 'one-time',
+    };
+    const ord = (n: number): string => {
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] ?? s[v] ?? s[0]!;
     };
 
-    expenses.forEach((e) => addToCategory(e.categoryId, e.amount));
-    charges.forEach((c) => addToCategory(c.categoryId, c.amount));
+    months.forEach(k => {
+      const [yr, mo] = k.split('-').map(Number);
+      const year = yr!;
+      const month = mo! - 1;
 
-    if (totals.size === 0) {
-      card.appendChild(this.empty('No categorized spending in this range'));
-      return card;
-    }
+      const section = document.createElement('div');
+      section.className = 'reports-kpi-inc-month';
 
-    const sorted = [...totals.values()].sort((a, b) => b.total - a.total);
-    const grandTotal = sorted.reduce((s, e) => s + e.total, 0);
+      const heading = document.createElement('div');
+      heading.className = 'reports-kpi-inc-heading';
+      heading.textContent = new Date(year, month, 1).toLocaleDateString(userLocale, { month: 'long', year: 'numeric' });
+      section.appendChild(heading);
 
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--sm';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
+      // One-time income landing this month
+      this.incomeSources
+        .filter(s => s.active && s.frequency === 'once' && s.date != null)
+        .filter(s => { const d = new Date(s.date!); return d.getFullYear() === year && d.getMonth() === month; })
+        .forEach(src => {
+          const day = new Date(src.date!).getDate();
+          section.appendChild(makeKpiIncRow(src.name, fmtCents.format(src.amount), 'one-time', `${day}${ord(day)}`));
+        });
 
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: sorted.map((e) => e.cat.name),
-        datasets: [{
-          data: sorted.map((e) => e.total),
-          backgroundColor: sorted.map((e) => e.cat.color + 'CC'),
-          borderColor: sorted.map((e) => e.cat.color),
-          borderWidth: 1.5,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (c) => {
-                const pct = ((c.parsed / grandTotal) * 100).toFixed(1);
-                return `${c.label}: ${USD2.format(c.parsed)} (${pct}%)`;
-              },
-            },
-          },
-        },
-      },
-    }));
+      // Recurring income
+      this.incomeSources
+        .filter(s => s.active && s.frequency !== 'once')
+        .forEach(src => {
+          const days = getPaydaysInMonth(src, year, month);
+          if (days.length === 0 && src.paydayRef != null && (src.frequency === 'quarterly' || src.frequency === 'annual')) return;
+          const daysStr = days.map(d => `${d}${ord(d)}`).join(' & ');
+          const amtStr = src.frequency === 'semimonthly' && src.amount2 != null && src.amount2 !== src.amount
+            ? `${fmtCents.format(src.amount)} / ${fmtCents.format(src.amount2)}`
+            : fmtCents.format(src.amount);
+          section.appendChild(makeKpiIncRow(src.name, amtStr, FREQ_TAG[src.frequency] ?? src.frequency, daysStr));
+        });
 
-    const table = document.createElement('div');
-    table.className = 'reports-table';
-    sorted.slice(0, 10).forEach(({ cat, total }) => {
-      const pct = ((total / grandTotal) * 100).toFixed(1);
-      const row = document.createElement('div');
-      row.className = 'reports-table-row';
-      row.innerHTML = `
-        <span class="reports-color-dot" style="background:${cat.color}"></span>
-        <span class="reports-table-name">${cat.name}</span>
-        <span class="reports-table-pct">${pct}%</span>
-        <span class="reports-table-value">${fmtCents.format(total)}</span>
-      `;
-      table.appendChild(row);
-    });
-    card.appendChild(table);
-
-    return card;
-  }
-
-  // ── Top Merchants ───────────────────────────────────────────────────────
-
-  private buildTopMerchants(charges: CardCharge[]): HTMLElement {
-    const card = this.card('Top Merchants', 'Where your card charges are going — top 12 by total spend');
-
-    if (charges.length === 0) {
-      card.appendChild(this.empty('No card charges in this range'));
-      return card;
-    }
-
-    const totals = new Map<string, number>();
-    charges.forEach((c) => totals.set(c.merchant, (totals.get(c.merchant) ?? 0) + c.amount));
-    const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: sorted.map(([m]) => m),
-        datasets: [{
-          label: 'Total',
-          data: sorted.map(([, v]) => v),
-          backgroundColor: sorted.map((_, i) => (SERIES[i % SERIES.length]!) + 'CC'),
-          borderRadius: 3,
-        }],
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (c) => USD2.format(c.parsed.x ?? 0) } },
-        },
-        scales: {
-          x: { beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-          y: { grid: { display: false } },
-        },
-      },
-    }));
-
-    return card;
-  }
-
-  // ── Income vs Spending ──────────────────────────────────────────────────
-
-  private buildIncomeVsSpending(expenses: Expense[], charges: CardCharge[], startTs: number, endTs: number): HTMLElement {
-    const card = this.card('Income vs Spending', 'Monthly income compared to total spending with net cash flow');
-
-    const keys = monthKeys(this.rangeStart, this.rangeEnd);
-    if (keys.length === 0) { card.appendChild(this.empty('No data in this range')); return card; }
-
-    const spendMap = new Map(keys.map((k) => [k, 0]));
-    expenses.forEach((e) => { const k = mKey(e.date); if (spendMap.has(k)) spendMap.set(k, spendMap.get(k)! + e.amount); });
-    charges.forEach((c)  => { const k = mKey(c.date); if (spendMap.has(k)) spendMap.set(k, spendMap.get(k)! + c.amount); });
-
-    const incomeMap = new Map(keys.map((k) => [k, 0]));
-    const monthly = this.incomeSources.filter((s) => s.active && s.frequency !== 'once').reduce((s, src) => s + sourceMonthly(src), 0);
-    keys.forEach((k) => incomeMap.set(k, monthly));
-    this.incomeSources
-      .filter((s) => s.frequency === 'once' && s.date !== undefined && s.date >= startTs && s.date < endTs)
-      .forEach((src) => { const k = mKey(src.date!); if (incomeMap.has(k)) incomeMap.set(k, incomeMap.get(k)! + src.amount); });
-
-    const hasIncome = [...incomeMap.values()].some((v) => v > 0);
-
-    if (!hasIncome && expenses.length === 0 && charges.length === 0) {
-      card.appendChild(this.empty('No income or spending data in this range'));
-      return card;
-    }
-
-    const labels    = keys.map(mLabel);
-    const incData   = keys.map((k) => incomeMap.get(k)!);
-    const spendData = keys.map((k) => spendMap.get(k)!);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--lg';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    const datasets: ChartDataset<'bar', number[]>[] = [];
-    if (hasIncome) {
-      datasets.push({ label: 'Income', data: incData, backgroundColor: C.green + 'CC', borderRadius: 3 });
-    }
-    datasets.push({ label: 'Spending', data: spendData, backgroundColor: C.rust + 'CC', borderRadius: 3 });
-
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'bar',
-      data: { labels, datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
-          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${USD2.format(c.parsed.y ?? 0)}` } },
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-        },
-      },
-    }));
-
-    // Net cash flow chips per month (only when income exists)
-    if (hasIncome) {
-      const summary = document.createElement('div');
-      summary.className = 'reports-net-summary';
-      keys.forEach((k, i) => {
-        const net = incData[i]! - spendData[i]!;
-        const chip = document.createElement('div');
-        chip.className = 'reports-net-chip';
-        chip.innerHTML = `
-          <span class="text-xs text-muted">${labels[i]}</span>
-          <span class="reports-net-chip-value" style="color:${net >= 0 ? C.green : C.danger}">
-            ${net >= 0 ? '+' : ''}${USD.format(net)}
-          </span>
-        `;
-        summary.appendChild(chip);
-      });
-      card.appendChild(summary);
-    }
-
-    return card;
-  }
-
-  // ── Spending by Day of Week ─────────────────────────────────────────────
-
-  private buildSpendingByDay(expenses: Expense[], charges: CardCharge[]): HTMLElement {
-    const card = this.card('Spending by Day', 'Which days of the week cost you the most');
-
-    const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const byDay = [0, 0, 0, 0, 0, 0, 0];
-    expenses.forEach((e) => { byDay[new Date(e.date).getDay()]! += e.amount; });
-    charges.forEach((c)  => { byDay[new Date(c.date).getDay()]! += c.amount; });
-
-    if (byDay.every((v) => v === 0)) { card.appendChild(this.empty('No spending data in this range')); return card; }
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--sm';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    const maxVal = Math.max(...byDay);
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: DAY,
-        datasets: [{
-          label: 'Spending',
-          data: byDay,
-          backgroundColor: byDay.map((v) => v === maxVal ? C.rust + 'EE' : C.rust + '66'),
-          borderRadius: 4,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (c) => USD2.format(c.parsed.y ?? 0) } },
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-        },
-      },
-    }));
-
-    const worst = DAY[byDay.indexOf(maxVal)]!;
-    const note = document.createElement('p');
-    note.className = 'text-xs text-muted';
-    note.textContent = `Heaviest spending day: ${worst} (${fmtCents.format(maxVal)} total in range)`;
-    card.appendChild(note);
-
-    return card;
-  }
-
-  // ── Biggest Transactions ────────────────────────────────────────────────
-
-  private buildBiggestTransactions(expenses: Expense[], charges: CardCharge[]): HTMLElement {
-    const card = this.card('Biggest Transactions', 'Largest individual expenses and card charges in this range');
-
-    type Row = { name: string; amount: number; date: number; kind: 'expense' | 'charge' };
-    const all: Row[] = [
-      ...expenses.map((e) => ({ name: e.description, amount: e.amount, date: e.date, kind: 'expense' as const })),
-      ...charges.map((c)  => ({ name: c.merchant,    amount: c.amount, date: c.date, kind: 'charge'  as const })),
-    ];
-
-    if (all.length === 0) { card.appendChild(this.empty('No transactions in this range')); return card; }
-
-    all.sort((a, b) => b.amount - a.amount);
-
-    const table = document.createElement('div');
-    table.className = 'reports-table';
-    all.slice(0, 12).forEach(({ name, amount, date, kind }) => {
-      const row = document.createElement('div');
-      row.className = 'reports-table-row';
-      const dateStr = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      row.innerHTML = `
-        <span class="reports-type-badge reports-type-badge--${kind}">${kind === 'charge' ? 'Card' : 'Exp.'}</span>
-        <span class="reports-table-name">${name}</span>
-        <span class="text-xs text-muted" style="white-space:nowrap">${dateStr}</span>
-        <span class="reports-table-value">${fmtCents.format(amount)}</span>
-      `;
-      table.appendChild(row);
-    });
-    card.appendChild(table);
-
-    return card;
-  }
-
-  // ── Card Balance Trend ──────────────────────────────────────────────────
-
-  private buildCardBalanceTrend(cardAccounts: DebtAccount[]): HTMLElement {
-    const card = this.card('Card Balance Trend', 'Reconstructed balance history from recorded payments — a rising line means the card is creeping up');
-
-    const series: { account: DebtAccount; points: { date: number; balance: number }[] }[] = [];
-
-    cardAccounts.forEach((acct) => {
-      const acctPayments = this.payments
-        .filter((p) => p.accountId === acct.id)
-        .sort((a, b) => a.date - b.date);
-
-      if (acctPayments.length === 0) return;
-
-      let balance = acct.balance;
-      const points: { date: number; balance: number }[] = [{ date: Date.now(), balance }];
-      for (let i = acctPayments.length - 1; i >= 0; i--) {
-        balance += acctPayments[i]!.amount;
-        points.unshift({ date: acctPayments[i]!.date, balance });
-      }
-      series.push({ account: acct, points });
+      detail.appendChild(section);
     });
 
-    if (series.length === 0) {
-      card.appendChild(this.empty('No payment history recorded for card accounts yet'));
-      return card;
-    }
-
-    const allDates = [...new Set(series.flatMap((s) => s.points.map((p) => p.date)))].sort((a, b) => a - b);
-    const labels = allDates.map((d) =>
-      new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-    );
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--lg';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    const datasets = series.map((s, i) => {
-      const pointMap = new Map(s.points.map((p) => [p.date, p.balance]));
-      let last = s.points[0]?.balance ?? 0;
-      const data = allDates.map((d) => {
-        if (pointMap.has(d)) last = pointMap.get(d)!;
-        return last;
-      });
-      const color = SERIES[i % SERIES.length]!;
-      return {
-        label: s.account.name,
-        data,
-        borderColor: color,
-        backgroundColor: color + '18',
-        fill: false,
-        tension: 0.25,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      };
-    });
-
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
-          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${USD2.format(c.parsed.y ?? 0)}` } },
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-          y: { beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-        },
-      },
-    }));
-
-    // Creep warnings
-    series.forEach(({ account, points }) => {
-      if (points.length < 2) return;
-      const first = points[0]!.balance;
-      const last  = points[points.length - 1]!.balance;
-      if (last > first * 1.05) {
-        const warn = document.createElement('div');
-        warn.className = 'reports-creep-warn';
-        warn.innerHTML = `⚠️ <strong>${account.name}</strong> has grown ${fmtCents.format(last - first)} since the first recorded payment — balance may be creeping up.`;
-        card.appendChild(warn);
-      }
-    });
-
-    return card;
+    return detail;
   }
+}
 
-  // ── Common Overage Offenders ────────────────────────────────────────────
-
-  private buildOverageOffenders(): HTMLElement {
-    const card = this.card(
-      'Common Overage Offenders',
-      'Recurring expenses — showing actual paid amounts vs the monthly threshold across months',
-    );
-
-    // All recurring expenses with at least one paid record
-    const tracked = this.expenses.filter((e) => e.recurring && e.amount > 0);
-    if (tracked.length === 0) {
-      const tip = document.createElement('div');
-      tip.className = 'reports-empty';
-      tip.innerHTML = `
-        <span class="reports-empty-icon">⚡</span>
-        <p>No recurring expenses yet.</p>
-        <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">
-          Add recurring expenses and record payments to start seeing overage history.
-        </p>
-      `;
-      card.appendChild(tip);
-      return card;
-    }
-
-    const offenders = tracked
-      .map((expense) => {
-        const records = this.paidRecords
-          .filter((r) => r.expenseId === expense.id)
-          .sort((a, b) => a.date - b.date);
-        return { expense, records };
-      })
-      .filter(({ records }) => records.length > 0)
-      .sort((a, b) => {
-        // Sort by over-budget frequency desc
-        const aOver = a.records.filter((r) => r.amount > a.expense.amount).length;
-        const bOver = b.records.filter((r) => r.amount > b.expense.amount).length;
-        return bOver - aOver;
-      });
-
-    if (offenders.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'reports-empty';
-      empty.innerHTML = `
-        <span class="reports-empty-icon">✓</span>
-        <p>No payment history yet for recurring expenses.</p>
-        <p style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">
-          Record payments on your bills to start building overage history.
-        </p>
-      `;
-      card.appendChild(empty);
-      return card;
-    }
-
-    const wrap = document.createElement('div');
-    wrap.className = 'overage-offenders-list';
-
-    offenders.forEach(({ expense, records }) => {
-      const threshold = expense.amount;
-      const overCount = records.filter((r) => r.amount > threshold).length;
-      const total = records.length;
-      const worst = Math.max(...records.map((r) => r.amount));
-      const worstOver = worst > threshold ? worst - threshold : 0;
-      const isChronicOffender = overCount >= 3 || (total >= 2 && overCount === total);
-
-      const item = document.createElement('div');
-      item.className = `overage-offender-item${isChronicOffender ? ' overage-offender-item--chronic' : ''}`;
-
-      // Header row
-      const header = document.createElement('div');
-      header.className = 'overage-offender-header';
-      header.innerHTML = `
-        <span class="overage-offender-name">${expense.description}</span>
-        <span class="overage-offender-meta">
-          Monthly Threshold: ${USD2.format(threshold)}
-          · <span class="${overCount > 0 ? 'overage-count-badge' : 'text-muted'}">${overCount} of ${total} over budget</span>
-          ${worstOver > 0 ? `· Worst: +${USD2.format(worstOver)} over` : ''}
-          ${isChronicOffender ? ' 🔥' : ''}
-        </span>
-      `;
-      item.appendChild(header);
-
-      // Month-by-month cells
-      const monthGrid = document.createElement('div');
-      monthGrid.className = 'overage-month-grid';
-
-      records.forEach((r) => {
-        const d = new Date(r.date);
-        const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        const isOver = r.amount > threshold;
-        const diff = r.amount - threshold;
-        const cell = document.createElement('div');
-        cell.className = `overage-month-cell${isOver ? ' overage-month-cell--over' : ' overage-month-cell--ok'}`;
-        cell.title = isOver
-          ? `${monthLabel}: ${USD2.format(r.amount)} — over by ${USD2.format(diff)}`
-          : `${monthLabel}: ${USD2.format(r.amount)} — within target`;
-        cell.innerHTML = `
-          <span class="overage-month-label">${monthLabel}</span>
-          <span class="overage-month-amount">${USD2.format(r.amount)}</span>
-          ${isOver ? `<span class="overage-month-diff">+${USD2.format(diff)}</span>` : '<span class="overage-month-ok">✓</span>'}
-        `;
-        monthGrid.appendChild(cell);
-      });
-
-      item.appendChild(monthGrid);
-
-      // Seasonal pattern detection
-      const overMonths = records
-        .filter((r) => r.amount > threshold)
-        .map((r) => new Date(r.date).getMonth()); // 0-indexed
-      const summerMonths = overMonths.filter((m) => m >= 5 && m <= 7).length;   // Jun–Aug
-      const winterMonths = overMonths.filter((m) => m === 11 || m <= 1).length; // Dec–Feb
-      const springMonths = overMonths.filter((m) => m >= 2 && m <= 4).length;   // Mar–May
-      const fallMonths   = overMonths.filter((m) => m >= 8 && m <= 10).length;  // Sep–Nov
-
-      const patterns: string[] = [];
-      if (summerMonths >= 2) patterns.push('☀️ tends to spike in summer');
-      if (winterMonths >= 2) patterns.push('❄️ tends to spike in winter');
-      if (springMonths >= 2) patterns.push('🌱 tends to spike in spring');
-      if (fallMonths >= 2)   patterns.push('🍂 tends to spike in fall');
-
-      if (patterns.length > 0) {
-        const patternEl = document.createElement('p');
-        patternEl.className = 'overage-season-note';
-        patternEl.textContent = `Seasonal pattern: ${patterns.join(', ')}. Plan ahead.`;
-        item.appendChild(patternEl);
-      }
-
-      wrap.appendChild(item);
-    });
-
-    card.appendChild(wrap);
-    return card;
-  }
-
-  // ── Spending by Week of Month ───────────────────────────────────────────
-
-  private buildSpendingByWeekOfMonth(expenses: Expense[], charges: CardCharge[]): HTMLElement {
-    const card = this.card('Spending by Week of Month', 'Which part of the month sees the most activity');
-
-    const weeks = [0, 0, 0, 0]; // weeks 1–4
-    const weekOf = (ts: number) => Math.min(Math.floor((new Date(ts).getDate() - 1) / 7), 3);
-    expenses.forEach((e) => { weeks[weekOf(e.date)]! += e.amount; });
-    charges.forEach((c)  => { weeks[weekOf(c.date)]! += c.amount; });
-
-    if (weeks.every((v) => v === 0)) { card.appendChild(this.empty('No data in this range')); return card; }
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--sm';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    const maxVal = Math.max(...weeks);
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: ['Week 1\n(1–7)', 'Week 2\n(8–14)', 'Week 3\n(15–21)', 'Week 4\n(22+)'],
-        datasets: [{
-          label: 'Spending',
-          data: weeks,
-          backgroundColor: weeks.map((v) => v === maxVal ? C.gold + 'EE' : C.gold + '88'),
-          borderRadius: 4,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (c) => USD2.format(c.parsed.y ?? 0) } },
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true, ticks: { callback: (v) => `$${Number(v).toLocaleString()}` } },
-        },
-      },
-    }));
-
-    return card;
-  }
-
-  // ── Recurring vs One-time Expenses ─────────────────────────────────────
-
-  private buildRecurringVsOneTime(expenses: Expense[]): HTMLElement {
-    const card = this.card('Recurring vs One-time', 'How much of your spending is predictable each month');
-
-    const recurringTotal  = expenses.filter((e) => e.recurring).reduce((s, e) => s + e.amount, 0);
-    const onetimeTotal    = expenses.filter((e) => !e.recurring).reduce((s, e) => s + e.amount, 0);
-    const grandTotal      = recurringTotal + onetimeTotal;
-
-    if (grandTotal === 0) { card.appendChild(this.empty('No expense data in this range')); return card; }
-
-    const wrap = document.createElement('div');
-    wrap.className = 'reports-chart-wrap reports-chart-wrap--sm';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    this.activeCharts.push(new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: ['Recurring', 'One-time'],
-        datasets: [{
-          data: [recurringTotal, onetimeTotal],
-          backgroundColor: [C.navy + 'CC', C.rust + 'CC'],
-          borderColor:      [C.navy, C.rust],
-          borderWidth: 1.5,
-        }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } },
-          tooltip: {
-            callbacks: {
-              label: (c) => {
-                const pct = ((c.parsed / grandTotal) * 100).toFixed(1);
-                return `${c.label}: ${USD2.format(c.parsed)} (${pct}%)`;
-              },
-            },
-          },
-        },
-      },
-    }));
-
-    const recap = document.createElement('div');
-    recap.className = 'reports-table';
-    [
-      { label: 'Recurring', value: recurringTotal, color: C.navy },
-      { label: 'One-time',  value: onetimeTotal,  color: C.rust },
-    ].forEach(({ label, value, color }) => {
-      const row = document.createElement('div');
-      row.className = 'reports-table-row';
-      const pct = ((value / grandTotal) * 100).toFixed(1);
-      row.innerHTML = `
-        <span class="reports-color-dot" style="background:${color}"></span>
-        <span class="reports-table-name">${label}</span>
-        <span class="reports-table-pct">${pct}%</span>
-        <span class="reports-table-value">${fmtCents.format(value)}</span>
-      `;
-      recap.appendChild(row);
-    });
-    card.appendChild(recap);
-
-    return card;
-  }
-
-  // ── Shared helpers ─────────────────────────────────────────────────────
-
-  private card(title: string, subtitle?: string): HTMLElement {
-    const el = document.createElement('div');
-    el.className = 'card reports-card';
-    el.innerHTML = `
-      <div class="reports-card-header">
-        <h2 class="font-serif" style="font-size:var(--text-lg)">${title}</h2>
-        ${subtitle ? `<p class="text-xs text-muted">${subtitle}</p>` : ''}
-      </div>
-    `;
-    return el;
-  }
-
-  private empty(msg: string): HTMLElement {
-    const el = document.createElement('div');
-    el.className = 'reports-empty';
-    el.innerHTML = `<span class="reports-empty-icon">📊</span><p>${msg}</p>`;
-    return el;
-  }
+function makeKpiIncRow(name: string, amount: string, freq: string, days: string): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'reports-kpi-inc-row';
+  row.innerHTML = `
+    <span class="reports-kpi-inc-name">${escapeHtml(name)}</span>
+    <span class="reports-kpi-inc-meta">
+      <span class="reports-kpi-inc-amt">${amount}</span>
+      <span class="reports-kpi-inc-freq">${escapeHtml(freq)}</span>
+      ${days ? `<span class="reports-kpi-inc-days">${escapeHtml(days)}</span>` : ''}
+    </span>
+  `;
+  return row;
 }

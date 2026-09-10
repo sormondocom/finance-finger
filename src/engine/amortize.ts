@@ -8,6 +8,62 @@ import type {
   MultiCardResult,
 } from '@/types';
 
+// ── Formulas ──────────────────────────────────────────────────────────────────
+//
+// All calculations use NOMINAL APR — the rate printed on your statement and
+// legally required by disclosure law in the US and most other markets.
+// (Nominal APR differs from Effective Annual Rate / EAR, which compounds
+//  the periodic rate back up to an annual figure.  We use nominal because
+//  it matches the rate on the debt agreement.)
+//
+// PERIODIC INTEREST RATE (single-card)
+//   r = APR / 100 / N
+//   N = periods per year:  weekly 52 · biweekly 26 · semimonthly 24 · monthly 12
+//
+// INTEREST ACCRUED IN ONE PERIOD
+//   I = B × r       (B = current balance)
+//
+// MINIMUM PAYMENT
+//   fixed:      min(B, fixedAmount)
+//   percentage: min(B, max(MIN_PAYMENT_FLOOR, B × pct%))
+//   The $25 floor prevents the "always owe $0.37" edge case on tiny balances.
+//
+// PAYMENT PER PERIOD
+//   payment = min(minPayment + extraPayment,  B + I)   ← never overpay
+//
+// PRINCIPAL REDUCTION
+//   Δ = payment − I
+//   If APR is high enough that I > minPayment, Δ is negative — the schedule
+//   shows this explicitly so the user can see the debt-trap condition.
+//
+// BALANCE UPDATE
+//   B′ = max(0, B − Δ)
+//
+// MULTI-CARD (amortizeMultiCard) — always runs on a monthly basis
+//   r_m = APR / 100 / 12
+//   This equals (nominal weekly rate) × 52/12 = (biweekly) × 26/12 = APR/12,
+//   so no separate conversion is needed; the monthly simplification is exact
+//   for nominal APR across all payment cycles.
+//
+//   Strategy ordering:
+//     Avalanche — highest APR first (minimises total interest paid)
+//     Snowball  — lowest balance first (maximises early payoff wins)
+//     Custom    — preserves the caller-supplied order
+//
+//   Payment rollover: when a card reaches zero its minimum payment is added
+//   to the focus card's payment each subsequent month ("the snowball effect").
+//
+// MINIMUM-PAYMENT TRAP DETECTION
+//   A card is flagged as a trap if paying the minimum only results in:
+//     years-to-payoff > 3   OR   total-interest / original-balance > 0.50
+//
+// ── Change policy ─────────────────────────────────────────────────────────────
+// Any change to a formula above MUST also update:
+//   1. The comment block you are reading now
+//   2. The "Amortization engine — formulas" section in CONTRIBUTING.md
+//   3. Affected unit tests in src/engine/amortize.test.ts
+// The engine must never be a black box.
+//
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PERIODS_PER_YEAR: Record<PaymentCycle, number> = {

@@ -20,6 +20,11 @@ export default defineConfig({
         'src/engine/**/*.ts',
         'src/utils/**/*.ts',
       ],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 60,
+      },
       exclude: [
         'src/**/*.{test,spec}.ts',
         // Utils that depend on browser APIs unavailable in Node

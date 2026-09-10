@@ -14,6 +14,9 @@ import {
   getAllCalendarMemos,
   getCustomNotifications,
   getAllSettings,
+  getBankTransactions,
+  getImportRecords,
+  getTransactionRules,
   saveMember,
   saveIncomeSource,
   saveCategory,
@@ -29,6 +32,9 @@ import {
   saveCalendarMemo,
   saveCustomNotification,
   saveSetting,
+  saveBankTransaction,
+  saveImportRecord,
+  saveTransactionRule,
   deleteMember,
   deleteIncomeSource,
   deleteCategory,
@@ -44,6 +50,9 @@ import {
   deleteCalendarMemo,
   deleteCustomNotification,
   deleteSetting,
+  deleteBankTransaction,
+  deleteImportRecord,
+  deleteTransactionRule,
 } from '@/db';
 import { encryptToPublicKey, decryptWithPrivateKey } from './pgp';
 import type {
@@ -61,9 +70,12 @@ import type {
   CalendarMark,
   CalendarMemo,
   CustomNotification,
+  BankTransaction,
+  ImportRecord,
+  TransactionRule,
 } from '@/types';
 
-export const EXPORT_VERSION = 4 as const;
+export const EXPORT_VERSION = 5 as const;
 
 export interface ExportBundle {
   version: number;
@@ -84,6 +96,9 @@ export interface ExportBundle {
   calendarMemos?: CalendarMemo[];
   notifications?: CustomNotification[];
   settings?: Array<{ key: string; value: unknown }>;
+  bankTransactions?: BankTransaction[];
+  importRecords?: ImportRecord[];
+  transactionRules?: TransactionRule[];
 }
 
 export interface ImportResult {
@@ -102,6 +117,9 @@ export interface ImportResult {
   calendarMemos: number;
   notifications: number;
   settings: number;
+  bankTransactions: number;
+  importRecords: number;
+  transactionRules: number;
 }
 
 export async function buildExportBundle(exporterName: string): Promise<ExportBundle> {
@@ -121,6 +139,9 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     calendarMemos,
     notifications,
     settings,
+    bankTransactions,
+    importRecords,
+    transactionRules,
   ] = await Promise.all([
     getMembers(),
     getIncomeSources(),
@@ -137,6 +158,9 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     getAllCalendarMemos(),
     getCustomNotifications(),
     getAllSettings(),
+    getBankTransactions(),
+    getImportRecords(),
+    getTransactionRules(),
   ]);
   return {
     version: EXPORT_VERSION,
@@ -157,6 +181,9 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     calendarMemos,
     notifications,
     settings,
+    bankTransactions,
+    importRecords,
+    transactionRules,
   };
 }
 
@@ -184,7 +211,8 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       existingMembers, existingSources, existingCats, existingExpenses,
       existingAccounts, existingScenarios, existingPayments, existingCharges,
       existingPaidRecords, existingBankAccounts, existingTransfers, existingMarks,
-      existingMemos, existingNotifs, existingSettings,
+      existingMemos, existingNotifs, existingSettings, existingTxns,
+      existingImportRecords, existingRules,
     ] = await Promise.all([
       getMembers(),
       getIncomeSources(),
@@ -201,6 +229,9 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       getAllCalendarMemos(),
       getCustomNotifications(),
       getAllSettings(),
+      getBankTransactions(),
+      getImportRecords(),
+      getTransactionRules(),
     ]);
     await Promise.all([
       ...existingMembers.map((m) => deleteMember(m.id)),
@@ -218,6 +249,9 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       ...existingMemos.map((m) => deleteCalendarMemo(m.id)),
       ...existingNotifs.map((n) => deleteCustomNotification(n.id)),
       ...existingSettings.map((s) => deleteSetting(s.key)),
+      ...existingTxns.map((t) => deleteBankTransaction(t.id)),
+      ...existingImportRecords.map((r) => deleteImportRecord(r.id)),
+      ...existingRules.map((r) => deleteTransactionRule(r.id)),
     ]);
   }
 
@@ -237,6 +271,9 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
     ...(bundle.calendarMemos ?? []).map(saveCalendarMemo),
     ...(bundle.notifications ?? []).map(saveCustomNotification),
     ...(bundle.settings ?? []).map((s) => saveSetting(s.key, s.value)),
+    ...(bundle.bankTransactions ?? []).map(saveBankTransaction),
+    ...(bundle.importRecords ?? []).map(saveImportRecord),
+    ...(bundle.transactionRules ?? []).map(saveTransactionRule),
   ]);
 
   return {
@@ -255,5 +292,8 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
     calendarMemos: (bundle.calendarMemos ?? []).length,
     notifications: (bundle.notifications ?? []).length,
     settings: (bundle.settings ?? []).length,
+    bankTransactions: (bundle.bankTransactions ?? []).length,
+    importRecords: (bundle.importRecords ?? []).length,
+    transactionRules: (bundle.transactionRules ?? []).length,
   };
 }

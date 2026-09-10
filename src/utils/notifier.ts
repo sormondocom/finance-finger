@@ -2,6 +2,7 @@ import browser from 'webextension-polyfill';
 import { getDebtAccounts, getDebtPayments, getExpenses, getExpensePaidRecords } from '@/db';
 import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
 import { computeBillStatus } from '@/utils/billStatus';
+import { fmt } from '@/utils/finance';
 import type { Route } from '@/app/router';
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -88,7 +89,6 @@ async function computeAlertItems(): Promise<NotifierItem[]> {
       if (recent.length < 2) return;
       const overCount = recent.filter((r) => r.amount > e.amount).length;
       if (overCount >= 3 || (recent.length >= 2 && overCount === recent.length)) {
-        const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
         items.push({
           text: `📈 ${e.description} — over ${fmt.format(e.amount)} target ${overCount}× recently`,
           label: e.description,

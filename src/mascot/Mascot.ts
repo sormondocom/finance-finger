@@ -6,6 +6,7 @@ import { navigate } from '@/app/router';
 import { playCowbell } from '@/utils/bellSound';
 import type { NotifierItem } from '@/utils/notifier';
 import type { CustomNotification, MascotGender, MascotTrigger, VaultConfig } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 // ── Debt Payoff Celebration ───────────────────────────────────────────────────
 
@@ -294,7 +295,7 @@ export async function showAllDebtFreeCelebration(): Promise<void> {
   panel.appendChild(mascotRow);
 
   // All the kids
-  const showKids = kidCount > 0 || !hasPartner;
+  const _showKids = kidCount > 0 || !hasPartner;
   const kidsEl = document.createElement('div');
   kidsEl.className = 'celebration-kids celebration-kids--grand';
   const kidEmojis = ['🐷', '🐽', '🐷', '🐽'];
@@ -475,7 +476,7 @@ function renderItemsIntoList(list: HTMLElement, items: NotifierItem[]): void {
     if (item.dueDate) {
       const dateEl = document.createElement('span');
       dateEl.className = 'mascot-item-date';
-      dateEl.textContent = item.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      dateEl.textContent = item.dueDate.toLocaleDateString(userLocale, { month: 'short', day: 'numeric' });
       btn.appendChild(dateEl);
     }
 

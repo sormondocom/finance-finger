@@ -99,21 +99,21 @@ test('account with no data shows a placeholder hint, not a number', async () => 
 
 test('setup: add member Taylor with $3,000/mo income linked to River Bank', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Taylor');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Taylor' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Taylor');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Taylor' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Main Job');
   await page.fill('#sf-amount', '3000');
   // Frequency defaults to monthly
-  await page.selectOption('[data-testid="sf-account-select"]', { label: 'River Bank' });
+  await page.selectOption('[data-testid="income-sf-account-select"]', { label: 'River Bank' });
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Main Job' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Main Job' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-03-income-linked.png' });
 });
 
@@ -179,18 +179,18 @@ test('clicking next month returns the label to the current month', async () => {
 test('setup: add one-time income $1,000 for today linked to River Bank', async () => {
   await navigateTo(page, 'income');
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Client Payout');
   await page.fill('#sf-amount', '1000');
   await page.selectOption('#sf-freq', 'once');
   await page.fill('#sf-date', TODAY);
-  await page.selectOption('[data-testid="sf-account-select"]', { label: 'River Bank' });
+  await page.selectOption('[data-testid="income-sf-account-select"]', { label: 'River Bank' });
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Client Payout' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Client Payout' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-bal-08-onetime-added.png' });
 });
 

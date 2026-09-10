@@ -26,9 +26,9 @@ test.beforeAll(async () => {
 
   // Add a household member and income source so the reality panel has real numbers
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Alex');
-  await page.click('[data-testid="add-member-btn"]');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.fill('[data-testid="income-add-member-input"]', 'Alex');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Day Job');
   await page.fill('#sf-amount', '5000');

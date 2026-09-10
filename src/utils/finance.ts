@@ -1,16 +1,32 @@
 import type { IncomeFrequency } from '@/types';
 
+// ── Frequency → monthly conversion factors ────────────────────────────────────
+//
+// monthly equivalent income = amount × factor
+//
+//   weekly:       amount × 52/12    (52 pay days per year ÷ 12 months)
+//   biweekly:     amount × 26/12    (26 pay days per year ÷ 12 months)
+//   semimonthly:  amount × 2        (always exactly 2 per month by definition)
+//   monthly:      amount × 1        (identity)
+//   quarterly:    amount × 1/3      (12 months ÷ 4 quarters per year)
+//   annual:       amount × 1/12     (12 months per year)
+//   once:         factor = 0 — excluded from all recurring monthly totals
+//   hourly:       amount × 40 × 52/12   (legacy; assumes 40-hour week, not user-selectable)
+//
+// For semi-monthly sources with two unequal paychecks, call sourceMonthly() instead
+// of toMonthly() — it sums amount + amount2 directly without applying the factor.
+//
+// Change policy: if you add a frequency or change a factor, update the comment above,
+// the factor value, and MONTHLY_FACTORS in src/utils/finance.test.ts.
 export const MONTHLY_FACTORS: Record<IncomeFrequency, number> = {
-  // Legacy fallback only — 'hourly' is not a selectable frequency in the UI.
-  // Assumes a 40-hour work week: 40h × 52 weeks ÷ 12 months ≈ 173.33 h/month.
   hourly:      40 * 52 / 12,
-  weekly:      4.333,
-  biweekly:    2.167,
+  weekly:      52 / 12,
+  biweekly:    26 / 12,
   semimonthly: 2,
   monthly:     1,
   quarterly:   1 / 3,
   annual:      1 / 12,
-  once:        0, // one-time events excluded from recurring monthly totals
+  once:        0,
 };
 
 export const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
@@ -54,18 +70,19 @@ export const SUPPORTED_CURRENCIES: Array<{ code: string; name: string }> = [
   { code: 'AUD', name: 'Australian Dollar' },
   { code: 'NZD', name: 'New Zealand Dollar' },
   { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'INR', name: 'Indian Rupee' },
-  { code: 'MXN', name: 'Mexican Peso' },
-  { code: 'BRL', name: 'Brazilian Real' },
-  { code: 'ZAR', name: 'South African Rand' },
   { code: 'SEK', name: 'Swedish Krona' },
   { code: 'NOK', name: 'Norwegian Krone' },
   { code: 'DKK', name: 'Danish Krone' },
+  { code: 'TRY', name: 'Turkish Lira' },
+  { code: 'JPY', name: 'Japanese Yen' },
+  { code: 'CNY', name: 'Chinese Yuan' },
+  { code: 'INR', name: 'Indian Rupee' },
   { code: 'SGD', name: 'Singapore Dollar' },
   { code: 'HKD', name: 'Hong Kong Dollar' },
   { code: 'KRW', name: 'South Korean Won' },
+  { code: 'MXN', name: 'Mexican Peso' },
+  { code: 'BRL', name: 'Brazilian Real' },
+  { code: 'ZAR', name: 'South African Rand' },
 ];
 
 // ── Currency formatters ───────────────────────────────────────────────────────
@@ -74,7 +91,7 @@ export const SUPPORTED_CURRENCIES: Array<{ code: string; name: string }> = [
 // setCurrency() without touching any consumer.
 
 let _currency = 'USD';
-let _locale   = (typeof navigator !== 'undefined' ? navigator.language : null) || 'en-US';
+const _locale   = (typeof navigator !== 'undefined' ? navigator.language : null) || 'en-US';
 
 let _fmt = new Intl.NumberFormat(_locale, {
   style: 'currency',

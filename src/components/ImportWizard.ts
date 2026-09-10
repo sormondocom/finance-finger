@@ -26,12 +26,12 @@ import { inferActionType } from '@/utils/importSuggest';
 import { fmt, fmtCents } from '@/utils/finance';
 import type {
   CardCharge, BankTransaction, ExpenseCategory, ImportRecord,
-  Expense, DebtAccount, BankAccount,
-  ExpensePaidRecord, DebtPayment, AccountTransfer,
+  Expense, DebtPayment, AccountTransfer,
   DebtAccountType, IncomeFrequency,
-  TransactionRule, TransactionRuleAction,
+  TransactionRule,
   ReviewAction,
 } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 // ── Column roles ──────────────────────────────────────────────────────────────
 
@@ -215,12 +215,12 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       e.preventDefault();
       dropzone.classList.remove('drag-over');
       const file = e.dataTransfer?.files[0];
-      if (file) loadFile(file);
+      if (file) void loadFile(file);
     });
 
     hiddenInput.addEventListener('change', () => {
       const file = hiddenInput.files?.[0];
-      if (file) loadFile(file);
+      if (file) void loadFile(file);
     });
 
     container.appendChild(dropzone);
@@ -602,7 +602,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
         errEl.style.display = '';
         return;
       }
-      showStep3Review(validRows, skipped);
+      void showStep3Review(validRows, skipped);
     });
     right.appendChild(nextBtn);
     wizardFooter.appendChild(right);
@@ -847,7 +847,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       // ── Transaction display ───────────────────────────────────────────────
       const txnCard = document.createElement('div');
       txnCard.className = 'iw-review-txn';
-      const dateStr = new Date(row.date!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const dateStr = new Date(row.date!).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
       const amtStr = `${isDebit ? '−' : '+'}${fmtCents.format(Math.abs(row.amount ?? 0))}`;
 
       const dateSpan = document.createElement('span');
@@ -1013,7 +1013,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       const doAdvance = (): void => {
         currentIdx = idx + 1;
         if (currentIdx >= validRows.length) {
-          findDuplicateImport(rawText).then((dup) => {
+          void findDuplicateImport(rawText).then((dup) => {
             showStep4(validRows, skipped, decisions, dup, () => renderReviewCard(validRows.length - 1));
           });
         } else {
@@ -1128,7 +1128,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       skipBtn.className = 'btn btn-secondary';
       skipBtn.setAttribute('data-testid', 'iw-review-skip');
       skipBtn.textContent = 'Skip →';
-      skipBtn.addEventListener('click', () => { decisions[idx] = { type: 'skip' }; advance(); });
+      skipBtn.addEventListener('click', () => { decisions[idx] = { type: 'skip' }; void advance(); });
       const confirmBtn = document.createElement('button');
       confirmBtn.className = 'btn btn-primary';
       confirmBtn.setAttribute('data-testid', 'iw-review-confirm');
@@ -1464,7 +1464,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       icon.className = 'iw-duplicate-icon';
       icon.textContent = '⚠️';
       const text = document.createElement('div');
-      const dupDate = new Date(dup.importedAt).toLocaleString('en-US', {
+      const dupDate = new Date(dup.importedAt).toLocaleString(userLocale, {
         month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
       });
       text.innerHTML = `<strong>Possible duplicate.</strong> A file with identical content was imported from <strong>${dup.targetName}</strong> on ${dupDate} (${dup.rowCount.toLocaleString()} rows). You can still proceed — this is just a heads-up.`;
@@ -1509,7 +1509,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
     summary.setAttribute('data-testid', 'iw-summary');
 
     const fmtAmt = (n: number) => fmt.format(n);
-    const dateStr = (ts: number) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateStr = (ts: number) => new Date(ts).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
 
     const summaryItems: [string, string][] = [
       ['Transactions', validRows.length.toLocaleString()],

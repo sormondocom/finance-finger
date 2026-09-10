@@ -97,8 +97,8 @@ test('restoring the snapshot brings back the deleted member', async () => {
   await restoreBtn.click();
 
   // After restore the app reloads → lands on /unlock (vault key cleared from memory)
-  await expect(page.locator('#unlock-key')).toBeVisible({ timeout: 20_000 });
-  await page.fill('#unlock-key', privateKey);
+  await expect(page.locator('[data-testid="unlock-key-textarea"]')).toBeVisible({ timeout: 20_000 });
+  await page.fill('[data-testid="unlock-key-textarea"]', privateKey);
   await page.fill('#unlock-pass', TEST_PASSPHRASE);
   await page.click('#unlock-btn');
 

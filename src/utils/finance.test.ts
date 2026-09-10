@@ -44,12 +44,12 @@ describe('toMonthly', () => {
     expect(toMonthly(3000, 'quarterly')).toBeCloseTo(1000, 4);
   });
 
-  it('biweekly amount multiplies by ~2.167', () => {
-    expect(toMonthly(1000, 'biweekly')).toBeCloseTo(1000 * 2.167, 2);
+  it('biweekly amount multiplies by 26/12 (exact annual fraction)', () => {
+    expect(toMonthly(1000, 'biweekly')).toBeCloseTo(1000 * 26 / 12, 8);
   });
 
-  it('weekly amount multiplies by ~4.333', () => {
-    expect(toMonthly(1000, 'weekly')).toBeCloseTo(1000 * 4.333, 2);
+  it('weekly amount multiplies by 52/12 (exact annual fraction)', () => {
+    expect(toMonthly(1000, 'weekly')).toBeCloseTo(1000 * 52 / 12, 8);
   });
 
   it('semimonthly amount multiplies by 2', () => {

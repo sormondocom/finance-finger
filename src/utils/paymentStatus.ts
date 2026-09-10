@@ -1,4 +1,5 @@
 import type { DebtAccount, DebtPayment, PaymentCycle } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 export type MonthPaymentStatus =
   | 'paid'      // payments this month >= minimum
@@ -158,7 +159,7 @@ function buildHistoricalMonths(
     .map(([key, { total, extra }]) => {
       const [yearStr, monthStr] = key.split('-');
       const label = new Date(Number(yearStr), Number(monthStr) - 1, 1)
-        .toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        .toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
       return { key, label, total, extra, minimumMet: minimumPayment != null ? total >= minimumPayment : false };
     });
 }

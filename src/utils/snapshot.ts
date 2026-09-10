@@ -20,6 +20,7 @@ const SNAPSHOT_STORES = [
   'account_transfers',
   'bank_transactions',
   'import_records',
+  'transaction_rules',
 ] as const;
 
 const KEEP_HOURS = 24;
@@ -59,11 +60,21 @@ export async function restoreSnapshot(snapshot: RawSnapshot): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = (await getDB()) as any;
 
-  for (const storeName of SNAPSHOT_STORES) {
-    const entries = snapshot.stores[storeName] ?? [];
-    await db.clear(storeName);
-    await Promise.all(entries.map(({ key, rec }: RawSnapshotEntry) => db.put(storeName, rec, key)));
-  }
+  // Use a single transaction spanning all stores so the restore is atomic: if
+  // anything fails mid-way (browser kill, storage error) IDB rolls back the
+  // entire operation rather than leaving some stores cleared and others intact.
+  const tx = db.transaction([...SNAPSHOT_STORES], 'readwrite');
+
+  await Promise.all(
+    SNAPSHOT_STORES.map(async (storeName) => {
+      const store = tx.objectStore(storeName);
+      const entries = snapshot.stores[storeName] ?? [];
+      await store.clear();
+      await Promise.all(entries.map(({ key, rec }: RawSnapshotEntry) => store.put(rec, key)));
+    }),
+  );
+
+  await tx.done;
 }
 
 export async function pruneSnapshots(): Promise<void> {

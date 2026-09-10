@@ -72,30 +72,30 @@ test.afterAll(async () => {
 // ── Priority / APR badges ─────────────────────────────────────────────────────
 
 test('Chase Freedom shows High APR badge (APR ≥ 20%)', async () => {
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
   await expect(chaseWrap.locator('.debt-badge--high-apr')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dp-01-high-apr-badge.png' });
 });
 
 test('Chase Freedom has a priority selector for manual payoff ordering', async () => {
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
   await expect(chaseWrap.locator('.priority-select')).toBeVisible();
 });
 
 test('Discover Card shows High APR badge but not Priority (balance under $5k)', async () => {
-  const discoverWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Discover Card' });
+  const discoverWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Discover Card' });
   await expect(discoverWrap.locator('.debt-badge--high-apr')).toBeVisible();
   await expect(discoverWrap.locator('.debt-badge--priority')).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dp-02-high-apr-badge.png' });
 });
 
 test('Discover Card does not show Pay first badge (not highest APR)', async () => {
-  const discoverWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Discover Card' });
+  const discoverWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Discover Card' });
   await expect(discoverWrap.locator('.debt-badge--focus')).not.toBeVisible();
 });
 
 test('Student Loan shows no APR or priority badges (6.80% APR)', async () => {
-  const loanWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Student Loan' });
+  const loanWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Student Loan' });
   await expect(loanWrap.locator('.debt-badge--priority')).not.toBeVisible();
   await expect(loanWrap.locator('.debt-badge--high-apr')).not.toBeVisible();
   await expect(loanWrap.locator('.debt-badge--focus')).not.toBeVisible();
@@ -115,16 +115,16 @@ test('Pay modal opens with amount, date, type, and note fields', async () => {
   await chaseRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await expect(page.locator('#pay-amount')).toBeVisible();
-  await expect(page.locator('#pay-date')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-pay-amount"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-pay-date"]')).toBeVisible();
   await expect(page.locator('[name="pay-type"][value="regular"]')).toBeChecked();
   await expect(page.locator('[name="pay-type"][value="extra"]')).not.toBeChecked();
-  await expect(page.locator('#pay-note')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-pay-note"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dp-04-pay-modal.png' });
 });
 
 test('Pay modal pre-fills minimum when configured ($50 fixed on Chase Freedom)', async () => {
-  await expect(page.locator('#pay-amount')).toHaveValue('50.00');
+  await expect(page.locator('[data-testid="debt-pay-amount"]')).toHaveValue('50.00');
   await page.click('[data-testid="modal-cancel"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 });
@@ -136,8 +136,8 @@ test('records a regular payment and reduces the balance', async () => {
   await chaseRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#pay-amount', '199.90');
-  await page.fill('#pay-note', 'March statement');
+  await page.fill('[data-testid="debt-pay-amount"]', '199.90');
+  await page.fill('[data-testid="debt-pay-note"]', 'March statement');
   // Type defaults to "regular" — no change needed
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -158,7 +158,7 @@ test('history toggle appears showing 1 after the regular payment', async () => {
 
 test('expanding history shows the regular payment entry', async () => {
   const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
 
   await chaseRow.locator('[data-testid="payment-history-btn"]').click();
   const panel = chaseWrap.locator('[data-testid="payment-history-panel"]');
@@ -182,7 +182,7 @@ test('toggle shows ↑ while history is open', async () => {
 
 test('history panel collapses on second toggle click', async () => {
   const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
 
   await chaseRow.locator('[data-testid="payment-history-btn"]').click();
   await expect(chaseWrap.locator('[data-testid="payment-history-panel"]')).not.toBeVisible();
@@ -196,9 +196,9 @@ test('records an extra payment and reduces balance further', async () => {
   await chaseRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#pay-amount', '350');
+  await page.fill('[data-testid="debt-pay-amount"]', '350');
   await page.locator('[name="pay-type"][value="extra"]').check();
-  await page.fill('#pay-note', 'Tax refund windfall');
+  await page.fill('[data-testid="debt-pay-note"]', 'Tax refund windfall');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -214,7 +214,7 @@ test('history toggle shows 2 after extra payment', async () => {
 
 test('history lists extra payment first (newest-first) with correct badge', async () => {
   const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
 
   await chaseRow.locator('[data-testid="payment-history-btn"]').click();
   const panel = chaseWrap.locator('[data-testid="payment-history-panel"]');
@@ -238,7 +238,7 @@ test('history lists extra payment first (newest-first) with correct badge', asyn
 
 test('deleting extra payment restores balance', async () => {
   const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
-  const chaseWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
 
   // Panel is still open from previous test
   const panel = chaseWrap.locator('[data-testid="payment-history-panel"]');
@@ -265,7 +265,7 @@ test('Pay modal for Discover Card has empty amount (no minimum set)', async () =
   const discoverRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Discover Card' });
   await discoverRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await expect(page.locator('#pay-amount')).toHaveValue('');
+  await expect(page.locator('[data-testid="debt-pay-amount"]')).toHaveValue('');
 });
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -273,16 +273,16 @@ test('Pay modal for Discover Card has empty amount (no minimum set)', async () =
 test('submitting with empty amount shows validation error', async () => {
   // Amount is already empty (Discover Card, no minimum)
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('#pay-error')).toBeVisible();
-  await expect(page.locator('#pay-error')).toContainText('Payment amount');
+  await expect(page.locator('[data-testid="debt-pay-error"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-pay-error"]')).toContainText('Payment amount');
   await page.screenshot({ path: 'tests/screenshots/dp-10-validation-empty.png' });
 });
 
 test('submitting with zero amount shows validation error', async () => {
-  await page.fill('#pay-amount', '0');
+  await page.fill('[data-testid="debt-pay-amount"]', '0');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('#pay-error')).toBeVisible();
-  await expect(page.locator('#pay-error')).toContainText('Payment amount');
+  await expect(page.locator('[data-testid="debt-pay-error"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-pay-error"]')).toContainText('Payment amount');
 });
 
 test('cancelling payment modal leaves balance unchanged', async () => {

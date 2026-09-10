@@ -1,14 +1,15 @@
 import { openFormModal } from '@/components/Modal';
 import { navigate } from '@/app/router';
+import { fmt, fmtCents } from '@/utils/finance';
 import {
   saveExpense, saveExpensePaidRecord, createExpensePaidRecord, getExpensePaidRecords,
   saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
 } from '@/db';
-import { fmtCents } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
 import type { Expense, ExpensePaidRecord, DebtAccount, BankAccount } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 function freqInterval(freq: string | null | undefined): number {
   if (freq === 'quarterly') return 3;
@@ -47,7 +48,6 @@ export function openExpensePaymentModal({
   const isBill = expense.recurring && !!expense.dueDay;
   const isFixed = !!expense.isFixedAmount;
   const isUpdate = !!existingRecord;
-  const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
   const today = new Date().toISOString().split('T')[0]!;
   const prefillDate = existingRecord
     ? new Date(existingRecord.date).toISOString().split('T')[0]!
@@ -65,19 +65,19 @@ export function openExpensePaymentModal({
     </p>
     <div class="form-group">
       <label class="form-label" for="mp-amount">Actual amount</label>
-      <input id="mp-amount" type="number" min="0" step="0.01"
+      <input id="mp-amount" type="number" min="0" step="0.01" data-testid="expense-pay-amount"
         value="${prefillAmount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
       ${isFixed
         ? '<span class="form-hint">Fixed amount — same as estimated amount</span>'
         : expense.threshold
-          ? `<span class="form-hint">Estimated: ${currFmt.format(expense.amount)} · Target: ${currFmt.format(expense.threshold)}</span>`
-          : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${currFmt.format(expense.amount)}</span>`}
+          ? `<span class="form-hint">Estimated: ${fmtCents.format(expense.amount)} · Target: ${fmtCents.format(expense.threshold)}</span>`
+          : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${fmtCents.format(expense.amount)}</span>`}
     </div>
     <div class="form-group">
       <label class="form-label" for="mp-date">Date paid</label>
-      <input id="mp-date" type="date" value="${prefillDate}" />
+      <input id="mp-date" type="date" value="${prefillDate}" data-testid="expense-pay-date" />
     </div>
-    <div id="mp-overage-msg" style="display:none"></div>
+    <div id="mp-overage-msg" style="display:none" data-testid="expense-pay-overage-msg"></div>
   `;
 
   // Unified "Pay from" dropdown — bank accounts + credit cards in optgroups
@@ -105,6 +105,7 @@ export function openExpensePaymentModal({
   if (hasAnySources) {
     const srcSel = document.createElement('select');
     srcSel.id = 'mp-source';
+    srcSel.dataset['testid'] = 'expense-pay-source-select';
     const noneOpt = document.createElement('option');
     noneOpt.value = '';
     noneOpt.textContent = '— Not specified —';
@@ -216,13 +217,14 @@ export function openExpensePaymentModal({
     isPrevCyclePaid     = relevantRecs.some((r) => r.date >= prevCycleWindowStart && r.date < upcomingCycleWindowStart);
     isTwoAgoCyclePaid   = relevantRecs.some((r) => r.date >= twoAgoCycleWindowStart && r.date < prevCycleWindowStart);
 
-    const fmtDue = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const fmtDue = (d: Date) => d.toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
 
     const cycleGroup = document.createElement('div');
     cycleGroup.className = 'form-group';
     const cycleError = document.createElement('p');
     cycleError.className = 'form-error';
     cycleError.style.display = 'none';
+    cycleError.dataset['testid'] = 'expense-pay-cycle-error';
     cycleErrorEl = cycleError;
 
     if (isUpdate && existingRecord) {
@@ -249,6 +251,7 @@ export function openExpensePaymentModal({
         pill.type = 'button';
         pill.className = 'cycle-pill';
         pill.dataset['cycle'] = value;
+        pill.dataset['testid'] = 'expense-pay-cycle-pill';
         pill.textContent = paid ? `${label} · paid` : label;
         if (paid) pill.classList.add('cycle-pill--paid');
         pill.addEventListener('click', () => {
@@ -298,6 +301,7 @@ export function openExpensePaymentModal({
         pill.type = 'button';
         pill.className = 'cycle-pill';
         pill.dataset['cycleKey'] = key;
+        pill.dataset['testid'] = 'expense-pay-cycle-pill';
         pill.textContent = paid ? `${label} · paid` : label;
         if (paid) {
           pill.classList.add('cycle-pill--paid');
@@ -338,7 +342,7 @@ export function openExpensePaymentModal({
       if (!isNaN(val) && val > overageLimit) {
         const over = val - overageLimit;
         const label = expense.threshold ? 'Over target by' : `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by`;
-        overageMsg.textContent = `⚠ ${label} ${currFmt.format(over)}`;
+        overageMsg.textContent = `⚠ ${label} ${fmtCents.format(over)}`;
         overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
       } else {
         overageMsg.style.display = 'none';
@@ -432,12 +436,12 @@ export function openExpensePaymentModal({
       await Promise.all(ops);
       close();
       await onSave();
-      refreshNotifier();
+      void refreshNotifier();
 
       if (paidAmount > overageLimit) {
         const overCount = await getOverageTrend(expense.id, overageLimit);
         if (overCount >= 2) {
-          const fmtLimit = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(overageLimit);
+          const fmtLimit = fmt.format(overageLimit);
           setTimeout(() => showMascot('expense-trend', {
             bill: expense.description,
             threshold: fmtLimit,

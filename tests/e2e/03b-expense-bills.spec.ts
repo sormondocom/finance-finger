@@ -167,9 +167,9 @@ test('clicking Mark Paid opens an amount dialog', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await expect(page.locator('#mp-amount')).toBeVisible();
+  await expect(page.locator('[data-testid="expense-pay-amount"]')).toBeVisible();
   // pre-filled with the expense's usual amount ($55)
-  const val = await page.locator('#mp-amount').inputValue();
+  const val = await page.locator('[data-testid="expense-pay-amount"]').inputValue();
   expect(parseFloat(val)).toBeCloseTo(55, 0);
   await page.screenshot({ path: 'tests/screenshots/bills-05a-mark-paid-modal.png' });
 });

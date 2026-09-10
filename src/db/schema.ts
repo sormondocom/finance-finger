@@ -21,7 +21,6 @@ interface FinancialFingerDB extends DBSchema {
   income_sources: {
     key: string;
     value: EncryptedRecord;
-    indexes: { by_member: string };
   };
   expense_categories: {
     key: string;
@@ -30,7 +29,6 @@ interface FinancialFingerDB extends DBSchema {
   expenses: {
     key: string;
     value: EncryptedRecord;
-    indexes: { by_category: string; by_date: number };
   };
   credit_cards: {
     key: string;
@@ -89,20 +87,16 @@ let db: AppDB | null = null;
 export async function getDB(): Promise<AppDB> {
   if (db) return db;
 
-  db = await openDB<FinancialFingerDB>('financial-finger', 13, {
-    upgrade(database, oldVersion) {
+  db = await openDB<FinancialFingerDB>('financial-finger', 14, {
+    upgrade(database, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         database.createObjectStore('members');
         database.createObjectStore('settings');
         database.createObjectStore('expense_categories');
         database.createObjectStore('credit_cards');
 
-        const incomeStore = database.createObjectStore('income_sources');
-        incomeStore.createIndex('by_member', 'by_member');
-
-        const expenseStore = database.createObjectStore('expenses');
-        expenseStore.createIndex('by_category', 'by_category');
-        expenseStore.createIndex('by_date', 'by_date');
+        database.createObjectStore('income_sources');
+        database.createObjectStore('expenses');
       }
       if (oldVersion < 2) {
         database.createObjectStore('scenarios');
@@ -140,6 +134,18 @@ export async function getDB(): Promise<AppDB> {
       }
       if (oldVersion < 13) {
         database.createObjectStore('transaction_rules');
+      }
+      if (oldVersion < 14) {
+        // Remove indexes created at v1 that targeted fields on EncryptedRecord.
+        // Those stores hold {iv, data} — the indexed field paths never existed,
+        // so the indexes have been empty and unused since encryption was introduced.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const incomeStore = transaction.objectStore('income_sources') as any;
+        if (incomeStore.indexNames.contains('by_member')) incomeStore.deleteIndex('by_member');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const expenseStore = transaction.objectStore('expenses') as any;
+        if (expenseStore.indexNames.contains('by_category')) expenseStore.deleteIndex('by_category');
+        if (expenseStore.indexNames.contains('by_date')) expenseStore.deleteIndex('by_date');
       }
     },
   });

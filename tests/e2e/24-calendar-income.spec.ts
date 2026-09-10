@@ -49,13 +49,13 @@ test.afterAll(async () => {
 
 test('setup: add member Casey', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Casey');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Casey' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Casey');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Casey' })).toBeVisible();
 });
 
 test('setup: add one-time income "Bonus Payout" of $2,500 on the 5th of this month', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Bonus Payout');
@@ -65,7 +65,7 @@ test('setup: add one-time income "Bonus Payout" of $2,500 on the 5th of this mon
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Bonus Payout' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Bonus Payout' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/cal-income-01-one-time-added.png' });
 });
 
@@ -107,7 +107,7 @@ test('day 5 does not have a regular payday chip for the one-time source', async 
 test('setup: add semimonthly income with unequal paychecks ($3,000 / $2,400)', async () => {
   await navigateTo(page, 'income');
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Contract');
@@ -124,7 +124,7 @@ test('setup: add semimonthly income with unequal paychecks ($3,000 / $2,400)', a
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Contract' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Contract' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/cal-income-03-semi-unequal-added.png' });
 });
 

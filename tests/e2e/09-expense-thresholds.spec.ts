@@ -141,12 +141,12 @@ test('clicking Mark Paid opens an amount dialog instead of immediately saving', 
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await expect(page.locator('#mp-amount')).toBeVisible();
+  await expect(page.locator('[data-testid="expense-pay-amount"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/threshold-03-mark-paid-modal.png' });
 });
 
 test('mark-paid modal pre-fills the usual expense amount', async () => {
-  const val = await page.locator('#mp-amount').inputValue();
+  const val = await page.locator('[data-testid="expense-pay-amount"]').inputValue();
   expect(parseFloat(val)).toBeCloseTo(95, 0);
 });
 
@@ -155,15 +155,15 @@ test('mark-paid modal shows the threshold as a hint', async () => {
 });
 
 test('entering an amount over the threshold shows an inline overage warning', async () => {
-  await page.fill('#mp-amount', '145');
+  await page.fill('[data-testid="expense-pay-amount"]', '145');
   await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('Over target by');
   await page.screenshot({ path: 'tests/screenshots/threshold-04-overage-warning.png' });
 });
 
 test('overage warning disappears when amount is back within threshold', async () => {
-  await page.fill('#mp-amount', '100');
+  await page.fill('[data-testid="expense-pay-amount"]', '100');
   // The overage message should be hidden (empty or not shown)
-  const overageMsg = page.locator('#mp-overage-msg');
+  const overageMsg = page.locator('[data-testid="expense-pay-overage-msg"]');
   const isVisible = await overageMsg.isVisible();
   if (isVisible) {
     // If visible, must not contain overage text
@@ -173,7 +173,7 @@ test('overage warning disappears when amount is back within threshold', async ()
 
 test('submitting mark-paid with an over-threshold amount marks the bill paid', async () => {
   // Set back to an over-threshold amount for this first payment
-  await page.fill('#mp-amount', '145');
+  await page.fill('[data-testid="expense-pay-amount"]', '145');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -216,7 +216,7 @@ test('second over-threshold payment triggers the mascot expense-trend alert', as
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#mp-amount', '158');
+  await page.fill('[data-testid="expense-pay-amount"]', '158');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 

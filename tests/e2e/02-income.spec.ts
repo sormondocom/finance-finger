@@ -42,18 +42,18 @@ test('income page loads with household members card', async () => {
 });
 
 test('adds a second household member', async () => {
-  await page.fill('[data-testid="add-member-input"]', 'Jamie');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"][data-member-id]').filter({ hasText: 'Jamie' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Jamie');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"][data-member-id]').filter({ hasText: 'Jamie' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-02-member-added.png' });
 });
 
 test('shows add-source button after members exist', async () => {
-  await expect(page.locator('[data-testid="add-source-btn"]')).toBeVisible();
+  await expect(page.locator('[data-testid="income-add-source-btn"]')).toBeVisible();
 });
 
 test('adds a monthly income source', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Pick the primary member (first in list)
@@ -66,7 +66,7 @@ test('adds a monthly income source', async () => {
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  const sourceRow = page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job' });
+  const sourceRow = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job' });
   await expect(sourceRow).toBeVisible();
   // Source row displays the entered amount with full cents via fmtCents (trailing zero preserved)
   await expect(sourceRow).toContainText('$4,999.50');
@@ -110,7 +110,7 @@ test('prev button navigates to previous month; YTD panel hidden on past months',
 // ── One-time income source ────────────────────────────────────────────────────
 
 test('adds a one-time income source', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Tax Refund');
@@ -123,7 +123,7 @@ test('adds a one-time income source', async () => {
   await page.fill('#sf-date', currentMonthDate);
 
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-04-onetime-source.png' });
 });
 
@@ -140,50 +140,50 @@ test('monthly total shows recurring and one-time breakdown when both are present
 
 test('one-time source is hidden when viewing a different month', async () => {
   // Confirm Tax Refund is visible on the current month
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
 
   // Navigate to previous month — Tax Refund is dated in the current month so it should vanish
   await page.click('[data-action="prev"]');
   await expect(page.locator('.income-month-label')).toContainText(prevMonthLabel);
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Tax Refund' })).not.toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' })).not.toBeVisible();
 
   // Navigate back — Tax Refund should reappear
   await page.click('[data-action="next"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-11-onetime-scoped.png' });
 });
 
 // ── CRUD continued ────────────────────────────────────────────────────────────
 
 test('edits an income source', async () => {
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job' });
-  await row.locator('[data-testid="source-edit"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job' });
+  await row.locator('[data-testid="income-source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Day Job (Updated)');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job (Updated)' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job (Updated)' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-05-source-edited.png' });
 });
 
 test('toggles a source inactive', async () => {
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job (Updated)' });
-  await row.locator('[data-testid="source-toggle"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job (Updated)' });
+  await row.locator('[data-testid="income-source-toggle"]').click();
   await expect(row.locator('.inactive-badge')).toBeVisible();
 });
 
 test('deletes an income source', async () => {
   page.once('dialog', (d) => d.accept());
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Tax Refund' });
-  await row.locator('[data-testid="source-delete"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' });
+  await row.locator('[data-testid="income-source-delete"]').click();
   await expect(row).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-06-source-deleted.png' });
 });
 
 test('removes a household member', async () => {
   page.once('dialog', (d) => d.accept());
-  const chip = page.locator('[data-testid="member-chip"]').filter({ hasText: 'Jamie' });
-  await chip.locator('[data-testid="member-remove"]').click();
+  const chip = page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Jamie' });
+  await chip.locator('[data-testid="income-member-remove"]').click();
   await expect(chip).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-07-member-removed.png' });
 });

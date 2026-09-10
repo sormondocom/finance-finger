@@ -51,7 +51,7 @@ test.beforeAll(async () => {
 
   // Add income source so income data is included in the export
   await navigateTo(pageA, 'income');
-  await pageA.click('[data-testid="add-source-btn"]');
+  await pageA.click('[data-testid="income-add-source-btn"]');
   await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await pageA.fill('#sf-name', 'Export Test Salary');
   await pageA.fill('#sf-amount', '3500');
@@ -104,8 +104,8 @@ test.beforeAll(async () => {
   await expect(pageA.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Paste Person B's public key and wait for the 400 ms debounce + async parse
-  await pageA.fill('[data-testid="key-textarea"]', personBKey.publicKey);
-  await expect(pageA.locator('[data-testid="key-preview"]')).toBeVisible({ timeout: 8_000 });
+  await pageA.fill('[data-testid="settings-key-textarea"]', personBKey.publicKey);
+  await expect(pageA.locator('[data-testid="settings-key-preview"]')).toBeVisible({ timeout: 8_000 });
 
   // Intercept the download triggered by triggerDownload()
   const downloadPromise = pageA.waitForEvent('download');
@@ -140,8 +140,8 @@ test('export modal shows error when no recipient key is provided', async () => {
   // Submit without providing any key
   await pageA.click('[data-testid="modal-submit"]');
 
-  await expect(pageA.locator('[data-testid="export-error"]')).toBeVisible();
-  await expect(pageA.locator('[data-testid="export-error"]')).toContainText('Please provide');
+  await expect(pageA.locator('[data-testid="settings-export-error"]')).toBeVisible();
+  await expect(pageA.locator('[data-testid="settings-export-error"]')).toContainText('Please provide');
   await pageA.screenshot({ path: 'tests/screenshots/ei-01-export-error.png' });
 
   await pageA.click('[data-testid="modal-cancel"]');
@@ -156,8 +156,8 @@ test('import modal shows error when message field is empty', async () => {
 
   await pageB.click('[data-testid="modal-submit"]');
 
-  await expect(pageB.locator('[data-testid="import-error"]')).toBeVisible();
-  await expect(pageB.locator('[data-testid="import-error"]')).toContainText(
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toBeVisible();
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toContainText(
     'Please paste the .ffx content',
   );
 
@@ -172,8 +172,8 @@ test('import modal shows error when private key field is empty', async () => {
   await pageB.fill('#im-message', exportedFfxContent);
   await pageB.click('[data-testid="modal-submit"]');
 
-  await expect(pageB.locator('[data-testid="import-error"]')).toBeVisible();
-  await expect(pageB.locator('[data-testid="import-error"]')).toContainText(
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toBeVisible();
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toContainText(
     'Please paste your private key',
   );
 
@@ -189,8 +189,8 @@ test('import modal shows error when passphrase is empty', async () => {
   await pageB.fill('#im-private-key', personBKey.privateKey);
   await pageB.click('[data-testid="modal-submit"]');
 
-  await expect(pageB.locator('[data-testid="import-error"]')).toBeVisible();
-  await expect(pageB.locator('[data-testid="import-error"]')).toContainText(
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toBeVisible();
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toContainText(
     'Passphrase is required',
   );
 
@@ -207,8 +207,8 @@ test('import modal shows decryption error for wrong passphrase', async () => {
   await pageB.fill('#im-passphrase', 'this-is-the-wrong-passphrase');
   await pageB.click('[data-testid="modal-submit"]');
 
-  await expect(pageB.locator('[data-testid="import-error"]')).toBeVisible({ timeout: 20_000 });
-  await expect(pageB.locator('[data-testid="import-error"]')).toContainText('Decryption failed');
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toBeVisible({ timeout: 20_000 });
+  await expect(pageB.locator('[data-testid="settings-import-error"]')).toContainText('Decryption failed');
   await pageB.screenshot({ path: 'tests/screenshots/ei-02-import-wrong-passphrase.png' });
 
   await pageB.click('[data-testid="modal-cancel"]');
@@ -235,8 +235,8 @@ test('import succeeds with matching private key and passphrase', async () => {
 test('imported member appears in Context B after page reload', async () => {
   // Import auto-reloads after ~1.8 s — location.reload() clears the in-memory vault key
   // so the app lands on /unlock, not /dashboard
-  await expect(pageB.locator('#unlock-key')).toBeVisible({ timeout: 15_000 });
-  await pageB.fill('#unlock-key', ctxBPrivateKey);
+  await expect(pageB.locator('[data-testid="unlock-key-textarea"]')).toBeVisible({ timeout: 15_000 });
+  await pageB.fill('[data-testid="unlock-key-textarea"]', ctxBPrivateKey);
   await pageB.fill('#unlock-pass', TEST_PASSPHRASE);
   await pageB.click('#unlock-btn');
 
@@ -257,10 +257,10 @@ test('imported member appears in Context B after page reload', async () => {
 test('income source created in Context A appears in Context B after import', async () => {
   await navigateTo(pageB, 'income');
   await expect(
-    pageB.locator('[data-testid="source-row"]').filter({ hasText: 'Export Test Salary' }),
+    pageB.locator('[data-testid="income-source-row"]').filter({ hasText: 'Export Test Salary' }),
   ).toBeVisible({ timeout: 8_000 });
   await expect(
-    pageB.locator('[data-testid="source-row"]').filter({ hasText: 'Export Test Salary' }),
+    pageB.locator('[data-testid="income-source-row"]').filter({ hasText: 'Export Test Salary' }),
   ).toContainText('3,500');
   await pageB.screenshot({ path: 'tests/screenshots/ei-05-income-roundtrip.png' });
 });

@@ -1,40 +1,28 @@
 import './calendar.css';
 import { navigate } from '@/app/router';
 import { makeHelpBtn } from '@/utils/helpNav';
+import { showPageError } from '@/utils/errorUI';
 import { getExpenses, getDebtAccounts, getDebtPayments,
          getCategories, getIncomeSources, getMembers, getExpensePaidRecords, getBankAccounts,
          saveCalendarMark, getCalendarMarksForMonth, deleteCalendarMark, deleteCalendarMarksForMonth,
-         getCalendarMemosForMonth, saveCalendarMemo, createCalendarMemo, deleteCalendarMemo } from '@/db';
+         getCalendarMemosForMonth } from '@/db';
 import { openDebtPaymentModal } from '@/components/DebtPaymentModal';
 import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
-import { openModal } from '@/components/Modal';
 import { computeBillStatus } from '@/utils/billStatus';
-import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
+import { computePaymentStatus } from '@/utils/paymentStatus';
 import type { AccountPaymentStatus } from '@/utils/paymentStatus';
 import { getPaydaysInMonth } from '@/utils/paydays';
-import { fmtCents } from '@/utils/finance';
-import type { Expense, DebtAccount, DebtPayment, ExpenseCategory, ExpensePaidRecord, BankAccount, DebtAccountType, IncomeSource, HouseholdMember, CalendarMark, CalendarMemo } from '@/types';
-
-const DEBT_TYPE_LABEL: Record<DebtAccountType, string> = {
-  card: 'Credit Card',
-  mortgage: 'Mortgage',
-  medical: 'Medical Debt',
-  loan: 'Personal Loan',
-  vehicle: 'Vehicle Loan',
-};
+import {
+  buildPaydayChip, buildOneTimeIncomeChip, buildBillChip,
+  buildOneTimeExpenseChip, buildDebtChip, buildDebtPaymentChip,
+  debtChipStatus, type CalendarChipContext,
+} from './CalendarChips';
+import { buildMemoWidget, type CalendarMemoContext } from './CalendarMemo';
+import type { Expense, DebtAccount, DebtPayment, ExpenseCategory, ExpensePaidRecord, BankAccount, IncomeSource, HouseholdMember, CalendarMark, CalendarMemo } from '@/types';
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type DebtEntry = { account: DebtAccount; status: AccountPaymentStatus };
-
-// Maps MonthPaymentStatus → 4 visual chip states
-type ChipStatus = 'paid' | 'past-due' | 'due-soon' | 'ok';
-function debtChipStatus(ms: AccountPaymentStatus['currentMonth']): ChipStatus {
-  if (ms === 'paid' || ms === 'paid-off') return 'paid';
-  if (ms === 'past-due') return 'past-due';
-  if (ms === 'due-soon' || ms === 'partial') return 'due-soon';
-  return 'ok';
-}
 
 export class CalendarPage {
   private year: number;
@@ -69,11 +57,12 @@ export class CalendarPage {
   render(): HTMLElement {
     this.container = document.createElement('div');
     this.container.className = 'calendar-page';
-    this.load();
+    void this.load();
     return this.container;
   }
 
   private async load(): Promise<void> {
+    try {
     const [expenses, accounts, allPayments, categories, sources, members, paidRecords, bankAccounts, memoList] = await Promise.all([
       getExpenses(),
       getDebtAccounts(),
@@ -115,6 +104,9 @@ export class CalendarPage {
     }
     await this.loadMarks();
     this.paint();
+    } catch (err) {
+      showPageError(this.container, err instanceof Error ? err.message : 'Failed to load calendar', () => { void this.load(); });
+    }
   }
 
   private async loadMemos(): Promise<void> {
@@ -344,6 +336,19 @@ export class CalendarPage {
       debtByDay.set(dueDay, arr);
     });
 
+    const chipCtx: CalendarChipContext = {
+      members: this.members,
+      categories: this.categories,
+      onChipNav: (e, sessionKey, id, route) => this.chipNav(e, sessionKey, id, route),
+      onMarkPaid: (expense) => this.openMarkPaidForm(expense),
+      onRecordPayment: (account, minPay) => this.openRecordPaymentForm(account, minPay),
+    };
+    const memoCtx: CalendarMemoContext = {
+      members: this.members,
+      memos: this.memos,
+      container: this.container,
+    };
+
     // Empty lead cells
     for (let i = 0; i < firstDay; i++) {
       const cell = document.createElement('div');
@@ -402,12 +407,12 @@ export class CalendarPage {
         // Days before today in the current month cannot be "Upcoming"
         const isPastDay = isCurrentYearMonth && day < today.getDate();
 
-        dayPaydays.forEach(({ source, paydayIndex }) => chipsWrap.appendChild(this.buildPaydayChip(source, paydayIndex)));
-        dayOneTimeIncome.forEach((s) => chipsWrap.appendChild(this.buildOneTimeIncomeChip(s)));
+        dayPaydays.forEach(({ source, paydayIndex }) => chipsWrap.appendChild(buildPaydayChip(source, paydayIndex, chipCtx)));
+        dayOneTimeIncome.forEach((s) => chipsWrap.appendChild(buildOneTimeIncomeChip(s, chipCtx)));
 
         dayBills.forEach((e) => {
           const paidRec = this.expensePaidRecords.find((r) => r.expenseId === e.id);
-          const chipEl = this.buildBillChip(e, paidRec);
+          const chipEl = buildBillChip(e, paidRec, chipCtx);
           if (this.activeFilter) {
             const { status } = computeBillStatus(e);
             const chipStatus = e.isAutoPay ? 'ok' : status;
@@ -419,20 +424,20 @@ export class CalendarPage {
         });
 
         dayDebts.forEach(({ account, status }) => {
-          const chipEl = this.buildDebtChip(account, status, debtPaymentDateMap.get(account.id));
+          const chipEl = buildDebtChip(account, status, debtPaymentDateMap.get(account.id), chipCtx);
           if (this.activeFilter && debtChipStatus(status.currentMonth) === this.activeFilter) {
             chipEl.querySelector<HTMLElement>('.calendar-bill-chip')?.classList.add('cal-chip-filter-match');
           }
           chipsWrap.appendChild(chipEl);
         });
 
-        dayPayments.forEach(({ payment, account }) => chipsWrap.appendChild(this.buildDebtPaymentChip(payment, account)));
-        dayOneTime.forEach((e) => chipsWrap.appendChild(this.buildOneTimeExpenseChip(e)));
+        dayPayments.forEach(({ payment, account }) => chipsWrap.appendChild(buildDebtPaymentChip(payment, account, chipCtx)));
+        dayOneTime.forEach((e) => chipsWrap.appendChild(buildOneTimeExpenseChip(e, chipCtx)));
         cell.appendChild(chipsWrap);
       }
 
       const dayMemos = this.memos.get(dateKey) ?? [];
-      cell.appendChild(this.buildMemoWidget(dateKey, dayMemos));
+      cell.appendChild(buildMemoWidget(dateKey, dayMemos, memoCtx));
 
       grid.appendChild(cell);
     }
@@ -610,462 +615,6 @@ export class CalendarPage {
     }
 
     return bar;
-  }
-
-  private buildPaydayChip(source: IncomeSource, paydayIndex: number): HTMLElement {
-    const member = this.members.find((m) => m.id === source.memberId);
-    // For semimonthly sources with unequal paychecks, the second chip uses amount2
-    const amount = (paydayIndex === 1 && source.amount2 != null) ? source.amount2 : source.amount;
-    const chip = document.createElement('div');
-    chip.className = 'calendar-payday-chip';
-    chip.setAttribute('data-testid', 'calendar-payday-chip');
-    chip.setAttribute('data-source-id', source.id);
-    chip.style.cursor = 'pointer';
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        <span class="cal-chip-icon">💰</span>
-        <span class="cal-chip-name" title="${source.name}">${source.name}</span>
-      </div>
-      ${member ? `<span class="cal-chip-type">${member.name}</span>` : ''}
-      <span class="cal-chip-amount">${fmtCents.format(amount)}</span>
-    `;
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-source', source.id, '/income'));
-    return chip;
-  }
-
-  private buildOneTimeIncomeChip(source: IncomeSource): HTMLElement {
-    const member = this.members.find((m) => m.id === source.memberId);
-    const chip = document.createElement('div');
-    chip.className = 'calendar-payday-chip';
-    chip.setAttribute('data-testid', 'calendar-one-time-income-chip');
-    chip.setAttribute('data-source-id', source.id);
-    chip.style.cursor = 'pointer';
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        <span class="cal-chip-icon">💵</span>
-        <span class="cal-chip-name" title="${source.name}">${source.name}</span>
-      </div>
-      <span class="cal-chip-type">${member ? member.name : 'One-time income'}</span>
-      <span class="cal-chip-amount">${fmtCents.format(source.amount)}</span>
-    `;
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-source', source.id, '/income'));
-    return chip;
-  }
-
-  private buildBillChip(expense: Expense, paidRecord?: ExpensePaidRecord): HTMLElement {
-    const { status } = computeBillStatus(expense);
-    const isAutoPay = !!expense.isAutoPay;
-    const category = this.categories.find((c) => c.id === expense.categoryId);
-    const categoryName = category?.name ?? 'Expense';
-    const chipStatus = isAutoPay ? 'ok' : status;
-    const statusIcon = isAutoPay ? '🔄' : (status === 'paid' ? '✓' : status === 'past-due' ? '⚠' : status === 'due-soon' ? '⏰' : '');
-
-    const isPaidStatus = chipStatus === 'paid';
-    const displayAmount = (isPaidStatus && paidRecord) ? paidRecord.amount : expense.amount;
-    const paidOnStr = isPaidStatus
-      ? new Date(paidRecord?.date ?? expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : null;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'cal-chip-wrap';
-
-    const chip = document.createElement('div');
-    chip.className = `calendar-bill-chip calendar-bill-chip--${chipStatus}`;
-    chip.setAttribute('data-testid', 'calendar-bill-chip');
-    chip.setAttribute('data-expense-id', expense.id);
-    chip.setAttribute('data-bill-status', chipStatus);
-    chip.style.cursor = 'pointer';
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-expense', expense.id, '/expenses'));
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
-        <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
-      </div>
-      ${isAutoPay
-        ? '<span class="cal-chip-autopay">Auto-pay</span>'
-        : `<span class="cal-chip-type">${categoryName}</span>`}
-      <span class="cal-chip-amount">${fmtCents.format(displayAmount)}</span>
-      ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
-    `;
-
-    if (expense.url) {
-      const link = document.createElement('a');
-      link.className = 'cal-chip-portal-link';
-      link.setAttribute('data-testid', 'cal-chip-url-link');
-      link.href = expense.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.title = 'Open billing portal';
-      link.textContent = '↗ Portal';
-      chip.appendChild(link);
-    }
-
-    wrap.appendChild(chip);
-
-    if (!isAutoPay && status !== 'paid') {
-      const payBtn = document.createElement('button');
-      payBtn.className = 'calendar-mark-paid-btn';
-      payBtn.setAttribute('data-testid', 'cal-mark-paid');
-      payBtn.setAttribute('data-expense-id', expense.id);
-      payBtn.textContent = '$ Record Payment';
-      payBtn.addEventListener('click', () => this.openMarkPaidForm(expense));
-      wrap.appendChild(payBtn);
-    }
-
-    return wrap;
-  }
-
-  private buildOneTimeExpenseChip(expense: Expense): HTMLElement {
-    const category = this.categories.find((c) => c.id === expense.categoryId);
-    const categoryColor = category?.color ?? '#999';
-    const categoryName = category?.name ?? 'Expense';
-
-    const chip = document.createElement('div');
-    chip.className = 'calendar-expense-chip';
-    chip.setAttribute('data-testid', 'calendar-expense-chip');
-    chip.setAttribute('data-expense-id', expense.id);
-    chip.style.cursor = 'pointer';
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-expense', expense.id, '/expenses'));
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        <span class="cal-chip-dot-color" style="background:${categoryColor}"></span>
-        <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
-      </div>
-      <span class="cal-chip-type">${categoryName}</span>
-      <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
-    `;
-
-    if (expense.url) {
-      const link = document.createElement('a');
-      link.className = 'cal-chip-portal-link';
-      link.setAttribute('data-testid', 'cal-chip-url-link');
-      link.href = expense.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.title = 'Open billing portal';
-      link.textContent = '↗ Portal';
-      chip.appendChild(link);
-    }
-
-    return chip;
-  }
-
-  private buildDebtChip(account: DebtAccount, status: AccountPaymentStatus, paidDate?: number): HTMLElement {
-    const chipStatus = debtChipStatus(status.currentMonth);
-    const minPay = computeMinPayment(account);
-
-    let amountLabel: string;
-    let paidOnStr: string | null = null;
-    if (chipStatus === 'paid') {
-      amountLabel = `${fmtCents.format(status.currentMonthTotal)} paid`;
-      if (paidDate != null) {
-        paidOnStr = new Date(paidDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      }
-    } else {
-      amountLabel = minPay != null
-        ? `${fmtCents.format(minPay)} min`
-        : `${fmtCents.format(account.balance)} balance`;
-    }
-
-    const statusIcon = chipStatus === 'paid' ? '✓' : chipStatus === 'past-due' ? '⚠' : chipStatus === 'due-soon' ? '⏰' : '';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'cal-chip-wrap';
-
-    const chip = document.createElement('div');
-    chip.className = `calendar-bill-chip calendar-bill-chip--${chipStatus}`;
-    chip.setAttribute('data-testid', 'calendar-debt-chip');
-    chip.setAttribute('data-account-id', account.id);
-    chip.setAttribute('data-debt-status', chipStatus);
-    chip.style.cursor = 'pointer';
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-account', account.id, '/debt'));
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
-        <span class="cal-chip-name" title="${account.name}">${account.name}</span>
-      </div>
-      <span class="cal-chip-type">${DEBT_TYPE_LABEL[account.type]}</span>
-      <span class="cal-chip-amount">${amountLabel}</span>
-      ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
-    `;
-
-    if (account.url) {
-      const link = document.createElement('a');
-      link.className = 'cal-chip-portal-link';
-      link.setAttribute('data-testid', 'cal-chip-url-link');
-      link.href = account.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.title = 'Open billing portal';
-      link.textContent = '↗ Portal';
-      chip.appendChild(link);
-    }
-
-    wrap.appendChild(chip);
-
-    if (chipStatus !== 'paid') {
-      const payBtn = document.createElement('button');
-      payBtn.className = 'calendar-mark-paid-btn';
-      payBtn.setAttribute('data-testid', 'cal-record-payment');
-      payBtn.setAttribute('data-account-id', account.id);
-      payBtn.textContent = '$ Record Payment';
-      payBtn.addEventListener('click', () => this.openRecordPaymentForm(account, minPay));
-      wrap.appendChild(payBtn);
-    }
-
-    return wrap;
-  }
-
-  private buildDebtPaymentChip(payment: DebtPayment, account: DebtAccount): HTMLElement {
-    const chip = document.createElement('div');
-    chip.className = 'calendar-payment-chip';
-    chip.setAttribute('data-testid', 'calendar-payment-chip');
-    chip.setAttribute('data-payment-id', payment.id);
-    chip.style.cursor = 'pointer';
-    chip.addEventListener('click', (e) => this.chipNav(e, 'cal-focus-account', account.id, '/debt'));
-    chip.innerHTML = `
-      <div class="cal-chip-title">
-        <span class="cal-chip-icon">💸</span>
-        <span class="cal-chip-name" title="${account.name}">${account.name}</span>
-      </div>
-      <span class="cal-chip-type">${payment.type === 'extra' ? 'Extra payment' : 'Payment made'}</span>
-      <span class="cal-chip-amount">${fmtCents.format(payment.amount)}</span>
-    `;
-    return chip;
-  }
-
-  private buildMemoWidget(dateKey: string, dayMemos: CalendarMemo[]): HTMLElement {
-    const widget = document.createElement('div');
-    widget.className = 'cal-memo-widget';
-
-    const btn = document.createElement('button');
-    const count = dayMemos.length;
-    btn.className = `cal-memo-btn${count === 0 ? ' cal-memo-btn--empty' : ''}`;
-    if (count === 2) btn.dataset['stacked'] = '2';
-    if (count >= 3) btn.dataset['stacked'] = '3';
-    btn.setAttribute('aria-label', count > 0 ? `${count} note${count > 1 ? 's' : ''}` : 'Add note');
-    btn.setAttribute('title', count > 0 ? `${count} note${count > 1 ? 's' : ''}` : 'Add note');
-    btn.setAttribute('data-testid', 'cal-memo-btn');
-    btn.innerHTML = count === 0
-      ? '+'
-      : count === 1
-        ? '&#9998;'
-        : `&#9998;<span class="cal-memo-count-badge">${count}</span>`;
-
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.openMemoModal(dateKey, dayMemos);
-    });
-
-    widget.appendChild(btn);
-    return widget;
-  }
-
-  private openMemoModal(dateKey: string, initialMemos: CalendarMemo[]): void {
-    let memos = [...initialMemos];
-    let currentIndex = 0;
-
-    const [y, mo, d] = dateKey.split('-').map(Number) as [number, number, number];
-    const dateLabel = new Date(y, mo - 1, d, 12).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
-    });
-
-    const content = document.createElement('div');
-    content.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
-
-    // ── Pager ──────────────────────────────────────────────────────────────
-    const pagerSection = document.createElement('div');
-    pagerSection.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-3)';
-
-    const pagerBar = document.createElement('div');
-    pagerBar.className = 'cal-memo-pager';
-
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'cal-memo-nav-btn';
-    prevBtn.textContent = '←';
-    prevBtn.setAttribute('aria-label', 'Previous note');
-    prevBtn.setAttribute('data-testid', 'cal-memo-prev');
-
-    const pagerLabel = document.createElement('span');
-    pagerLabel.className = 'cal-memo-pager-label';
-    pagerLabel.setAttribute('data-testid', 'cal-memo-pager-label');
-
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'cal-memo-nav-btn';
-    nextBtn.textContent = '→';
-    nextBtn.setAttribute('aria-label', 'Next note');
-    nextBtn.setAttribute('data-testid', 'cal-memo-next');
-
-    pagerBar.appendChild(prevBtn);
-    pagerBar.appendChild(pagerLabel);
-    pagerBar.appendChild(nextBtn);
-
-    const noteCard = document.createElement('div');
-    noteCard.className = 'cal-memo-note-card';
-    noteCard.setAttribute('data-testid', 'cal-memo-note-card');
-
-    const noteText = document.createElement('p');
-    noteText.className = 'cal-memo-note-text';
-    noteText.setAttribute('data-testid', 'cal-memo-note-text');
-    noteCard.appendChild(noteText);
-
-    const noteMeta = document.createElement('div');
-    noteMeta.className = 'cal-memo-note-meta';
-
-    const metaInfo = document.createElement('span');
-    metaInfo.className = 'cal-memo-meta-info';
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'cal-memo-delete-btn';
-    deleteBtn.setAttribute('data-testid', 'cal-memo-delete-btn');
-    deleteBtn.textContent = 'Delete';
-
-    noteMeta.appendChild(metaInfo);
-    noteMeta.appendChild(deleteBtn);
-
-    pagerSection.appendChild(pagerBar);
-    pagerSection.appendChild(noteCard);
-    pagerSection.appendChild(noteMeta);
-
-    // ── Divider ────────────────────────────────────────────────────────────
-    const divider = document.createElement('hr');
-    divider.className = 'cal-memo-divider';
-
-    // ── Add note section ───────────────────────────────────────────────────
-    const addSection = document.createElement('div');
-    addSection.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-3)';
-
-    const addLabel = document.createElement('label');
-    addLabel.className = 'form-label';
-
-    const textarea = document.createElement('textarea');
-    textarea.rows = 3;
-    textarea.maxLength = 500;
-    textarea.placeholder = 'Write a note for yourself or a family member...';
-    textarea.style.cssText = 'resize:vertical;min-height:72px';
-    textarea.setAttribute('data-testid', 'cal-memo-textarea');
-
-    const addRow = document.createElement('div');
-    addRow.style.cssText = 'display:flex;align-items:center;gap:var(--space-3)';
-
-    if (this.members.length > 0) {
-      const fromLabel = document.createElement('span');
-      fromLabel.style.cssText = 'font-size:var(--text-sm);color:var(--color-text-muted);white-space:nowrap';
-      fromLabel.textContent = 'From:';
-      const memberSel = document.createElement('select');
-      memberSel.id = 'cal-memo-member';
-      memberSel.style.flex = '1';
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = '— No author —';
-      memberSel.appendChild(noneOpt);
-      this.members.forEach((m) => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.textContent = m.name;
-        memberSel.appendChild(opt);
-      });
-      addRow.appendChild(fromLabel);
-      addRow.appendChild(memberSel);
-    }
-
-    const addNoteBtn = document.createElement('button');
-    addNoteBtn.className = 'btn btn-primary';
-    addNoteBtn.style.whiteSpace = 'nowrap';
-    addNoteBtn.setAttribute('data-testid', 'cal-memo-add-btn');
-    addNoteBtn.textContent = 'Add Note';
-    addRow.appendChild(addNoteBtn);
-
-    const errorEl = document.createElement('p');
-    errorEl.className = 'form-error';
-    errorEl.style.display = 'none';
-
-    addSection.appendChild(addLabel);
-    addSection.appendChild(textarea);
-    addSection.appendChild(addRow);
-    addSection.appendChild(errorEl);
-
-    // ── Pager refresh ──────────────────────────────────────────────────────
-    const refreshPager = () => {
-      if (memos.length === 0) {
-        pagerSection.style.display = 'none';
-        divider.style.display = 'none';
-        addLabel.textContent = 'Write a note';
-        return;
-      }
-      pagerSection.style.display = '';
-      divider.style.display = '';
-      addLabel.textContent = 'Add another note';
-
-      const memo = memos[currentIndex]!;
-      pagerLabel.textContent = `Note ${currentIndex + 1} of ${memos.length}`;
-      noteText.textContent = memo.text;
-
-      const member = this.members.find((m) => m.id === memo.memberId);
-      const authorStr = member ? `— ${member.name}` : '';
-      const dateStr = new Date(memo.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      metaInfo.textContent = [authorStr, dateStr].filter(Boolean).join(' · ');
-
-      prevBtn.disabled = currentIndex === 0;
-      nextBtn.disabled = currentIndex === memos.length - 1;
-    };
-
-    prevBtn.addEventListener('click', () => { currentIndex--; refreshPager(); });
-    nextBtn.addEventListener('click', () => { currentIndex++; refreshPager(); });
-
-    deleteBtn.addEventListener('click', async () => {
-      const memo = memos[currentIndex]!;
-      await deleteCalendarMemo(memo.id);
-      memos = memos.filter((m) => m.id !== memo.id);
-      if (currentIndex >= memos.length) currentIndex = Math.max(0, memos.length - 1);
-      if (memos.length === 0) this.memos.delete(dateKey);
-      else this.memos.set(dateKey, [...memos]);
-      this.updateMemoWidget(dateKey, memos);
-      refreshPager();
-    });
-
-    addNoteBtn.addEventListener('click', async () => {
-      const text = textarea.value.trim();
-      if (!text) {
-        errorEl.textContent = '⚠ Write something first.';
-        errorEl.style.display = '';
-        return;
-      }
-      errorEl.style.display = 'none';
-      const memberSel = content.querySelector<HTMLSelectElement>('#cal-memo-member');
-      const memberId = memberSel?.value || undefined;
-      const memo = memberId
-        ? createCalendarMemo(dateKey, text, memberId)
-        : createCalendarMemo(dateKey, text);
-      await saveCalendarMemo(memo);
-      memos = [...memos, memo];
-      currentIndex = memos.length - 1;
-      this.memos.set(dateKey, [...memos]);
-      this.updateMemoWidget(dateKey, memos);
-      textarea.value = '';
-      refreshPager();
-    });
-
-    content.appendChild(pagerSection);
-    content.appendChild(divider);
-    content.appendChild(addSection);
-
-    refreshPager();
-
-    openModal({ title: `Notes — ${dateLabel}`, content });
-  }
-
-  private updateMemoWidget(dateKey: string, memos: CalendarMemo[]): void {
-    const day = parseInt(dateKey.split('-')[2]!, 10);
-    const cell = this.container.querySelector<HTMLElement>(`[data-day="${day}"]`);
-    if (!cell) return;
-    const existing = cell.querySelector('.cal-memo-widget');
-    const newWidget = this.buildMemoWidget(dateKey, memos);
-    if (existing) {
-      existing.replaceWith(newWidget);
-    } else {
-      cell.appendChild(newWidget);
-    }
   }
 
   private openMarkPaidForm(expense: Expense): void {

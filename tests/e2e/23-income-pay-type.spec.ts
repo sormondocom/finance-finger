@@ -41,9 +41,9 @@ test.beforeAll(async () => {
   await navigateTo(page, 'income');
 
   // Add a household member so the income source form is available
-  await page.fill('[data-testid="add-member-input"]', 'Robin');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Robin' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Robin');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Robin' })).toBeVisible();
 });
 
 test.afterAll(async () => {
@@ -53,7 +53,7 @@ test.afterAll(async () => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function openAddSourceForm() {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Test Source');
 }
@@ -125,7 +125,7 @@ test('filling rate and hours shows a computed per-period preview', async () => {
 // ── Pay type: saving and displaying an hourly source ─────────────────────────
 
 test('saves an hourly source and list row shows rate · hours format', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Hourly Gig');
@@ -137,7 +137,7 @@ test('saves an hourly source and list row shows rate · hours format', async () 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Hourly Gig' });
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Hourly Gig' });
   await expect(row).toBeVisible();
   await expect(row).toContainText('$25.00/hr');
   await expect(row).toContainText('32h/wk');
@@ -145,8 +145,8 @@ test('saves an hourly source and list row shows rate · hours format', async () 
 });
 
 test('editing an hourly source pre-fills rate and hours fields', async () => {
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Hourly Gig' });
-  await row.locator('[data-testid="source-edit"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Hourly Gig' });
+  await row.locator('[data-testid="income-source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await expect(page.locator('#sf-hourly-rate')).toHaveValue('25');
@@ -212,7 +212,7 @@ test('checking "Paychecks are different amounts" reveals the 2nd paycheck field'
 });
 
 test('saves semimonthly with unequal paychecks; row shows both amounts', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Biweekly Pay');
@@ -225,7 +225,7 @@ test('saves semimonthly with unequal paychecks; row shows both amounts', async (
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Biweekly Pay' });
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Biweekly Pay' });
   await expect(row).toBeVisible();
   await expect(row).toContainText('1,500');
   await expect(row).toContainText('1,200');

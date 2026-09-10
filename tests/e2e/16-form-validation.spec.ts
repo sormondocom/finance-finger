@@ -54,10 +54,10 @@ test.afterAll(async () => {
 
 test('set up: add household member for income form tests', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Jordan');
-  await page.click('[data-testid="add-member-btn"]');
+  await page.fill('[data-testid="income-add-member-input"]', 'Jordan');
+  await page.click('[data-testid="income-add-member-btn"]');
   await expect(
-    page.locator('[data-testid="member-chip"]').filter({ hasText: 'Jordan' }),
+    page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Jordan' }),
   ).toBeVisible();
 });
 
@@ -137,7 +137,7 @@ test('Enter on expense amount (last visible text/number field) submits the form'
 
 test('Enter on income amount (last visible text/number field) submits the form', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Keyboard Income');
@@ -148,7 +148,7 @@ test('Enter on income amount (last visible text/number field) submits the form',
 
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
   await expect(
-    page.locator('[data-testid="source-row"]').filter({ hasText: 'Keyboard Income' }),
+    page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Keyboard Income' }),
   ).toBeVisible();
 });
 
@@ -168,7 +168,7 @@ test('category form: single missing field shows a singular required message', as
 
 test('income source form: two missing required fields are both named in the error', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Leave name and amount blank
@@ -199,24 +199,24 @@ test('expense form: three missing required fields are all named in the error', a
 test('debt charge form: three missing required fields are all named in the error', async () => {
   await navigateTo(page, 'debt');
   const cardRow  = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Test Card' });
-  const cardWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Test Card' });
+  const cardWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Test Card' });
 
   // Open charges panel
   await cardRow.locator('[data-testid="debt-charges-btn"]').click();
-  await expect(cardWrap.locator('.charges-panel')).toBeVisible();
+  await expect(cardWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
   // Open add-charge modal
   await cardWrap.locator('button', { hasText: '+ Add charge' }).click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Clear the pre-filled date so all three fields are missing
-  await page.fill('#ch-date', '');
+  await page.fill('[data-testid="debt-charge-date"]', '');
   await page.click('[data-testid="modal-submit"]');
 
-  await expect(page.locator('#ch-error')).toBeVisible();
-  await expect(page.locator('#ch-error')).toContainText('Merchant / Vendor');
-  await expect(page.locator('#ch-error')).toContainText('Amount');
-  await expect(page.locator('#ch-error')).toContainText('Date');
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toContainText('Merchant / Vendor');
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toContainText('Amount');
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toContainText('Date');
 
   await page.click('[data-testid="modal-cancel"]');
 });

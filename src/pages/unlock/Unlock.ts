@@ -24,24 +24,24 @@ export class UnlockPage {
       <div class="form-group">
         <label class="form-label">Private key</label>
         <div class="file-input-row">
-          <button type="button" class="btn btn-secondary btn-sm" id="unlock-key-pick">Choose file…</button>
-          <input id="unlock-key-file" type="file" accept=".asc,.txt,.key" style="display:none" />
-          <span id="unlock-key-fname" class="file-name-hint">No file chosen</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="unlock-key-pick" data-testid="unlock-choose-file-btn">Choose file…</button>
+          <input id="unlock-key-file" type="file" accept=".asc,.txt,.key" style="display:none" data-testid="unlock-key-file-input" />
+          <span id="unlock-key-fname" class="file-name-hint" data-testid="unlock-file-name-hint">No file chosen</span>
         </div>
         <span class="form-hint">or paste below</span>
-        <textarea id="unlock-key" rows="5"
+        <textarea id="unlock-key" rows="5" data-testid="unlock-key-textarea"
           placeholder="-----BEGIN PGP PRIVATE KEY BLOCK-----&#10;&#10;...&#10;-----END PGP PRIVATE KEY BLOCK-----"
           style="font-family:var(--font-mono);font-size:var(--text-xs)"></textarea>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="unlock-pass">Key passphrase</label>
-        <input id="unlock-pass" type="password" autocomplete="current-password" />
+        <input id="unlock-pass" type="password" autocomplete="current-password" data-testid="unlock-passphrase-input" />
       </div>
 
-      <div id="unlock-error" class="form-error" style="display:none"></div>
+      <div id="unlock-error" class="form-error" style="display:none" data-testid="unlock-error"></div>
 
-      <button class="btn btn-primary" id="unlock-btn" style="width:100%">
+      <button class="btn btn-primary" id="unlock-btn" style="width:100%" data-testid="unlock-submit-btn">
         Unlock vault →
       </button>
 
@@ -49,7 +49,7 @@ export class UnlockPage {
 
       <details style="font-size:var(--text-sm);color:var(--color-text-muted)">
         <summary style="cursor:pointer">Public key fingerprint</summary>
-        <div class="unlock-fingerprint" id="unlock-fingerprint" style="margin-top:var(--space-2)">
+        <div class="unlock-fingerprint" id="unlock-fingerprint" style="margin-top:var(--space-2)" data-testid="unlock-fingerprint">
           Loading...
         </div>
       </details>
@@ -105,7 +105,7 @@ export class UnlockPage {
 
     el.querySelector<HTMLButtonElement>('#unlock-btn')!.addEventListener('click', doUnlock);
     el.querySelector<HTMLInputElement>('#unlock-pass')!.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') doUnlock();
+      if (e.key === 'Enter') void doUnlock();
     });
 
     return el;

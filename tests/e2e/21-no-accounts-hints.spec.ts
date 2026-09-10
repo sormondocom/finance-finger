@@ -38,19 +38,19 @@ test.afterAll(async () => {
 
 test('fixture: adds a household member so the income form is accessible', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Jordan');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Jordan' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Jordan');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Jordan' })).toBeVisible();
 });
 
 // ── Income source form: no accounts ───────────────────────────────────────────
 
 test('income source form shows "No bank accounts" hint when no accounts exist', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // No dropdown — hint text should appear instead
-  await expect(page.locator('[data-testid="sf-account-select"]')).not.toBeVisible();
+  await expect(page.locator('[data-testid="income-sf-account-select"]')).not.toBeVisible();
   await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('No bank accounts set up yet');
   await page.screenshot({ path: 'tests/screenshots/hints-01-income-no-accounts.png' });
 });

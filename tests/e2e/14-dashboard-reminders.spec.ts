@@ -50,16 +50,16 @@ test.afterAll(async () => {
 
 test('adds monthly income', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Jo');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Jo' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Jo');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Jo' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Wages');
   await page.fill('#sf-amount', '4000');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Wages' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Wages' })).toBeVisible();
 });
 
 test('adds a past-due recurring bill', async () => {

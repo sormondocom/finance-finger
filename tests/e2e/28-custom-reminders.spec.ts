@@ -31,16 +31,16 @@ test.afterAll(async () => {
 
 test('setup: add household member for income tests', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Alex');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Alex');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
 });
 
 // ── Income: create form ───────────────────────────────────────────────────────
 
 test('income create form shows Reminders section', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await expect(page.locator('.linked-reminders-section')).toBeVisible();
   await expect(page.locator('.linked-reminders-section button', { hasText: '+ Add reminder' })).toBeVisible();
@@ -50,7 +50,7 @@ test('income create form shows Reminders section', async () => {
 
 test('income create form: add reminder then save source — reminder persists in Settings', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Fill the income form
@@ -74,7 +74,7 @@ test('income create form: add reminder then save source — reminder persists in
   // Submit the income form
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Freelance Work' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Freelance Work' })).toBeVisible();
 
   // Verify the reminder appears in Settings → Reminders
   await navigateTo(page, 'settings');
@@ -224,8 +224,8 @@ test('income edit form shows Reminders section with linked reminder', async () =
     await page.locator('.bell-notif-toast-btn').click();
     await toast.waitFor({ state: 'hidden', timeout: 5000 });
   });
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Freelance Work' });
-  await row.locator('[data-testid="source-edit"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Freelance Work' });
+  await row.locator('[data-testid="income-source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await expect(page.locator('.linked-reminders-section')).toBeVisible();
   // The reminder we created during the create form should appear

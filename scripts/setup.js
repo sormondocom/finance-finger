@@ -24,6 +24,9 @@ const playwright = resolve(ROOT, 'node_modules', '@playwright', 'test', 'cli.js'
 const skipTests =
   process.argv.includes('--skip-tests') || process.env['SKIP_TESTS'] === '1';
 
+const eslint = resolve(ROOT, 'node_modules', 'eslint', 'bin', 'eslint.js');
+const updateScreenshots = resolve(__dirname, 'update-screenshots.js');
+
 function run(bin, args, env = {}) {
   return new Promise((done, fail) => {
     const proc = spawn(bin, args, {
@@ -41,6 +44,10 @@ function run(bin, args, env = {}) {
 async function main() {
   // Generate PNG icons (Chrome requires PNGs; Firefox uses SVG)
   await run(node, [resolve(__dirname, 'generate-icons.js')]);
+
+  console.log('\nLinting source files…');
+  await run(node, [eslint, 'src', '--max-warnings', '0']);
+  console.log('✓ Lint passed.');
 
   console.log('\nGenerating data model documentation…');
   await run(node, [resolve(__dirname, 'generate-data-model.js')]);
@@ -73,6 +80,10 @@ async function main() {
     console.log('\nRunning Firefox end-to-end tests…');
     await run(node, [playwright, 'test'], { BROWSER: 'firefox' });
     console.log('\n✓ Firefox E2E tests passed.');
+
+    console.log('\nUpdating documentation screenshots…');
+    await run(node, [updateScreenshots]);
+    console.log('✓ docs/screenshots/ refreshed.');
   }
 
   console.log(`

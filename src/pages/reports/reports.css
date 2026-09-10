@@ -66,6 +66,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
+  align-items: start;
 }
 
 @media (max-width: 700px) {
@@ -102,6 +103,126 @@
   color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
+
+.reports-kpi--expandable {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.reports-kpi--expandable:hover { border-color: var(--color-primary); }
+
+.reports-kpi-toggle {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reports-kpi-detail {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.reports-kpi-detail[hidden] { display: none; }
+
+.reports-kpi-detail-empty {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-2) 0;
+}
+
+/* Spending transaction rows */
+.reports-kpi-tx-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 3px 0;
+  font-size: var(--text-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reports-kpi-tx-row:last-child { border-bottom: none; }
+
+.reports-kpi-tx-date {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.reports-kpi-tx-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reports-kpi-tx-badge {
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.reports-kpi-tx-badge--expense { background: #B45309; }
+.reports-kpi-tx-badge--charge  { background: #1B2A4A; }
+.reports-kpi-tx-badge--bill    { background: #2D5A27; }
+.reports-kpi-tx-badge--debt    { background: #92400E; }
+
+.reports-kpi-tx-amt {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+/* Income detail rows */
+.reports-kpi-inc-month { margin-bottom: var(--space-3); }
+
+.reports-kpi-inc-heading {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reports-kpi-inc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 3px 0;
+  font-size: var(--text-xs);
+}
+
+.reports-kpi-inc-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reports-kpi-inc-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.reports-kpi-inc-amt  { font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.reports-kpi-inc-freq { font-size: 9px; color: var(--color-text-muted); }
+.reports-kpi-inc-days { font-size: 9px; color: var(--color-text-muted); }
 
 /* ── Report card grid ───────────────────────────────────────────────────────── */
 
@@ -219,30 +340,159 @@
   border: 1px solid rgba(180, 83, 9, 0.3);
 }
 
-/* ── Net cash flow chips ────────────────────────────────────────────────────── */
+/* ── Income payment schedule ────────────────────────────────────────────────── */
 
-.reports-net-summary {
+.reports-income-schedule {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 
-.reports-net-chip {
+.reports-income-schedule-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.reports-income-chips {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.reports-income-chip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 200px;
+  max-width: 240px;
+  flex-shrink: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.reports-ic-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.reports-ic-month {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.reports-ic-net {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reports-ic-totals {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-2);
+  align-items: baseline;
+}
+
+.reports-ic-total-label {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.reports-ic-total-val {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  color: var(--ff-green);
+}
+
+.reports-ic-total-val--spend {
+  color: var(--ff-rust);
+}
+
+.reports-ic-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.reports-ic-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-bg-sunken);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-bg);
 }
 
-.reports-net-chip-value {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
+.reports-ic-row:last-child {
+  border-bottom: none;
+}
+
+.reports-ic-name {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reports-ic-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.reports-ic-amt {
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.reports-ic-freq {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.reports-ic-days {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.reports-ic-days--none {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.reports-ic-none {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+  padding: var(--space-2) 0;
 }
 
 /* ── Card balance creep warning ─────────────────────────────────────────────── */
@@ -388,6 +638,7 @@
 /* ── Leaky Bucket ───────────────────────────────────────────────────────────── */
 
 .lb-card {
+  --lb-panel-w: 220px;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -411,6 +662,7 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  width: var(--lb-panel-w, 220px);
 }
 
 .lb-month-sel {
@@ -421,6 +673,7 @@
   background: var(--color-bg-elevated);
   color: var(--color-text);
   cursor: pointer;
+  width: 100%;
 }
 
 .lb-step-btn {
@@ -529,14 +782,63 @@
   letter-spacing: 0.06em;
 }
 
+/* ── Calendar date widget ───────────────────────────────────────────────────── */
+
+.lb-cal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: var(--lb-panel-w, 220px);
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: auto;
+  user-select: none;
+}
+
+.lb-cal-wd {
+  width: 100%;
+  text-align: center;
+  padding: var(--space-1) var(--space-2);
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--color-text-muted);
+  transition: background 0.45s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-cal-day {
+  font-size: 3.5rem;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: var(--space-4) var(--space-2) var(--space-3);
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.lb-cal-mo {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  padding: 0 var(--space-2) var(--space-2);
+  text-align: center;
+}
+
 /* ── Stats column ───────────────────────────────────────────────────────────── */
 
 .lb-stats-col {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   align-self: center;
+  justify-content: center;
 }
 
 .lb-stat {
@@ -682,6 +984,134 @@
     flex-direction: row;
     flex-wrap: wrap;
     gap: var(--space-4);
+    align-items: flex-start;
   }
+  .lb-cal-day { font-size: 2.4rem; }
   .lb-stat { min-width: 80px; }
+}
+
+/* ── Payee Schedule ─────────────────────────────────────────────────────────── */
+
+.payee-schedule-summary {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  margin-bottom: var(--space-2);
+}
+
+.payee-schedule-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.payee-schedule-summary-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.payee-schedule-summary-value {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.payee-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.payee-schedule-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.payee-schedule-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.payee-schedule-freq-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.payee-schedule-group-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.payee-schedule-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payee-schedule-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid transparent;
+  transition: border-color var(--ease-default);
+}
+
+.payee-schedule-row:hover {
+  border-color: var(--color-border);
+}
+
+.payee-schedule-row--debt {
+  background: rgba(201, 168, 76, 0.05);
+  border-color: rgba(201, 168, 76, 0.15);
+}
+
+.payee-schedule-name {
+  color: var(--color-text);
+  font-weight: var(--weight-medium);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.payee-schedule-due {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-normal);
+}
+
+.payee-schedule-amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.payee-schedule-annual {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-align: right;
+  min-width: 72px;
 }

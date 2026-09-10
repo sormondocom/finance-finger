@@ -74,9 +74,9 @@ test.afterAll(async () => {
 
 test('fixture: adds household member Alex', async () => {
   await navigateTo(page, 'income');
-  await page.fill('[data-testid="add-member-input"]', 'Alex');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Alex');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
 });
 
 // ── Test 1: nav link ──────────────────────────────────────────────────────────
@@ -253,25 +253,25 @@ test('no deposits chart shown when no income is linked to any account', async ()
 
 test('income source form shows Deposit to account dropdown after accounts exist', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await expect(page.locator('[data-testid="sf-account-select"]')).toBeVisible();
+  await expect(page.locator('[data-testid="income-sf-account-select"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-08-income-dropdown.png' });
 });
 
 test('Deposit to account dropdown contains Main Checking', async () => {
-  await expect(page.locator('[data-testid="sf-account-select"]')).toContainText('Main Checking');
+  await expect(page.locator('[data-testid="income-sf-account-select"]')).toContainText('Main Checking');
 });
 
 test('income source can be linked to Main Checking and saved', async () => {
   await page.fill('#sf-name', 'Day Job');
   await page.fill('#sf-amount', '4000');
   // frequency defaults to monthly
-  await page.selectOption('[data-testid="sf-account-select"]', { label: 'Main Checking' });
+  await page.selectOption('[data-testid="income-sf-account-select"]', { label: 'Main Checking' });
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-09-income-linked.png' });
 });
 

@@ -1,41 +1,25 @@
 import './dashboard.css';
 import { makeHelpBtn } from '@/utils/helpNav';
+import { showPageError } from '@/utils/errorUI';
 import browser from 'webextension-polyfill';
 import {
   getMembers, getIncomeSources, getExpenses, getDebtAccounts,
-  getCategories, saveExpense, createExpense, deleteExpense,
-  saveIncomeSource, createIncomeSource, deleteIncomeSource,
+  getCategories,
   getDebtPayments, getBankAccounts,
-  getExpensePaidRecords, deleteExpensePaidRecord,
 } from '@/db';
 import { computePaymentStatus, computeMinPayment } from '@/utils/paymentStatus';
-import type { AccountPaymentStatus } from '@/utils/paymentStatus';
 import { computeBillStatus } from '@/utils/billStatus';
-import type { BillPaymentStatus } from '@/utils/billStatus';
 import { refreshNotifier, subscribeToAlerts, getCurrentAlerts } from '@/utils/notifier';
 import { greet, showMascot, showTip, updateMascotItems } from '@/mascot/Mascot';
 import { getDailyTip } from '@/mascot/messages';
 import { navigate } from '@/app/router';
-import { toMonthly, sourceMonthly, fmt, fmtCents } from '@/utils/finance';
-import { openFormModal } from '@/components/Modal';
+import { toMonthly, sourceMonthly } from '@/utils/finance';
+import { buildSummarySection, buildActivitySection, type MonthBucket } from './DashboardActivity';
+import { buildPaymentRemindersCard } from './DashboardReminders';
+import { buildFinancialHealthRow, buildIncomeByAccountCard, renderIncomePanel, renderDebtPanel } from './DashboardPanels';
 import type { VaultConfig, Expense, ExpenseCategory, IncomeSource, HouseholdMember, BankAccount } from '@/types';
 
-// Per-calendar-month bucket used for all date-range calculations.
-// "recurringIncome / recurringExpenses" are the current-config recurring
-// rates prorated to the fraction of the month that falls within the window.
-interface MonthBucket {
-  readonly year: number;
-  readonly month: number;   // 0-indexed
-  readonly label: string;   // "August 2026"
-  readonly isPartial: boolean;
-  readonly proratedFactor: number; // 0..1
-  readonly effectiveStart: Date;   // first day included (clamped to range)
-  readonly effectiveEnd: Date;     // last day included (clamped to range)
-  readonly recurringIncome: number;
-  readonly oneTimeIncome: IncomeSource[];
-  readonly recurringExpenses: number;
-  readonly oneTimeExpenses: Expense[];
-}
+
 
 export class Dashboard {
   private el!: HTMLElement;
@@ -58,11 +42,12 @@ export class Dashboard {
     this.el = document.createElement('div');
     this.el.className = 'dashboard';
     this.el.innerHTML = '<p class="text-muted">Loading...</p>';
-    this.populate();
+    void this.populate();
     return this.el;
   }
 
   private async populate(): Promise<void> {
+    try {
     const [members, sources, expenses, cards, categories, configResult, payments, bankAccounts] = await Promise.all([
       getMembers(),
       getIncomeSources(),
@@ -119,7 +104,7 @@ export class Dashboard {
 
     const hasAnyAlerts = pastDue.length > 0 || dueSoon.length > 0 || billsPastDue.length > 0 || billsDueSoon.length > 0;
     if (hasAnyAlerts) {
-      this.el.appendChild(this.buildPaymentRemindersCard(pastDue, dueSoon, billsPastDue, billsDueSoon));
+      this.el.appendChild(buildPaymentRemindersCard(pastDue, dueSoon, billsPastDue, billsDueSoon));
     }
 
     // ── Notifier: badge + live mascot updates ────────────────────────────────
@@ -127,10 +112,15 @@ export class Dashboard {
     subscribeToAlerts((items) => updateMascotItems(items));
 
     // ── Summary cards (date-sensitive) ──────────────────────────────────────
-    this.el.appendChild(this.buildSummarySection(this.currentBuckets()));
+    this.el.appendChild(buildSummarySection(
+      this.currentBuckets(),
+      this.allIncomeSources.filter((s) => s.active && s.frequency !== 'once').length,
+      this.allExpenses.filter((e) => e.recurring).length,
+      this.totalDebt, this.debtCount,
+    ));
 
     // ── Financial health metrics (DTI + credit utilization) ──────────────────
-    const healthRow = this.buildFinancialHealthRow(cards, sources);
+    const healthRow = buildFinancialHealthRow(cards, sources);
     if (healthRow) this.el.appendChild(healthRow);
 
     // ── Income + Debt panels (static) ───────────────────────────────────────
@@ -142,14 +132,14 @@ export class Dashboard {
           Income Sources
           <a href="#/income" data-route="/income">Manage →</a>
         </h2>
-        <div data-section="income-content">${this.renderIncomePanel(sources)}</div>
+        <div data-section="income-content">${renderIncomePanel(sources, this.viewYear, this.viewMonth)}</div>
       </div>
       <div class="dashboard-panel card">
         <h2 class="font-serif">
           Debt
           <a href="#/debt" data-route="/debt">Manage →</a>
         </h2>
-        ${this.renderDebtPanel(cards)}
+        ${renderDebtPanel(cards)}
       </div>
     `;
     panels.querySelectorAll<HTMLAnchorElement>('[data-route]').forEach((a) => {
@@ -161,11 +151,18 @@ export class Dashboard {
     this.el.appendChild(panels);
 
     // ── Income by Account (only when accounts are linked) ───────────────────────
-    const incomeByAccountCard = this.buildIncomeByAccountCard(sources);
+    const incomeByAccountCard = buildIncomeByAccountCard(sources, this.bankAccounts, this.viewYear, this.viewMonth);
     if (incomeByAccountCard) this.el.appendChild(incomeByAccountCard);
 
     // ── Activity / Report section (date-sensitive) ───────────────────────────
-    this.el.appendChild(this.buildActivitySection(this.currentBuckets()));
+    this.el.appendChild(buildActivitySection(
+      this.currentBuckets(), this.viewMode, this.categories, this.members,
+      this.rangeStart, this.rangeEnd,
+      (id) => { this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== id); this.refreshDateSections(); },
+      (id) => { this.allExpenses = this.allExpenses.filter((x) => x.id !== id); this.refreshDateSections(); },
+      (src) => { this.allIncomeSources.push(src); this.refreshDateSections(); },
+      (expense) => { this.allExpenses.push(expense); this.refreshDateSections(); },
+    ));
 
     // ── Tip widget ───────────────────────────────────────────────────────────
     const gender = config?.mascotGender ?? 'buck';
@@ -220,6 +217,9 @@ export class Dashboard {
     }, 0);
     if (sources.some((s) => s.active && s.frequency !== 'once') && periodNet < 0) {
       setTimeout(() => showMascot('negative-cashflow'), 2000);
+    }
+    } catch (err) {
+      showPageError(this.el, err instanceof Error ? err.message : 'Failed to load dashboard', () => { void this.populate(); });
     }
   }
 
@@ -300,13 +300,25 @@ export class Dashboard {
     const buckets = this.currentBuckets();
 
     const oldSummary = this.el.querySelector('.dashboard-summary');
-    if (oldSummary) oldSummary.replaceWith(this.buildSummarySection(buckets));
+    if (oldSummary) oldSummary.replaceWith(buildSummarySection(
+      buckets,
+      this.allIncomeSources.filter((s) => s.active && s.frequency !== 'once').length,
+      this.allExpenses.filter((e) => e.recurring).length,
+      this.totalDebt, this.debtCount,
+    ));
 
     const oldActivity = this.el.querySelector('[data-section="activity"]');
-    if (oldActivity) oldActivity.replaceWith(this.buildActivitySection(buckets));
+    if (oldActivity) oldActivity.replaceWith(buildActivitySection(
+      buckets, this.viewMode, this.categories, this.members,
+      this.rangeStart, this.rangeEnd,
+      (id) => { this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== id); this.refreshDateSections(); },
+      (id) => { this.allExpenses = this.allExpenses.filter((x) => x.id !== id); this.refreshDateSections(); },
+      (src) => { this.allIncomeSources.push(src); this.refreshDateSections(); },
+      (expense) => { this.allExpenses.push(expense); this.refreshDateSections(); },
+    ));
 
     const oldIncContent = this.el.querySelector('[data-section="income-content"]');
-    if (oldIncContent) oldIncContent.innerHTML = this.renderIncomePanel(this.allIncomeSources);
+    if (oldIncContent) oldIncContent.innerHTML = renderIncomePanel(this.allIncomeSources, this.viewYear, this.viewMonth);
   }
 
   // ── Header controls ───────────────────────────────────────────────────────────
@@ -434,996 +446,4 @@ export class Dashboard {
     return wrap;
   }
 
-  // ── Financial health row (DTI + credit utilization) ─────────────────────────
-
-  private buildFinancialHealthRow(
-    cards: Awaited<ReturnType<typeof getDebtAccounts>>,
-    sources: IncomeSource[],
-  ): HTMLElement | null {
-    const monthlyIncome = sources
-      .filter((s) => s.active && s.frequency !== 'once')
-      .reduce((sum, s) => sum + sourceMonthly(s), 0);
-
-    const monthlyMinPayments = cards
-      .filter((c) => c.balance > 0)
-      .reduce((sum, c) => sum + (computeMinPayment(c) ?? 0), 0);
-
-    const cardAccounts = cards.filter((c) => c.type === 'card' && (c.creditLimit ?? 0) > 0 && c.balance > 0);
-    const totalCardBalance = cardAccounts.reduce((s, c) => s + c.balance, 0);
-    const totalCardLimit = cardAccounts.reduce((s, c) => s + (c.creditLimit ?? 0), 0);
-
-    const hasDTI = monthlyIncome > 0 && monthlyMinPayments > 0;
-    const hasUtil = totalCardLimit > 0;
-    if (!hasDTI && !hasUtil) return null;
-
-    const dti = hasDTI ? (monthlyMinPayments / monthlyIncome) * 100 : null;
-    const util = hasUtil ? (totalCardBalance / totalCardLimit) * 100 : null;
-
-    const dtiColor = dti == null ? '' : dti < 36 ? 'var(--ff-green)' : dti < 43 ? 'var(--ff-rust)' : 'var(--color-danger)';
-    const dtiLabel = dti == null ? '' : dti < 36 ? 'Healthy' : dti < 43 ? 'Elevated' : 'High';
-    const utilColor = util == null ? '' : util < 30 ? 'var(--ff-green)' : util < 50 ? 'var(--ff-rust)' : 'var(--color-danger)';
-    const utilLabel = util == null ? '' : util < 30 ? 'Good' : util < 50 ? 'Fair' : 'High';
-
-    const row = document.createElement('div');
-    row.className = 'dashboard-health-row';
-    row.setAttribute('data-testid', 'financial-health-row');
-
-    if (hasDTI && dti != null) {
-      const chip = document.createElement('div');
-      chip.className = 'health-chip';
-      chip.setAttribute('data-testid', 'dti-chip');
-      chip.setAttribute('title', 'Debt-to-Income Ratio: monthly minimum debt payments ÷ monthly income. Under 36% is healthy; above 43% is high.');
-      chip.innerHTML = `
-        <span class="health-chip-label">Debt-to-Income</span>
-        <span class="health-chip-value" style="color:${dtiColor}" data-testid="dti-value">${dti.toFixed(0)}%</span>
-        <span class="health-chip-tag" style="background:${dtiColor}20;color:${dtiColor}">${dtiLabel}</span>
-      `;
-      row.appendChild(chip);
-    }
-
-    if (hasUtil && util != null) {
-      const utilHealth = util < 30 ? 'good' : util < 50 ? 'amber' : 'high';
-      const chip = document.createElement('div');
-      chip.className = 'health-chip';
-      chip.setAttribute('data-testid', 'util-chip');
-      chip.setAttribute('data-health', utilHealth);
-      chip.setAttribute('title', 'Credit Utilization: total card balance ÷ total credit limit. Under 30% is good for your credit score.');
-      chip.innerHTML = `
-        <span class="health-chip-label">Credit Utilization</span>
-        <span class="health-chip-value" style="color:${utilColor}" data-testid="util-value">${util.toFixed(0)}%</span>
-        <span class="health-chip-tag" style="background:${utilColor}20;color:${utilColor}">${utilLabel}</span>
-      `;
-      row.appendChild(chip);
-    }
-
-    return row;
-  }
-
-  // ── Summary section ───────────────────────────────────────────────────────────
-
-  private buildSummarySection(buckets: MonthBucket[]): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'dashboard-summary';
-
-    const totalRecIncome = buckets.reduce((s, b) => s + b.recurringIncome, 0);
-    const totalOTIncome = buckets.reduce((s, b) => s + b.oneTimeIncome.reduce((ss, i) => ss + i.amount, 0), 0);
-    const totalIncome = totalRecIncome + totalOTIncome;
-
-    const totalRecExpenses = buckets.reduce((s, b) => s + b.recurringExpenses, 0);
-    const totalOTExpenses = buckets.reduce((s, b) => s + b.oneTimeExpenses.reduce((ss, e) => ss + e.amount, 0), 0);
-    const totalExpenses = totalRecExpenses + totalOTExpenses;
-
-    const net = totalIncome - totalExpenses;
-    const recNet = totalRecIncome - totalRecExpenses;
-    const otNet = totalOTIncome - totalOTExpenses;
-    const hasOT = totalOTIncome > 0 || totalOTExpenses > 0;
-
-    const recIncCount = this.allIncomeSources.filter((s) => s.active && s.frequency !== 'once').length;
-    const recExpCount = this.allExpenses.filter((e) => e.recurring).length;
-
-    // ── Income card ──
-    const incCard = document.createElement('div');
-    incCard.className = 'summary-card income';
-    incCard.setAttribute('data-testid', 'summary-card-income');
-    incCard.innerHTML = `
-      <span class="summary-card-label">Income</span>
-      <span class="summary-card-value" data-testid="summary-value-income">${totalIncome > 0 ? fmt.format(totalIncome) : '—'}</span>
-      ${hasOT && totalOTIncome > 0
-        ? `<div class="summary-card-breakdown" data-testid="summary-breakdown-income">
-             <span>${fmt.format(totalRecIncome)} recurring baseline</span>
-             <span class="bd-sep">·</span>
-             <span class="bd-pos">+${fmt.format(totalOTIncome)} one-time</span>
-           </div>`
-        : `<span class="summary-card-sub">${recIncCount} recurring source${recIncCount !== 1 ? 's' : ''}</span>`
-      }
-    `;
-    section.appendChild(incCard);
-
-    // ── Expenses card ──
-    const expCard = document.createElement('div');
-    expCard.className = 'summary-card expense';
-    expCard.setAttribute('data-testid', 'summary-card-expenses');
-    expCard.innerHTML = `
-      <span class="summary-card-label">Expenses</span>
-      <span class="summary-card-value" data-testid="summary-value-expenses">${totalExpenses > 0 ? fmt.format(totalExpenses) : '—'}</span>
-      ${hasOT && totalOTExpenses > 0
-        ? `<div class="summary-card-breakdown" data-testid="summary-breakdown-expenses">
-             <span>${fmt.format(totalRecExpenses)} recurring baseline</span>
-             <span class="bd-sep">·</span>
-             <span class="bd-neg">+${fmt.format(totalOTExpenses)} one-time</span>
-           </div>`
-        : `<span class="summary-card-sub">${recExpCount} recurring item${recExpCount !== 1 ? 's' : ''}</span>`
-      }
-    `;
-    section.appendChild(expCard);
-
-    // ── Net Cash Flow card ──
-    const netColor = net >= 0 ? 'var(--ff-green)' : 'var(--color-danger)';
-    const netStr = totalIncome > 0 || totalExpenses > 0
-      ? `${net >= 0 ? '+' : '−'}${fmt.format(Math.abs(net))}` : '—';
-    const netCard = document.createElement('div');
-    netCard.className = 'summary-card surplus';
-    netCard.setAttribute('data-testid', 'summary-card-surplus');
-    netCard.innerHTML = `
-      <span class="summary-card-label">Net Cash Flow</span>
-      <span class="summary-card-value" data-testid="summary-value-surplus" style="color:${netColor}">${netStr}</span>
-      ${hasOT
-        ? `<div class="summary-card-breakdown" data-testid="summary-breakdown-net">
-             <span class="${recNet >= 0 ? 'bd-pos' : 'bd-neg'}">${recNet >= 0 ? '+' : '−'}${fmt.format(Math.abs(recNet))} recurring</span>
-             <span class="bd-sep">·</span>
-             <span class="${otNet >= 0 ? 'bd-pos' : 'bd-neg'}">${otNet >= 0 ? '+' : '−'}${fmt.format(Math.abs(otNet))} one-time</span>
-           </div>`
-        : `<span class="summary-card-sub">After recurring expenses</span>`
-      }
-    `;
-    section.appendChild(netCard);
-
-    // ── Debt card (always point-in-time) ──
-    const debtCard = document.createElement('div');
-    debtCard.className = 'summary-card debt';
-    debtCard.setAttribute('data-testid', 'summary-card-debt');
-    debtCard.innerHTML = `
-      <span class="summary-card-label">Total Debt</span>
-      <span class="summary-card-value" data-testid="summary-value-debt">${this.totalDebt > 0 ? fmtCents.format(this.totalDebt) : '—'}</span>
-      <span class="summary-card-sub">${this.debtCount} account${this.debtCount !== 1 ? 's' : ''}</span>
-    `;
-    section.appendChild(debtCard);
-
-    return section;
-  }
-
-  // ── Activity / Report section ─────────────────────────────────────────────────
-
-  private buildActivitySection(buckets: MonthBucket[]): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'card monthly-activity-widget';
-    section.setAttribute('data-section', 'activity');
-
-    if (this.viewMode === 'month') {
-      this.buildMonthActivityContent(section, buckets[0]);
-    } else {
-      this.buildRangeReportContent(section, buckets);
-    }
-
-    return section;
-  }
-
-  private buildMonthActivityContent(container: HTMLElement, bucket: MonthBucket | undefined): void {
-    if (!bucket) return;
-
-    const catMap = new Map(this.categories.map((c) => [c.id, c]));
-    const memberMap = new Map(this.members.map((m) => [m.id, m]));
-
-    const header = document.createElement('div');
-    header.className = 'ma-header';
-    header.innerHTML = `<h2 class="font-serif" style="font-size:var(--text-xl);margin:0">Monthly Activity</h2>`;
-    container.appendChild(header);
-
-    // ── One-time income ──
-    const incSection = document.createElement('div');
-    incSection.className = 'ma-section';
-    const incHeader = document.createElement('div');
-    incHeader.className = 'ma-section-header';
-    incHeader.innerHTML = `<span class="ma-section-title ma-income">One-time Income</span>`;
-    const addIncBtn = document.createElement('button');
-    addIncBtn.className = 'btn btn-secondary btn-sm';
-    addIncBtn.setAttribute('data-testid', 'add-unexpected-income-btn');
-    addIncBtn.textContent = '+ Log';
-    addIncBtn.addEventListener('click', () => this.openOneTimeIncomeForm(bucket));
-    incHeader.appendChild(addIncBtn);
-    incSection.appendChild(incHeader);
-
-    if (bucket.oneTimeIncome.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'text-muted text-sm ma-empty';
-      empty.textContent = 'No one-time income this month.';
-      incSection.appendChild(empty);
-    } else {
-      const list = document.createElement('div');
-      list.className = 'ma-list';
-      const incTotal = bucket.oneTimeIncome.reduce((s, i) => s + i.amount, 0);
-      bucket.oneTimeIncome.forEach((src) => {
-        const member = memberMap.get(src.memberId);
-        const dateStr = src.date
-          ? new Date(src.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : '';
-        list.appendChild(this.buildMaRow({
-          label: src.name, sub: member?.name, dateStr,
-          amount: src.amount, colorClass: 'ma-amount-income', prefix: '+',
-          onDelete: async () => {
-            if (!confirm(`Delete "${src.name}"?`)) return;
-            await deleteIncomeSource(src.id);
-            this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== src.id);
-            this.refreshDateSections();
-          },
-        }));
-      });
-      incSection.appendChild(list);
-      const subtotal = document.createElement('div');
-      subtotal.className = 'ma-subtotal';
-      subtotal.innerHTML = `<span class="text-sm text-muted">Income total</span><span class="ma-amount-income">${fmtCents.format(incTotal)}</span>`;
-      incSection.appendChild(subtotal);
-    }
-    container.appendChild(incSection);
-
-    const divider = document.createElement('div');
-    divider.className = 'ma-divider';
-    container.appendChild(divider);
-
-    // ── One-time expenses ──
-    const expSection = document.createElement('div');
-    expSection.className = 'ma-section';
-    const expHeader = document.createElement('div');
-    expHeader.className = 'ma-section-header';
-    expHeader.innerHTML = `<span class="ma-section-title ma-expense">One-time Expenses</span>`;
-    const addExpBtn = document.createElement('button');
-    addExpBtn.className = 'btn btn-secondary btn-sm';
-    addExpBtn.setAttribute('data-testid', 'add-surprise-expense-btn');
-    addExpBtn.textContent = '+ Log';
-    addExpBtn.addEventListener('click', () => this.openOneTimeExpenseForm(bucket));
-    expHeader.appendChild(addExpBtn);
-    expSection.appendChild(expHeader);
-
-    if (bucket.oneTimeExpenses.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'text-muted text-sm ma-empty';
-      empty.textContent = 'No one-time expenses this month.';
-      expSection.appendChild(empty);
-    } else {
-      const list = document.createElement('div');
-      list.className = 'ma-list';
-      const expTotal = bucket.oneTimeExpenses.reduce((s, e) => s + e.amount, 0);
-      bucket.oneTimeExpenses.forEach((e) => {
-        const cat = catMap.get(e.categoryId);
-        const dateStr = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        list.appendChild(this.buildMaRow({
-          label: e.description, dotColor: cat?.color, dateStr,
-          amount: e.amount, colorClass: 'ma-amount-expense', prefix: '−',
-          onDelete: async () => {
-            if (!confirm(`Delete "${e.description}"?`)) return;
-            const paidRecords = await getExpensePaidRecords(e.id);
-            await Promise.all(paidRecords.map((r) => deleteExpensePaidRecord(r.id)));
-            await deleteExpense(e.id);
-            this.allExpenses = this.allExpenses.filter((x) => x.id !== e.id);
-            this.refreshDateSections();
-          },
-        }));
-      });
-      expSection.appendChild(list);
-      const subtotal = document.createElement('div');
-      subtotal.className = 'ma-subtotal';
-      subtotal.innerHTML = `<span class="text-sm text-muted">Expense total</span><span class="ma-amount-expense">${fmtCents.format(bucket.oneTimeExpenses.reduce((s, e) => s + e.amount, 0))}</span>`;
-      expSection.appendChild(subtotal);
-    }
-    container.appendChild(expSection);
-
-    // ── One-time net ──
-    const otInc = bucket.oneTimeIncome.reduce((s, i) => s + i.amount, 0);
-    const otExp = bucket.oneTimeExpenses.reduce((s, e) => s + e.amount, 0);
-    const otNet = otInc - otExp;
-    if (bucket.oneTimeIncome.length > 0 || bucket.oneTimeExpenses.length > 0) {
-      const netRow = document.createElement('div');
-      netRow.className = 'ma-net';
-      const netClass = otNet >= 0 ? 'ma-amount-income' : 'ma-amount-expense';
-      netRow.innerHTML = `
-        <span class="text-sm font-bold">One-time net</span>
-        <span class="${netClass} font-bold">${otNet >= 0 ? '+' : '−'}${fmtCents.format(Math.abs(otNet))}</span>
-      `;
-      container.appendChild(netRow);
-    }
-  }
-
-  private buildRangeReportContent(container: HTMLElement, buckets: MonthBucket[]): void {
-    const catMap = new Map(this.categories.map((c) => [c.id, c]));
-
-    const header = document.createElement('div');
-    header.className = 'ma-header';
-    let rangeLabel = '';
-    if (this.rangeStart && this.rangeEnd) {
-      const fd = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      rangeLabel = `${fd(this.rangeStart)} – ${fd(this.rangeEnd)}`;
-    }
-    header.innerHTML = `
-      <h2 class="font-serif" style="font-size:var(--text-xl);margin:0">Period Report</h2>
-      ${rangeLabel ? `<span class="text-sm text-muted">${rangeLabel}</span>` : ''}
-    `;
-    container.appendChild(header);
-
-    if (buckets.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'text-muted text-sm';
-      empty.textContent = 'No data in selected range.';
-      container.appendChild(empty);
-      return;
-    }
-
-    // Column headers
-    const colHeader = document.createElement('div');
-    colHeader.className = 'report-row report-row-header';
-    colHeader.innerHTML = `
-      <span>Month</span>
-      <span>Income</span>
-      <span>Expenses</span>
-      <span>Net</span>
-      <span></span>
-    `;
-    container.appendChild(colHeader);
-
-    let grandIncome = 0;
-    let grandExpenses = 0;
-
-    buckets.forEach((b) => {
-      const bInc = b.recurringIncome + b.oneTimeIncome.reduce((s, i) => s + i.amount, 0);
-      const bExp = b.recurringExpenses + b.oneTimeExpenses.reduce((s, e) => s + e.amount, 0);
-      const bNet = bInc - bExp;
-      grandIncome += bInc;
-      grandExpenses += bExp;
-
-      // Build partial-month date range label (e.g. "May 15–31")
-      let partialLabel = '';
-      if (b.isPartial) {
-        const startDay = b.effectiveStart.getDate();
-        const endDay = b.effectiveEnd.getDate();
-        const monthShort = b.effectiveStart.toLocaleString('default', { month: 'short' });
-        partialLabel = `${monthShort} ${startDay}–${endDay}`;
-      }
-
-      const hasItems = b.oneTimeIncome.length > 0 || b.oneTimeExpenses.length > 0;
-
-      const row = document.createElement('div');
-      row.className = 'report-row';
-      row.setAttribute('data-testid', 'report-month-row');
-
-      const netCls = bNet >= 0 ? 'report-net-pos' : 'report-net-neg';
-      const monthCell = document.createElement('span');
-      monthCell.className = 'report-month';
-      monthCell.textContent = b.label;
-      if (b.isPartial) {
-        const badge = document.createElement('span');
-        badge.className = 'partial-badge';
-        badge.textContent = partialLabel;
-        monthCell.appendChild(badge);
-      }
-
-      const incCell = document.createElement('span');
-      incCell.className = 'report-income';
-      incCell.textContent = fmt.format(bInc);
-
-      const expCell = document.createElement('span');
-      expCell.className = 'report-expense';
-      expCell.textContent = fmt.format(bExp);
-
-      const netCell = document.createElement('span');
-      netCell.className = netCls;
-      netCell.textContent = `${bNet >= 0 ? '+' : '−'}${fmt.format(Math.abs(bNet))}`;
-
-      const expandBtn = document.createElement('button');
-      expandBtn.className = `report-expand-btn${hasItems ? '' : ' report-expand-btn-empty'}`;
-      expandBtn.setAttribute('aria-label', hasItems ? 'Show one-time items' : 'No one-time items');
-      expandBtn.setAttribute('data-testid', 'report-expand-btn');
-      expandBtn.textContent = hasItems ? '▸' : '·';
-
-      row.appendChild(monthCell);
-      row.appendChild(incCell);
-      row.appendChild(expCell);
-      row.appendChild(netCell);
-      row.appendChild(expandBtn);
-      container.appendChild(row);
-
-      if (hasItems) {
-        const detail = document.createElement('div');
-        detail.className = 'report-detail';
-        detail.setAttribute('data-testid', 'report-detail');
-        detail.style.display = 'none';
-
-        const breakdown = document.createElement('div');
-        breakdown.className = 'report-detail-breakdown';
-        breakdown.innerHTML = `
-          <span class="text-xs text-muted">
-            Recurring baseline: ${fmt.format(b.recurringIncome)} income · ${fmt.format(b.recurringExpenses)} expenses
-            ${b.isPartial ? ` (${Math.round(b.proratedFactor * 100)}% of month)` : ''}
-          </span>
-        `;
-        detail.appendChild(breakdown);
-
-        if (b.oneTimeIncome.length > 0) {
-          const title = document.createElement('div');
-          title.className = 'report-detail-sub-title ma-income';
-          title.textContent = 'One-time Income';
-          detail.appendChild(title);
-          const list = document.createElement('div');
-          list.className = 'ma-list';
-          b.oneTimeIncome.forEach((src) => {
-            const dateStr = src.date
-              ? new Date(src.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-              : '';
-            list.appendChild(this.buildMaRow({
-              label: src.name, dateStr, amount: src.amount,
-              colorClass: 'ma-amount-income', prefix: '+',
-              onDelete: async () => {
-                if (!confirm(`Delete "${src.name}"?`)) return;
-                await deleteIncomeSource(src.id);
-                this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== src.id);
-                this.refreshDateSections();
-              },
-            }));
-          });
-          detail.appendChild(list);
-        }
-
-        if (b.oneTimeExpenses.length > 0) {
-          const title = document.createElement('div');
-          title.className = 'report-detail-sub-title ma-expense';
-          title.textContent = 'One-time Expenses';
-          detail.appendChild(title);
-          const list = document.createElement('div');
-          list.className = 'ma-list';
-          b.oneTimeExpenses.forEach((e) => {
-            const cat = catMap.get(e.categoryId);
-            const dateStr = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            list.appendChild(this.buildMaRow({
-              label: e.description, dotColor: cat?.color, dateStr,
-              amount: e.amount, colorClass: 'ma-amount-expense', prefix: '−',
-              onDelete: async () => {
-                if (!confirm(`Delete "${e.description}"?`)) return;
-                await deleteExpense(e.id);
-                this.allExpenses = this.allExpenses.filter((x) => x.id !== e.id);
-                this.refreshDateSections();
-              },
-            }));
-          });
-          detail.appendChild(list);
-        }
-
-        container.appendChild(detail);
-
-        expandBtn.addEventListener('click', () => {
-          const isOpen = detail.style.display !== 'none';
-          detail.style.display = isOpen ? 'none' : '';
-          expandBtn.textContent = isOpen ? '▸' : '▾';
-        });
-      }
-    });
-
-    // Totals row
-    const grandNet = grandIncome - grandExpenses;
-    const totalRow = document.createElement('div');
-    totalRow.className = 'report-row report-total-row';
-    totalRow.setAttribute('data-testid', 'report-total-row');
-    const grandNetCls = grandNet >= 0 ? 'report-net-pos' : 'report-net-neg';
-    totalRow.innerHTML = `
-      <span class="font-bold">Total</span>
-      <span class="font-bold">${fmt.format(grandIncome)}</span>
-      <span class="font-bold">${fmt.format(grandExpenses)}</span>
-      <span class="font-bold ${grandNetCls}">${grandNet >= 0 ? '+' : '−'}${fmt.format(Math.abs(grandNet))}</span>
-      <span></span>
-    `;
-    container.appendChild(totalRow);
-  }
-
-  // ── Shared row builder ─────────────────────────────────────────────────────────
-
-  private buildMaRow(opts: {
-    label: string;
-    sub?: string | undefined;
-    dotColor?: string | undefined;
-    dateStr: string;
-    amount: number;
-    colorClass: string;
-    prefix: string;
-    onDelete: () => void | Promise<void>;
-  }): HTMLElement {
-    const row = document.createElement('div');
-    row.className = 'ma-row';
-    row.setAttribute('data-testid', 'ma-row');
-
-    if (opts.dotColor !== undefined) {
-      const dot = document.createElement('span');
-      dot.className = 'ma-dot';
-      dot.style.background = opts.dotColor ?? 'var(--color-border)';
-      row.appendChild(dot);
-    }
-
-    const labelWrap = document.createElement('span');
-    labelWrap.className = 'ma-label';
-    labelWrap.textContent = opts.label;
-    if (opts.sub) {
-      const sub = document.createElement('span');
-      sub.className = 'ma-sub text-xs text-muted';
-      sub.textContent = opts.sub;
-      labelWrap.appendChild(sub);
-    }
-    row.appendChild(labelWrap);
-
-    const dateEl = document.createElement('span');
-    dateEl.className = 'ma-date text-muted text-xs';
-    dateEl.textContent = opts.dateStr;
-    row.appendChild(dateEl);
-
-    const amt = document.createElement('span');
-    amt.className = `ma-amount ${opts.colorClass}`;
-    amt.textContent = `${opts.prefix}${fmtCents.format(opts.amount)}`;
-    row.appendChild(amt);
-
-    const del = document.createElement('button');
-    del.className = 'icon-btn danger';
-    del.setAttribute('data-testid', 'ma-delete');
-    del.title = 'Delete';
-    del.textContent = '🗑️';
-    del.addEventListener('click', opts.onDelete);
-    row.appendChild(del);
-
-    return row;
-  }
-
-  // ── Log forms ──────────────────────────────────────────────────────────────────
-
-  private openOneTimeIncomeForm(bucket: MonthBucket): void {
-    const body = document.createElement('div');
-    body.className = 'expense-form';
-
-    const toLocalDate = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const now = new Date();
-    const isCurrentMonth = bucket.year === now.getFullYear() && bucket.month === now.getMonth();
-    const defaultDate = isCurrentMonth
-      ? toLocalDate(now)
-      : toLocalDate(new Date(bucket.year, bucket.month, 1));
-
-    const memberOptions = [
-      `<option value="">— No specific member —</option>`,
-      ...this.members.map((m) => `<option value="${m.id}">${m.name}</option>`),
-    ].join('');
-
-    body.innerHTML = `
-      <div class="form-group">
-        <label class="form-label" for="ui-name">Description</label>
-        <input id="ui-name" type="text" placeholder="e.g. Insurance payout, Tax refund, Bonus" maxlength="64" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="ui-amount">Amount</label>
-          <input id="ui-amount" type="number" min="0" step="0.01" placeholder="0.00" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ui-date">Date</label>
-          <input id="ui-date" type="date" value="${defaultDate}" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ui-member">Member (optional)</label>
-        <select id="ui-member">${memberOptions}</select>
-      </div>
-      <div id="ui-error" class="form-error" style="display:none"></div>
-    `;
-
-    openFormModal({
-      title: 'Log One-time Income',
-      body,
-      submitLabel: 'Log income',
-      onSubmit: async (close) => {
-        const name = body.querySelector<HTMLInputElement>('#ui-name')!.value.trim();
-        const amount = parseFloat(body.querySelector<HTMLInputElement>('#ui-amount')!.value);
-        const dateStr = body.querySelector<HTMLInputElement>('#ui-date')!.value;
-        const memberId = body.querySelector<HTMLSelectElement>('#ui-member')!.value;
-        const errEl = body.querySelector<HTMLElement>('#ui-error')!;
-
-        if (!name) { errEl.textContent = 'Description is required.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
-
-        const date = new Date(dateStr + 'T00:00:00').getTime();
-        const src = createIncomeSource(memberId || (this.members[0]?.id ?? ''), name, amount, 'once');
-        src.date = date;
-        await saveIncomeSource(src);
-
-        this.allIncomeSources.push(src);
-        close();
-        this.refreshDateSections();
-      },
-    });
-  }
-
-  private openOneTimeExpenseForm(bucket: MonthBucket): void {
-    const body = document.createElement('div');
-    body.className = 'expense-form';
-
-    const toLocalDate = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const now = new Date();
-    const isCurrentMonth = bucket.year === now.getFullYear() && bucket.month === now.getMonth();
-    const defaultDate = isCurrentMonth
-      ? toLocalDate(now)
-      : toLocalDate(new Date(bucket.year, bucket.month, 1));
-
-    const catOptions = [
-      `<option value="">— No category —</option>`,
-      ...this.categories.map((c) => `<option value="${c.id}">${c.name}</option>`),
-    ].join('');
-
-    body.innerHTML = `
-      <div class="form-group">
-        <label class="form-label" for="se-desc">Description</label>
-        <input id="se-desc" type="text" placeholder="e.g. ER visit, Car repair" maxlength="64" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="se-amount">Amount</label>
-          <input id="se-amount" type="number" min="0" step="0.01" placeholder="0.00" />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="se-date">Date</label>
-          <input id="se-date" type="date" value="${defaultDate}" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="se-cat">Category</label>
-        <select id="se-cat">${catOptions}</select>
-      </div>
-      <div id="se-error" class="form-error" style="display:none"></div>
-    `;
-
-    openFormModal({
-      title: 'Log One-time Expense',
-      body,
-      submitLabel: 'Log expense',
-      onSubmit: async (close) => {
-        const description = body.querySelector<HTMLInputElement>('#se-desc')!.value.trim();
-        const amount = parseFloat(body.querySelector<HTMLInputElement>('#se-amount')!.value);
-        const dateStr = body.querySelector<HTMLInputElement>('#se-date')!.value;
-        const categoryId = body.querySelector<HTMLSelectElement>('#se-cat')!.value;
-        const errEl = body.querySelector<HTMLElement>('#se-error')!;
-
-        if (!description) { errEl.textContent = 'Description is required.'; errEl.style.display = 'block'; return; }
-        if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
-        if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
-
-        const date = new Date(dateStr + 'T00:00:00').getTime();
-        const expense = createExpense(categoryId, description, amount, date, null);
-        await saveExpense(expense);
-
-        this.allExpenses.push(expense);
-        close();
-        this.refreshDateSections();
-      },
-    });
-  }
-
-  // ── Payment reminders card ─────────────────────────────────────────────────────
-
-  private buildPaymentRemindersCard(
-    pastDue: Array<{ account: import('@/types').DebtAccount; status: AccountPaymentStatus }>,
-    dueSoon: Array<{ account: import('@/types').DebtAccount; status: AccountPaymentStatus }>,
-    billsPastDue: Array<{ expense: import('@/types').Expense; status: BillPaymentStatus }>,
-    billsDueSoon: Array<{ expense: import('@/types').Expense; status: BillPaymentStatus }>,
-  ): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'card payment-reminders-card';
-    card.setAttribute('data-testid', 'payment-reminders-card');
-
-    const anyPastDue = pastDue.length > 0 || billsPastDue.length > 0;
-    const titleRow = document.createElement('div');
-    titleRow.className = 'payment-reminders-title-row';
-    titleRow.innerHTML = `
-      <span class="payment-reminders-title">
-        ${anyPastDue ? '🔴' : '⏰'} Payment Reminders
-      </span>
-    `;
-
-    // "Manage" link: debt link if debt alerts exist, expenses link if only bills
-    const hasDebtAlerts = pastDue.length > 0 || dueSoon.length > 0;
-    const manageLink = document.createElement('a');
-    manageLink.href = hasDebtAlerts ? '#/debt' : '#/expenses';
-    manageLink.dataset['route'] = hasDebtAlerts ? '/debt' : '/expenses';
-    manageLink.className = 'payment-reminders-link';
-    manageLink.textContent = hasDebtAlerts ? 'View debt →' : 'View bills →';
-    manageLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigate(manageLink.dataset['route'] as Parameters<typeof navigate>[0]);
-    });
-    titleRow.appendChild(manageLink);
-    card.appendChild(titleRow);
-
-    const list = document.createElement('div');
-    list.className = 'payment-reminders-list';
-
-    const dayLabel = (dueDate: Date | null): string => {
-      if (!dueDate) return 'DUE SOON';
-      const days = dueDate.getDate() - new Date().getDate();
-      return days <= 0 ? 'DUE TODAY' : days === 1 ? 'DUE TOMORROW' : `DUE IN ${days} DAYS`;
-    };
-
-    const renderDebtRow = (
-      account: import('@/types').DebtAccount,
-      status: AccountPaymentStatus,
-      severity: 'past-due' | 'due-soon',
-    ): void => {
-      const row = document.createElement('div');
-      row.className = `payment-reminder-row payment-reminder-row--${severity}`;
-      row.setAttribute('data-testid', 'payment-reminder-row');
-      row.style.cursor = 'pointer';
-      row.addEventListener('click', () => navigate('/debt'));
-
-      const minPay = computeMinPayment(account);
-      const dueDateStr = status.dueDayThisMonth
-        ? status.dueDayThisMonth.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : account.dueDay ? `the ${account.dueDay}` : 'unknown';
-
-      const metaLines: string[] = [];
-      if (status.dueDayThisMonth) metaLines.push(`Due ${dueDateStr}`);
-      if (minPay != null) metaLines.push(`Min $${minPay.toFixed(2)}`);
-      if (status.currentMonthTotal > 0)
-        metaLines.push(`Paid so far: $${status.currentMonthTotal.toFixed(2)}`);
-
-      const icon = severity === 'past-due' ? '🔴' : '⏰';
-      const label = severity === 'past-due' ? 'PAST DUE' : dayLabel(status.dueDayThisMonth);
-
-      row.innerHTML = `
-        <span class="payment-reminder-icon">${icon}</span>
-        <div class="payment-reminder-info">
-          <span class="payment-reminder-name">💳 ${account.name}</span>
-          <span class="payment-reminder-meta">${metaLines.join(' · ')}</span>
-        </div>
-        <span class="payment-reminder-label payment-reminder-label--${severity}">${label}</span>
-      `;
-      list.appendChild(row);
-    };
-
-    const renderBillRow = (
-      expense: import('@/types').Expense,
-      status: BillPaymentStatus,
-      severity: 'past-due' | 'due-soon',
-    ): void => {
-      const row = document.createElement('div');
-      row.className = `payment-reminder-row payment-reminder-row--${severity}`;
-      row.setAttribute('data-testid', 'payment-reminder-row');
-      row.style.cursor = 'pointer';
-      row.addEventListener('click', () => navigate('/expenses'));
-
-      const dueDateStr = status.dueDayThisMonth
-        ? status.dueDayThisMonth.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : '';
-
-      const metaLines: string[] = [];
-      if (dueDateStr) metaLines.push(`Due ${dueDateStr}`);
-      metaLines.push(fmtCents.format(expense.amount));
-
-      const icon = severity === 'past-due' ? '🔴' : '⏰';
-      const label = severity === 'past-due' ? 'PAST DUE' : dayLabel(status.dueDayThisMonth);
-
-      row.innerHTML = `
-        <span class="payment-reminder-icon">${icon}</span>
-        <div class="payment-reminder-info">
-          <span class="payment-reminder-name">🧾 ${expense.description}</span>
-          <span class="payment-reminder-meta">${metaLines.join(' · ')}</span>
-        </div>
-        <span class="payment-reminder-label payment-reminder-label--${severity}">${label}</span>
-      `;
-      list.appendChild(row);
-    };
-
-    // Unified list: combine all items and sort by due date ascending.
-    // Past-due items have earlier dates than due-soon, so they naturally sort first;
-    // within each group items sort by how overdue/soon they are (most urgent first).
-    type ReminderItem =
-      | { kind: 'debt'; account: import('@/types').DebtAccount; status: AccountPaymentStatus; severity: 'past-due' | 'due-soon' }
-      | { kind: 'bill'; expense: import('@/types').Expense; status: BillPaymentStatus; severity: 'past-due' | 'due-soon' };
-
-    const allItems: ReminderItem[] = [
-      ...pastDue.map(({ account, status }) => ({ kind: 'debt' as const, account, status, severity: 'past-due' as const })),
-      ...billsPastDue.map(({ expense, status }) => ({ kind: 'bill' as const, expense, status, severity: 'past-due' as const })),
-      ...dueSoon.map(({ account, status }) => ({ kind: 'debt' as const, account, status, severity: 'due-soon' as const })),
-      ...billsDueSoon.map(({ expense, status }) => ({ kind: 'bill' as const, expense, status, severity: 'due-soon' as const })),
-    ];
-    allItems.sort((a, b) => {
-      const da = a.status.dueDayThisMonth?.getTime() ?? Infinity;
-      const db = b.status.dueDayThisMonth?.getTime() ?? Infinity;
-      return da - db;
-    });
-    allItems.forEach((item) => {
-      if (item.kind === 'debt') renderDebtRow(item.account, item.status, item.severity);
-      else renderBillRow(item.expense, item.status, item.severity);
-    });
-
-    card.appendChild(list);
-    return card;
-  }
-
-  // ── Income by Account card ────────────────────────────────────────────────────
-
-  private buildIncomeByAccountCard(sources: IncomeSource[]): HTMLElement | null {
-    const assignedSources = sources.filter((s) => s.active && s.bankAccountId);
-    if (assignedSources.length === 0 || this.bankAccounts.length === 0) return null;
-
-    const accountMap = new Map(this.bankAccounts.map((a) => [a.id, a]));
-
-    // Group active recurring sources by account; one-time income this month separately
-    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
-    const monthEnd = new Date(this.viewYear, this.viewMonth + 1, 1).getTime();
-
-    type RowData = { account: BankAccount | null; monthlyRecurring: number; oneTimeThisMonth: number };
-    const rows = new Map<string, RowData>();
-
-    sources.forEach((s) => {
-      if (!s.active) return;
-      const key = s.bankAccountId ?? '__none__';
-      const row = rows.get(key) ?? { account: accountMap.get(s.bankAccountId ?? '') ?? null, monthlyRecurring: 0, oneTimeThisMonth: 0 };
-      if (s.frequency === 'once') {
-        if (s.date !== undefined && s.date >= monthStart && s.date < monthEnd) {
-          row.oneTimeThisMonth += s.amount;
-        }
-      } else {
-        row.monthlyRecurring += sourceMonthly(s);
-      }
-      rows.set(key, row);
-    });
-
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.setAttribute('data-testid', 'income-by-account-card');
-
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)';
-    const title = document.createElement('h2');
-    title.className = 'font-serif';
-    title.style.fontSize = 'var(--text-xl)';
-    title.textContent = 'Income by Account';
-    const manageLink = document.createElement('a');
-    manageLink.href = '#/accounts';
-    manageLink.dataset['route'] = '/accounts';
-    manageLink.style.cssText = 'font-size:var(--text-sm)';
-    manageLink.textContent = 'Manage →';
-    manageLink.addEventListener('click', (e) => { e.preventDefault(); navigate('/accounts'); });
-    header.appendChild(title);
-    header.appendChild(manageLink);
-    card.appendChild(header);
-
-    const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) var(--space-1);border-bottom:1px solid var(--color-border)';
-
-    rows.forEach((data) => {
-      const total = data.monthlyRecurring + data.oneTimeThisMonth;
-      if (total === 0) return;
-
-      const row = document.createElement('div');
-      row.style.cssText = rowStyle;
-      row.setAttribute('data-testid', 'income-by-account-row');
-
-      const nameCol = document.createElement('div');
-      const name = data.account ? data.account.name : 'Unassigned';
-      nameCol.innerHTML = `<span class="text-sm font-bold">${name}</span>`;
-      if (data.account) {
-        const badge = document.createElement('span');
-        badge.className = 'text-xs text-muted';
-        badge.style.cssText = 'display:block;text-transform:capitalize';
-        badge.textContent = data.account.accountType.replace('-', ' ');
-        nameCol.appendChild(badge);
-      }
-
-      const amtCol = document.createElement('div');
-      amtCol.style.cssText = 'text-align:right';
-      amtCol.innerHTML = `<span class="text-sm font-bold" style="color:var(--ff-green)">${fmt.format(data.monthlyRecurring)}<span class="text-xs text-muted">/mo</span></span>`;
-      if (data.oneTimeThisMonth > 0) {
-        const ot = document.createElement('span');
-        ot.className = 'text-xs text-muted';
-        ot.style.display = 'block';
-        ot.textContent = `+${fmt.format(data.oneTimeThisMonth)} this month`;
-        amtCol.appendChild(ot);
-      }
-
-      row.appendChild(nameCol);
-      row.appendChild(amtCol);
-      card.appendChild(row);
-    });
-
-    return card;
-  }
-
-  // ── Panel renderers (static) ───────────────────────────────────────────────────
-
-  private renderIncomePanel(sources: IncomeSource[]): string {
-    const recurring = sources.filter((s) => s.active && s.frequency !== 'once');
-
-    // One-time income whose date falls in the currently-viewed month
-    const monthStart = new Date(this.viewYear, this.viewMonth, 1).getTime();
-    const monthEnd = new Date(this.viewYear, this.viewMonth + 1, 1).getTime();
-    const oneTime = sources.filter(
-      (s) => s.frequency === 'once' && s.date !== undefined && s.date >= monthStart && s.date < monthEnd,
-    );
-
-    if (recurring.length === 0 && oneTime.length === 0) {
-      return `
-        <div class="empty-state">
-          <span class="empty-state-icon">💰</span>
-          <h3>No income sources yet</h3>
-          <p>Add your income sources to start building your budget picture.</p>
-          <a href="#/income" class="btn btn-primary" data-route="/income" style="text-decoration:none">Add income →</a>
-        </div>
-      `;
-    }
-
-    const hasBoth = recurring.length > 0 && oneTime.length > 0;
-    const rowStyle = 'display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border)';
-    const subLabelStyle = 'font-size:var(--text-xs);font-weight:var(--weight-bold);text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);padding:var(--space-2) 0 var(--space-1)';
-
-    let html = '';
-
-    if (hasBoth) {
-      html += `<div style="${subLabelStyle}">Recurring</div>`;
-    }
-    html += recurring.slice(0, 5).map((s) => `
-      <div style="${rowStyle}">
-        <span class="text-sm">${s.name}</span>
-        <span class="text-sm font-bold">${fmt.format(s.amount)} / ${s.frequency}</span>
-      </div>
-    `).join('');
-
-    if (oneTime.length > 0) {
-      if (hasBoth) {
-        html += `<div style="${subLabelStyle};margin-top:var(--space-2)">One-time this month</div>`;
-      }
-      html += oneTime.map((s) => {
-        const dateStr = s.date
-          ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : '';
-        return `
-          <div style="${rowStyle}">
-            <div>
-              <span class="text-sm">${s.name}</span>
-              ${dateStr ? `<span class="text-xs text-muted" style="display:block">${dateStr}</span>` : ''}
-            </div>
-            <span class="text-sm font-bold" style="color:var(--ff-green)">+${fmt.format(s.amount)}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    return html;
-  }
-
-  private renderDebtPanel(cards: Awaited<ReturnType<typeof getDebtAccounts>>): string {
-    if (cards.length === 0) {
-      return `
-        <div class="empty-state">
-          <span class="empty-state-icon">💳</span>
-          <h3>No accounts added yet</h3>
-          <p>Add your debt accounts to see payoff scenarios and interest calculations.</p>
-          <a href="#/debt" class="btn btn-primary" data-route="/debt" style="text-decoration:none">Add account →</a>
-        </div>
-      `;
-    }
-    return cards
-      .slice(0, 5)
-      .map(
-        (c) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border)">
-          <div>
-            <span class="text-sm font-bold">${c.name}</span>
-            <span class="text-xs text-muted" style="display:block">${c.apr}% APR</span>
-          </div>
-          <span class="text-sm" style="color:var(--color-danger)">${fmtCents.format(c.balance)}</span>
-        </div>
-      `,
-      )
-      .join('');
-  }
 }

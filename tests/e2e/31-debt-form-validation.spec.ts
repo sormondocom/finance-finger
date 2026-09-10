@@ -107,7 +107,7 @@ test('recording a payment changes badge to Paid', async () => {
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Status Test Card' });
   await row.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await page.fill('#pay-amount', '50');
+  await page.fill('[data-testid="debt-pay-amount"]', '50');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 

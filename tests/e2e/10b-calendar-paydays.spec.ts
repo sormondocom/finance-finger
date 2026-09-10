@@ -44,11 +44,11 @@ test.afterAll(async () => {
 test('set up: add a member and a monthly income source with payday on the 7th', async () => {
   await navigateTo(page, 'income');
 
-  await page.fill('[data-testid="add-member-input"]', 'Morgan');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Morgan' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Morgan');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Morgan' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Monthly Pay');
   await page.fill('#sf-amount', '2000');
@@ -58,14 +58,14 @@ test('set up: add a member and a monthly income source with payday on the 7th', 
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Monthly Pay' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Monthly Pay' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/calendar-payday-01-income-added.png' });
 });
 
 // ── Income form: payday field behavior ────────────────────────────────────────
 
 test('payday row is hidden when frequency is set to once', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Bonus');
@@ -81,7 +81,7 @@ test('payday row is hidden when frequency is set to once', async () => {
 });
 
 test('payday row reappears when frequency switches back to monthly', async () => {
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('#sf-name', 'Test');
@@ -97,8 +97,8 @@ test('payday row reappears when frequency switches back to monthly', async () =>
 });
 
 test('payday field is pre-filled when editing a source that has a payday', async () => {
-  const row = page.locator('[data-testid="source-row"]').filter({ hasText: 'Monthly Pay' });
-  await row.locator('[data-testid="source-edit"]').click();
+  const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Monthly Pay' });
+  await row.locator('[data-testid="income-source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   const paydayVal = await page.locator('#sf-payday').inputValue();
@@ -153,7 +153,7 @@ test('non-payday cells do not show a payday chip', async () => {
 test('set up: add a semimonthly income source with "1st and 15th" schedule', async () => {
   await navigateTo(page, 'income');
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Freelance');
   await page.fill('#sf-amount', '1000');
@@ -165,7 +165,7 @@ test('set up: add a semimonthly income source with "1st and 15th" schedule', asy
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Freelance' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Freelance' })).toBeVisible();
 });
 
 test('semimonthly source shows payday chips on both the 1st and the 15th', async () => {

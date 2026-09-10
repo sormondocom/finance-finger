@@ -134,7 +134,7 @@ test('clicking Record Payment on Power Bill opens the dialog', async () => {
 });
 
 test('record payment of $80 (under $100 threshold) and submit', async () => {
-  await page.fill('#mp-amount', '80');
+  await page.fill('[data-testid="expense-pay-amount"]', '80');
   await submitAndWait();
   await page.screenshot({ path: 'tests/screenshots/pay-display-02-paid-row.png' });
 });
@@ -186,7 +186,7 @@ test('Edit Payment dialog title reads "Edit Payment —…"', async () => {
 
 test('Edit Payment dialog pre-fills the previously recorded amount', async () => {
   await openEditPaymentDialog();
-  const val = await page.locator('#mp-amount').inputValue();
+  const val = await page.locator('[data-testid="expense-pay-amount"]').inputValue();
   expect(parseFloat(val)).toBeCloseTo(80, 0);
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -204,9 +204,9 @@ test('Edit Payment dialog pre-fills the previously recorded date', async () => {
 
 test('overage warning fires in Edit Payment dialog when amount exceeds $100 threshold', async () => {
   await openEditPaymentDialog();
-  await page.fill('#mp-amount', '120');
-  await expect(page.locator('#mp-overage-msg')).toBeVisible();
-  await expect(page.locator('#mp-overage-msg')).toContainText('Over monthly threshold');
+  await page.fill('[data-testid="expense-pay-amount"]', '120');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toBeVisible();
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly threshold');
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 });
@@ -215,7 +215,7 @@ test('overage warning fires in Edit Payment dialog when amount exceeds $100 thre
 
 test('edit payment to $105 (5% over) → amount updates and shows light red', async () => {
   await openEditPaymentDialog();
-  await page.fill('#mp-amount', '105');
+  await page.fill('[data-testid="expense-pay-amount"]', '105');
   await submitAndWait();
 
   await expect(powerBillRow().locator('[data-testid="expense-actual-amount"]')).toContainText('105');
@@ -229,7 +229,7 @@ test('edit payment to $105 (5% over) → amount updates and shows light red', as
 
 test('edit payment to $115 (15% over) → amount shows medium red', async () => {
   await openEditPaymentDialog();
-  await page.fill('#mp-amount', '115');
+  await page.fill('[data-testid="expense-pay-amount"]', '115');
   await submitAndWait();
 
   const style = await powerBillRow()
@@ -241,7 +241,7 @@ test('edit payment to $115 (15% over) → amount shows medium red', async () => 
 
 test('edit payment to $130 (30% over) → amount shows full danger red', async () => {
   await openEditPaymentDialog();
-  await page.fill('#mp-amount', '130');
+  await page.fill('[data-testid="expense-pay-amount"]', '130');
   await submitAndWait();
 
   const style = await powerBillRow()
@@ -253,7 +253,7 @@ test('edit payment to $130 (30% over) → amount shows full danger red', async (
 
 test('edit payment back to $90 (under threshold) → amount returns to green', async () => {
   await openEditPaymentDialog();
-  await page.fill('#mp-amount', '90');
+  await page.fill('[data-testid="expense-pay-amount"]', '90');
   await submitAndWait();
 
   await expect(powerBillRow().locator('[data-testid="expense-actual-amount"]')).toContainText('90');

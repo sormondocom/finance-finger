@@ -285,7 +285,7 @@ test('clicking Record Payment on Electric Bill opens the dialog', async () => {
 });
 
 test('Record Payment dialog pre-fills the actual amount with the estimated amount', async () => {
-  const val = await page.locator('#mp-amount').inputValue();
+  const val = await page.locator('[data-testid="expense-pay-amount"]').inputValue();
   expect(parseFloat(val)).toBeCloseTo(95, 0);
 });
 
@@ -317,7 +317,7 @@ test('closing dialog and opening Record Payment on Cable Bill', async () => {
 });
 
 test('Cable Bill Record Payment dialog has a readonly amount field', async () => {
-  const amountInput = page.locator('#mp-amount');
+  const amountInput = page.locator('[data-testid="expense-pay-amount"]');
   await expect(amountInput).toBeVisible();
   // Fixed amount: input has readonly attribute; value matches estimate
   const val = await amountInput.inputValue();
@@ -486,9 +486,9 @@ test('Record Payment dialog shows overage warning when amount exceeds the monthl
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Electric Bill threshold is $95 — enter $120 to trigger the overage warning
-  await page.fill('#mp-amount', '120');
-  await expect(page.locator('#mp-overage-msg')).toBeVisible();
-  await expect(page.locator('#mp-overage-msg')).toContainText('Over monthly threshold');
+  await page.fill('[data-testid="expense-pay-amount"]', '120');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toBeVisible();
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly threshold');
   await page.screenshot({ path: 'tests/screenshots/exp-pay-14-record-overage.png' });
 
   await page.keyboard.press('Escape');
@@ -500,11 +500,11 @@ test('Record Payment overage warning disappears when amount drops back below the
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#mp-amount', '120');
-  await expect(page.locator('#mp-overage-msg')).toBeVisible();
+  await page.fill('[data-testid="expense-pay-amount"]', '120');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toBeVisible();
 
-  await page.fill('#mp-amount', '80');
-  await expect(page.locator('#mp-overage-msg')).not.toBeVisible();
+  await page.fill('[data-testid="expense-pay-amount"]', '80');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).not.toBeVisible();
 
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();

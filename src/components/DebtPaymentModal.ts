@@ -28,39 +28,40 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
       <div class="form-group">
         <label class="form-label" for="pay-amount">Payment amount <span class="req">*</span></label>
-        <input id="pay-amount" type="number" min="0.01" step="0.01"
+        <input id="pay-amount" type="number" min="0.01" step="0.01" data-testid="debt-pay-amount"
           value="${minPay != null ? minPay.toFixed(2) : ''}" placeholder="0.00" />
         ${minPay != null ? `<span class="form-hint">Minimum: ${fmtCents.format(minPay)}</span>` : ''}
       </div>
       <div class="form-group">
         <label class="form-label" for="pay-date">Payment date <span class="req">*</span></label>
-        <input id="pay-date" type="date" value="${today}" />
+        <input id="pay-date" type="date" value="${today}" data-testid="debt-pay-date" />
       </div>
     </div>
     <div class="form-group" id="pay-bank-group">
       <label class="form-label" for="pay-bank">Pay from account <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
       ${bankAccounts.length > 0
-        ? `<select id="pay-bank"><option value="">— not specified —</option>${bankOptions}</select>`
-        : `<select id="pay-bank" disabled><option value="">No bank accounts set up</option></select>`}
+        ? `<select id="pay-bank" data-testid="debt-pay-bank-select"><option value="">— not specified —</option>${bankOptions}</select>`
+        : `<select id="pay-bank" data-testid="debt-pay-bank-select" disabled><option value="">No bank accounts set up</option></select>`}
     </div>
     <div class="form-group">
       <label class="form-label">Payment type</label>
       <div style="display:flex;gap:var(--space-5)">
         <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
-          <input type="radio" name="pay-type" value="regular" checked /> Regular payment
+          <input type="radio" name="pay-type" value="regular" checked data-testid="debt-pay-type-regular" /> Regular payment
         </label>
         <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);cursor:pointer">
-          <input type="radio" name="pay-type" value="extra" /> Extra payment
+          <input type="radio" name="pay-type" value="extra" data-testid="debt-pay-type-extra" /> Extra payment
         </label>
       </div>
     </div>
     <div class="form-group">
       <label class="form-label" for="pay-note">Note <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-      <input id="pay-note" type="text" placeholder="e.g. February statement, bonus payment" maxlength="80" />
+      <input id="pay-note" type="text" placeholder="e.g. February statement, bonus payment" maxlength="80" data-testid="debt-pay-note" />
     </div>
-    <div id="pay-error" class="form-error" style="display:none"></div>
+    <div id="pay-error" class="form-error" style="display:none" data-testid="debt-pay-error"></div>
   `;
 
+  // eslint-disable-next-line prefer-const -- forward-referenced inside event handler before assignment below
   let closeModal: (() => void) | undefined;
   if (bankAccounts.length === 0) {
     const hint = document.createElement('span');
@@ -114,7 +115,7 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
       const wasPaidOff = a.balance > 0 && newBalance === 0;
       close();
       await onSave();
-      refreshNotifier();
+      void refreshNotifier();
 
       if (wasPaidOff) onPayoff?.(updatedAccount, newBalance);
     },

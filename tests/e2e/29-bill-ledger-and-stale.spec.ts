@@ -79,17 +79,17 @@ test('Mark Paid dialog shows billing cycle pills for a tracked bill', async () =
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // New payment dialog shows 3 multi-select cycle pills (last 3 billing cycles)
-  await expect(page.locator('.cycle-pill')).toHaveCount(3);
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"]')).toHaveCount(3);
   await page.screenshot({ path: 'tests/screenshots/29-02-cycle-pills-visible.png' });
 });
 
 test('one cycle pill is active by default', async () => {
-  await expect(page.locator('.cycle-pill.active')).toHaveCount(1);
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"].active')).toHaveCount(1);
 });
 
 test('clicking an unpaid cycle pill toggles it into the selection', async () => {
-  const pills = page.locator('.cycle-pill');
-  const activeCountBefore = await page.locator('.cycle-pill.active').count();
+  const pills = page.locator('[data-testid="expense-pay-cycle-pill"]');
+  const activeCountBefore = await page.locator('[data-testid="expense-pay-cycle-pill"].active').count();
 
   // Find an unpaid pill that is not already active
   let toggled = false;
@@ -101,7 +101,7 @@ test('clicking an unpaid cycle pill toggles it into the selection', async () => 
       await pill.click();
       await expect(pill).toHaveClass(/active/);
       // Multi-select: previously active pills remain active
-      const activeCountAfter = await page.locator('.cycle-pill.active').count();
+      const activeCountAfter = await page.locator('[data-testid="expense-pay-cycle-pill"].active').count();
       expect(activeCountAfter).toBeGreaterThanOrEqual(activeCountBefore);
       toggled = true;
       break;
@@ -111,18 +111,18 @@ test('clicking an unpaid cycle pill toggles it into the selection', async () => 
     test.info().annotations.push({ type: 'info', description: 'All unpaid cycles already active — toggle not tested' });
   }
   // At least one pill always remains active
-  await expect(page.locator('.cycle-pill.active').first()).toBeVisible();
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"].active').first()).toBeVisible();
 });
 
 test('submitting the Mark Paid dialog marks the Gas Bill as paid', async () => {
   // Ensure the upcoming (first) pill is selected if it is not paid
-  const upcomingPill = page.locator('.cycle-pill').first();
+  const upcomingPill = page.locator('[data-testid="expense-pay-cycle-pill"]').first();
   const upcomingIsPaid = await upcomingPill.evaluate((el) => el.classList.contains('cycle-pill--paid'));
   if (!upcomingIsPaid) {
     await upcomingPill.click();
   }
 
-  await page.fill('#mp-amount', '72');
+  await page.fill('[data-testid="expense-pay-amount"]', '72');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -159,15 +159,15 @@ test('clicking the edit button opens the Edit Payment dialog', async () => {
 });
 
 test('Edit Payment dialog shows billing cycle pills for a tracked bill', async () => {
-  await expect(page.locator('.cycle-pill')).toHaveCount(2);
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"]')).toHaveCount(2);
 });
 
 test('edit payment dialog pre-selects the cycle the original payment was for', async () => {
-  await expect(page.locator('.cycle-pill.active')).toHaveCount(1);
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"].active')).toHaveCount(1);
 });
 
 test('editing the amount to $68 and saving updates the ledger', async () => {
-  await page.fill('#mp-amount', '68');
+  await page.fill('[data-testid="expense-pay-amount"]', '68');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -253,10 +253,10 @@ test('new payment dialog allows selecting multiple billing cycles', async () => 
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Should always show 3 cycle pills (last 3 billing periods)
-  await expect(page.locator('.cycle-pill')).toHaveCount(3);
+  await expect(page.locator('[data-testid="expense-pay-cycle-pill"]')).toHaveCount(3);
 
   // Find two unpaid pills and select both to verify multi-select works
-  const pills = page.locator('.cycle-pill');
+  const pills = page.locator('[data-testid="expense-pay-cycle-pill"]');
   const unpaidIndices: number[] = [];
   for (let i = 0; i < 3; i++) {
     const isPaid = await pills.nth(i).evaluate((el) => el.classList.contains('cycle-pill--paid'));
@@ -271,7 +271,7 @@ test('new payment dialog allows selecting multiple billing cycles', async () => 
         await pill.click();
       }
     }
-    const activeCount = await page.locator('.cycle-pill.active').count();
+    const activeCount = await page.locator('[data-testid="expense-pay-cycle-pill"].active').count();
     expect(activeCount).toBeGreaterThanOrEqual(2);
     await page.screenshot({ path: 'tests/screenshots/29-11-multi-cycle-select.png' });
   } else {
@@ -287,9 +287,12 @@ test('new payment dialog allows selecting multiple billing cycles', async () => 
 test('setup: navigate to Break Glass page', async () => {
   await navigateTo(page, 'settings');
   await page.click('[data-testid="bg-open-btn"]');
-  // Confirm the warning overlay
+  // Type the confirmation phrase then click
+  const confirmInput = page.locator('[data-testid="bg-warning-confirm-input"]');
   const confirmBtn = page.locator('[data-testid="bg-warning-confirm"]');
-  await expect(confirmBtn).toBeVisible();
+  await expect(confirmInput).toBeVisible();
+  await confirmInput.fill('break glass');
+  await expect(confirmBtn).toBeEnabled();
   await confirmBtn.click();
   await expect(page.locator('.bg-page-title')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/29-12-bg-open.png' });

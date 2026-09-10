@@ -30,14 +30,14 @@ export function register(route: Route, handler: RouteHandler): void {
 
 export function navigate(route: Route): void {
   history.pushState({}, '', `#${route}`);
-  render(route);
+  void render(route);
 }
 
 // Replaces the current history entry rather than pushing — used when transitioning
 // from a terminal gate (setup/unlock) to the main app so Back doesn't return there.
 export function navigateReplace(route: Route): void {
   history.replaceState({}, '', `#${route}`);
-  render(route);
+  void render(route);
 }
 
 export function currentRoute(): Route {
@@ -70,7 +70,7 @@ let listenerAdded = false;
 export function initRouter(): void {
   if (!listenerAdded) {
     listenerAdded = true;
-    window.addEventListener('popstate', () => render(currentRoute()));
+    window.addEventListener('popstate', () => { void render(currentRoute()); });
   }
-  render(currentRoute());
+  void render(currentRoute());
 }

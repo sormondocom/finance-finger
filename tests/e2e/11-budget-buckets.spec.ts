@@ -32,16 +32,16 @@ test.afterAll(async () => {
 // ── Seed: income + categories + expenses ──────────────────────────────────────
 
 test('adds monthly income of $4,000', async () => {
-  await page.fill('[data-testid="add-member-input"]', 'Sam');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Sam' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Sam');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Sam' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Day Job');
   await page.fill('#sf-amount', '4000.50');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Day Job' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Day Job' })).toBeVisible();
 });
 
 test('adds Groceries category with $600 monthly budget', async () => {

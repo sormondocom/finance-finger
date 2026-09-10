@@ -37,11 +37,32 @@ export function openModal(opts: ModalOptions): { close: () => void } {
   document.body.appendChild(dialog);
   dialog.showModal();
 
+  const previouslyFocused = document.activeElement as HTMLElement | null;
+
   const close = () => {
     dialog.close();
     dialog.remove();
     opts.onClose?.();
+    previouslyFocused?.focus();
   };
+
+  // Focus trap: keep keyboard navigation inside the dialog.
+  dialog.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => el.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 
   closeBtn.addEventListener('click', close);
 

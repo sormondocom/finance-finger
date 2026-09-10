@@ -2,6 +2,7 @@ import './break-glass.css';
 import { computeBillStatus } from '@/utils/billStatus';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { navigate } from '@/app/router';
+import browser from 'webextension-polyfill';
 import {
   getMembers, saveMember, deleteMember,
   getIncomeSources, saveIncomeSource, deleteIncomeSource,
@@ -20,6 +21,7 @@ import type {
   HouseholdMember, IncomeSource, ExpenseCategory, Expense,
   DebtAccount, DebtPayment, CardCharge, ExpensePaidRecord, BankAccount, Scenario, CalendarMemo,
 } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 // ── Store registry ────────────────────────────────────────────────────────────
 
@@ -179,7 +181,7 @@ function displayFieldValue(type: FieldType, value: unknown): string {
     case 'percent':  return `${((value as number) * 100).toFixed(2)}%`;
     case 'date': {
       const d = new Date(value as number);
-      return d.toLocaleString('en-US', {
+      return d.toLocaleString(userLocale, {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: 'numeric', minute: '2-digit', second: '2-digit',
       });
@@ -426,6 +428,26 @@ function buildFieldEditor(rec: Rec): FieldEditorResult {
   };
 }
 
+// ── Audit log ────────────────────────────────────────────────────────────────
+
+const AUDIT_KEY = 'bgAuditLog';
+const AUDIT_MAX = 200;
+
+interface AuditEntry {
+  ts: number;        // epoch ms
+  action: 'edit' | 'delete';
+  store: string;
+  id: string;
+}
+
+async function appendAuditLog(entry: AuditEntry): Promise<void> {
+  const result = await browser.storage.local.get(AUDIT_KEY);
+  const log = (result[AUDIT_KEY] as AuditEntry[] | undefined) ?? [];
+  log.unshift(entry);
+  if (log.length > AUDIT_MAX) log.length = AUDIT_MAX;
+  await browser.storage.local.set({ [AUDIT_KEY]: log });
+}
+
 // ── Session warning flag ──────────────────────────────────────────────────────
 
 const WARNED_KEY = 'bg-warned';
@@ -453,11 +475,34 @@ function buildWarningOverlay(
     </div>
   `;
 
+  const CONFIRM_PHRASE = 'break glass';
+
+  const confirmPrompt = document.createElement('p');
+  confirmPrompt.className = 'bg-warning-confirm-prompt';
+  confirmPrompt.innerHTML = `Type <strong>${CONFIRM_PHRASE}</strong> to continue:`;
+  card.appendChild(confirmPrompt);
+
+  const confirmInput = document.createElement('input');
+  confirmInput.type = 'text';
+  confirmInput.className = 'bg-warning-confirm-input';
+  confirmInput.setAttribute('data-testid', 'bg-warning-confirm-input');
+  confirmInput.placeholder = CONFIRM_PHRASE;
+  confirmInput.autocomplete = 'off';
+  card.appendChild(confirmInput);
+
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'btn btn-danger bg-warning-btn';
   confirmBtn.dataset['testid'] = 'bg-warning-confirm';
   confirmBtn.textContent = "I hear ya — open 'er up";
+  confirmBtn.disabled = true;
   confirmBtn.addEventListener('click', () => { acknowledgeBreakGlass(); onConfirm(); });
+
+  confirmInput.addEventListener('input', () => {
+    confirmBtn.disabled = confirmInput.value.trim().toLowerCase() !== CONFIRM_PHRASE;
+  });
+  confirmInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !confirmBtn.disabled) { acknowledgeBreakGlass(); onConfirm(); }
+  });
 
   overlay.addEventListener('click', (e) => {
     if (e.target !== overlay) return;
@@ -646,7 +691,11 @@ export class BreakGlassPage {
       this.renderList();
       this.renderDetail();
     } catch (e) {
-      this.listDiv.innerHTML = `<span class="bg-list-empty" style="color:var(--color-danger)">Load failed: ${(e as Error).message}</span>`;
+      const errSpan = document.createElement('span');
+      errSpan.className = 'bg-list-empty';
+      errSpan.style.color = 'var(--color-danger)';
+      errSpan.textContent = `Load failed: ${(e as Error).message}`;
+      this.listDiv.replaceChildren(errSpan);
       this.countEl.textContent = '';
     }
   }
@@ -778,6 +827,7 @@ export class BreakGlassPage {
       if (!confirm(`Delete this record?\n\nStore: ${entry.label}\nID: ${rec.id}\n\nThis cannot be undone.`)) return;
       try {
         await entry.delete(String(rec.id));
+        await appendAuditLog({ ts: Date.now(), action: 'delete', store: this.currentStoreKey, id: String(rec.id) });
         this.records = this.records.filter((r) => r.id !== rec.id);
         this.countEl.textContent = `${this.records.length} record${this.records.length !== 1 ? 's' : ''}`;
         this.selectedId = null;
@@ -836,6 +886,7 @@ export class BreakGlassPage {
       try {
         saveBtn.disabled = true;
         await entry.save(result);
+        await appendAuditLog({ ts: Date.now(), action: 'edit', store: this.currentStoreKey, id: String(result.id) });
         const idx = this.records.findIndex((r) => r.id === rec.id);
         if (idx >= 0) this.records[idx] = result;
         this.selectedId = result.id;
@@ -919,7 +970,10 @@ export class BreakGlassPage {
           ? '✅ Clean'
           : `⚠ ${total} issue${total !== 1 ? 's' : ''} found`;
       } catch (e) {
-        results.innerHTML = `<p class="bg-scanner-err">Scan failed: ${(e as Error).message}</p>`;
+        const errP = document.createElement('p');
+        errP.className = 'bg-scanner-err';
+        errP.textContent = `Scan failed: ${(e as Error).message}`;
+        results.replaceChildren(errP);
       } finally {
         scanBtn.disabled = false;
         scanBtn.textContent = 'Run Scan';

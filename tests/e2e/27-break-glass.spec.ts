@@ -42,10 +42,13 @@ test.afterAll(async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Dismiss the Break Glass warning overlay by clicking the confirm button. */
+/** Dismiss the Break Glass warning overlay by typing the confirmation phrase and clicking. */
 async function dismissWarning(): Promise<void> {
+  const input = page.locator('[data-testid="bg-warning-confirm-input"]');
   const confirm = page.locator('[data-testid="bg-warning-confirm"]');
-  await expect(confirm).toBeVisible({ timeout: 5_000 });
+  await expect(input).toBeVisible({ timeout: 5_000 });
+  await input.fill('break glass');
+  await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(confirm).not.toBeVisible();
 }
@@ -86,13 +89,13 @@ test('fixture: add BG Member via Settings', async () => {
 
 test('fixture: add BG Salary income source', async () => {
   await navigateTo(page, 'income');
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'BG Salary');
   await page.fill('#sf-amount', '3500');
   await page.selectOption('#sf-member', { label: 'BG Member' });
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'BG Salary' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'BG Salary' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/bg-01-income-seeded.png' });
 });
 
@@ -109,6 +112,25 @@ test('clicking Open Break Glass shows the warning overlay', async () => {
   await expect(page.locator('.bg-warning-card')).toBeVisible();
   await expect(page.locator('.bg-warning-title')).toContainText('Hold on there');
   await page.screenshot({ path: 'tests/screenshots/bg-03-warning-overlay.png' });
+});
+
+test('confirm button is disabled until the phrase is typed', async () => {
+  const confirmBtn = page.locator('[data-testid="bg-warning-confirm"]');
+  const input = page.locator('[data-testid="bg-warning-confirm-input"]');
+  // Button should be disabled initially
+  await expect(confirmBtn).toBeDisabled();
+  // Partial phrase keeps it disabled
+  await input.fill('break');
+  await expect(confirmBtn).toBeDisabled();
+  // Wrong phrase keeps it disabled
+  await input.fill('open sesame');
+  await expect(confirmBtn).toBeDisabled();
+  // Exact phrase (case-insensitive) enables it
+  await input.fill('break glass');
+  await expect(confirmBtn).toBeEnabled();
+  // Clear input disables it again
+  await input.fill('');
+  await expect(confirmBtn).toBeDisabled();
 });
 
 test('clicking outside the warning card does not dismiss it', async () => {

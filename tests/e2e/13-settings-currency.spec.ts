@@ -32,16 +32,16 @@ test.afterAll(async () => {
 test('adds monthly income to produce a formatted dollar amount', async () => {
   await navigateTo(page, 'income');
   // Add a household member first (required for income source)
-  await page.fill('[data-testid="add-member-input"]', 'Pat');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Pat' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Pat');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Pat' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Salary');
   await page.fill('#sf-amount', '5000');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Salary' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Salary' })).toBeVisible();
 });
 
 test('dashboard shows income in USD by default', async () => {
@@ -58,13 +58,13 @@ test('dashboard shows income in USD by default', async () => {
 
 test('currency picker is visible on the Settings page', async () => {
   await navigateTo(page, 'settings');
-  await expect(page.locator('[data-testid="currency-row"]')).toBeVisible();
-  await expect(page.locator('[data-testid="currency-select"]')).toBeVisible();
-  await expect(page.locator('[data-testid="currency-save"]')).toBeVisible();
+  await expect(page.locator('[data-testid="settings-currency-row"]')).toBeVisible();
+  await expect(page.locator('[data-testid="settings-currency-select"]')).toBeVisible();
+  await expect(page.locator('[data-testid="settings-currency-save"]')).toBeVisible();
 });
 
 test('currency-select defaults to USD', async () => {
-  const select = page.locator('[data-testid="currency-select"]');
+  const select = page.locator('[data-testid="settings-currency-select"]');
   const selected = await select.evaluate(
     (el: HTMLSelectElement) => el.value,
   );
@@ -72,8 +72,8 @@ test('currency-select defaults to USD', async () => {
 });
 
 test('can change currency to EUR and save', async () => {
-  await page.selectOption('[data-testid="currency-select"]', 'EUR');
-  await page.click('[data-testid="currency-save"]');
+  await page.selectOption('[data-testid="settings-currency-select"]', 'EUR');
+  await page.click('[data-testid="settings-currency-save"]');
   // Toast appears briefly — check its text
   await expect(page.locator('text=Currency set to EUR')).toBeVisible({ timeout: 3000 });
   await page.screenshot({ path: 'tests/screenshots/currency-02-saved.png' });
@@ -82,7 +82,7 @@ test('can change currency to EUR and save', async () => {
 test('currency setting persists after navigating away and back', async () => {
   await navigateTo(page, 'dashboard');
   await navigateTo(page, 'settings');
-  const select = page.locator('[data-testid="currency-select"]');
+  const select = page.locator('[data-testid="settings-currency-select"]');
   const selected = await select.evaluate(
     (el: HTMLSelectElement) => el.value,
   );
@@ -102,8 +102,8 @@ test('dashboard shows income formatted with EUR symbol after currency change', a
 
 test('can switch back to USD', async () => {
   await navigateTo(page, 'settings');
-  await page.selectOption('[data-testid="currency-select"]', 'USD');
-  await page.click('[data-testid="currency-save"]');
+  await page.selectOption('[data-testid="settings-currency-select"]', 'USD');
+  await page.click('[data-testid="settings-currency-save"]');
   await expect(page.locator('text=Currency set to USD')).toBeVisible({ timeout: 3000 });
 
   await navigateTo(page, 'dashboard');

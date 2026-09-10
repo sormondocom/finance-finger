@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      playwright:
+        patterns: ["@playwright/*", "playwright-*"]
+      vite:
+        patterns: ["vite", "vite-*"]
+      eslint:
+        patterns: ["eslint", "*eslint*", "typescript-eslint"]
+      vitest:
+        patterns: ["vitest", "@vitest/*"]

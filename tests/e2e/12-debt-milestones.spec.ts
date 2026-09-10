@@ -33,16 +33,16 @@ test.afterAll(async () => {
 // ── Seed: income + multiple debts ─────────────────────────────────────────────
 
 test('adds monthly income for DTI calculation', async () => {
-  await page.fill('[data-testid="add-member-input"]', 'Alex');
-  await page.click('[data-testid="add-member-btn"]');
-  await expect(page.locator('[data-testid="member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
+  await page.fill('[data-testid="income-add-member-input"]', 'Alex');
+  await page.click('[data-testid="income-add-member-btn"]');
+  await expect(page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Alex' })).toBeVisible();
 
-  await page.click('[data-testid="add-source-btn"]');
+  await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#sf-name', 'Salary');
   await page.fill('#sf-amount', '6000');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('[data-testid="source-row"]').filter({ hasText: 'Salary' })).toBeVisible();
+  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Salary' })).toBeVisible();
 });
 
 test('adds a credit card debt with a credit limit', async () => {

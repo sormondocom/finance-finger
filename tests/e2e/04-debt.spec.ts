@@ -125,15 +125,15 @@ test('edits the credit card', async () => {
 });
 
 test('strategy tabs are visible', async () => {
-  await expect(page.locator('[data-testid="strategy-tab"]').first()).toBeVisible();
-  const tabs = await page.locator('[data-testid="strategy-tab"]').all();
+  await expect(page.locator('[data-testid^="strategy-tab-"]').first()).toBeVisible();
+  const tabs = await page.locator('[data-testid^="strategy-tab-"]').all();
   expect(tabs.length).toBeGreaterThanOrEqual(2);
   await page.screenshot({ path: 'tests/screenshots/debt-07-strategy-tabs.png' });
 });
 
 test('switches payoff strategy to avalanche', async () => {
-  await page.click('[data-testid="strategy-tab"][data-strategy="avalanche"]');
-  const active = page.locator('[data-testid="strategy-tab"][data-strategy="avalanche"]');
+  await page.click('[data-testid="strategy-tab-avalanche"]');
+  const active = page.locator('[data-testid="strategy-tab-avalanche"]');
   await expect(active).toHaveClass(/active/);
 });
 

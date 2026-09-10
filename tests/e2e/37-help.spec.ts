@@ -87,10 +87,7 @@ test('clicking the Dashboard tab shows dashboard content', async () => {
 test('? button on Income page navigates to Help with Income section active', async () => {
   await navigateTo(page, 'income');
   // The "?" help button is in the page heading
-  await page.click('button[title*="help"], button[aria-label*="help"], button.help-btn, [data-testid="help-btn"]', { timeout: 5_000 }).catch(async () => {
-    // Fallback: click the button with "?" text near the heading
-    await page.locator('button').filter({ hasText: '?' }).first().click();
-  });
+  await page.click('[data-testid="help-btn-income"]');
   // Should land on Help page with Income section
   await expect(page.locator('h1')).toContainText('Help', { timeout: 8_000 });
   await expect(page.locator('[data-testid="help-tab-income"]')).toHaveClass(/active/, { timeout: 5_000 });

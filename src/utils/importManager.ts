@@ -1,6 +1,7 @@
 import { computeChecksum } from './csvParser';
 import { getImportRecords, saveImportRecord } from '@/db';
 import type { ImportRecord } from '@/types';
+import { userLocale } from '@/utils/locale';
 
 /** Returns the prior ImportRecord whose checksum matches, or null. */
 export async function findDuplicateImport(rawText: string): Promise<ImportRecord | null> {
@@ -27,7 +28,7 @@ export async function recordImport(
 /** Formats a snapshot label for an import. */
 export function importSnapshotLabel(targetName: string): string {
   const now = new Date();
-  const date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const date = now.toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = now.toLocaleTimeString(userLocale, { hour: 'numeric', minute: '2-digit' });
   return `Import - ${targetName} - ${date} ${time}`;
 }

@@ -93,25 +93,25 @@ test.afterAll(async () => {
 // ── 0% Intro APR badge & APR display ─────────────────────────────────────────
 
 test('Intro APR Card shows 0% Intro badge', async () => {
-  const introWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Intro APR Card' });
+  const introWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Intro APR Card' });
   await expect(introWrap.locator('.debt-badge--intro')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dc-01-intro-apr-badge.png' });
 });
 
 test('Intro APR Card APR row shows 0% until date then post-intro rate', async () => {
-  const introWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Intro APR Card' });
+  const introWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Intro APR Card' });
   const aprSpan = introWrap.locator('.card-row-apr');
   await expect(aprSpan).toContainText('0% until');
   await expect(aprSpan).toContainText('21.99%');
 });
 
 test('Intro APR Card does not show High APR badge (suppressed by intro badge)', async () => {
-  const introWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Intro APR Card' });
+  const introWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Intro APR Card' });
   await expect(introWrap.locator('.debt-badge--high-apr')).not.toBeVisible();
 });
 
 test('Visa Pay Test shows normal APR display (no intro APR)', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
   await expect(visaWrap.locator('.debt-badge--intro')).not.toBeVisible();
   await expect(visaWrap.locator('.card-row-apr')).toContainText('22.99% APR');
 });
@@ -184,21 +184,21 @@ test('Charges button is visible on card rows', async () => {
 });
 
 test('charges panel is hidden by default', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
-  await expect(visaWrap.locator('.charges-panel')).not.toBeVisible();
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).not.toBeVisible();
 });
 
 test('clicking Charges button opens the charges panel', async () => {
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
   await visaRow.locator('[data-testid="debt-charges-btn"]').click();
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dc-06-charges-panel-empty.png' });
 });
 
 test('empty charges panel shows no charges text and Add charge button', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
-  const panel = visaWrap.locator('.charges-panel');
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
+  const panel = visaWrap.locator('[data-testid="debt-charges-panel"]');
   await expect(panel).toContainText('No charges logged yet');
   await expect(panel.locator('button', { hasText: '+ Add charge' })).toBeVisible();
 });
@@ -206,8 +206,8 @@ test('empty charges panel shows no charges text and Add charge button', async ()
 test('clicking Charges button again collapses the panel', async () => {
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
   await visaRow.locator('[data-testid="debt-charges-btn"]').click();
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
-  await expect(visaWrap.locator('.charges-panel')).not.toBeVisible();
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).not.toBeVisible();
 });
 
 // ── Add charge modal ──────────────────────────────────────────────────────────
@@ -215,51 +215,51 @@ test('clicking Charges button again collapses the panel', async () => {
 test('Add charge modal opens with correct fields', async () => {
   // Re-open panel first
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
   await visaRow.locator('[data-testid="debt-charges-btn"]').click();
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
   await visaWrap.locator('button', { hasText: '+ Add charge' }).click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await expect(page.locator('#ch-merchant')).toBeVisible();
-  await expect(page.locator('#ch-amount')).toBeVisible();
-  await expect(page.locator('#ch-date')).toBeVisible();
-  await expect(page.locator('#ch-cat')).toBeVisible();
-  await expect(page.locator('#ch-note')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-merchant"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-amount"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-date"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-cat"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-note"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/dc-07-add-charge-modal.png' });
 });
 
 test('add charge modal validates empty merchant', async () => {
-  await page.fill('#ch-amount', '29.99');
+  await page.fill('[data-testid="debt-charge-amount"]', '29.99');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('#ch-error')).toBeVisible();
-  await expect(page.locator('#ch-error')).toContainText('Merchant / Vendor');
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toContainText('Merchant / Vendor');
 });
 
 test('add charge modal validates missing amount', async () => {
-  await page.fill('#ch-merchant', 'Amazon');
-  await page.fill('#ch-amount', '');
+  await page.fill('[data-testid="debt-charge-merchant"]', 'Amazon');
+  await page.fill('[data-testid="debt-charge-amount"]', '');
   await page.click('[data-testid="modal-submit"]');
-  await expect(page.locator('#ch-error')).toBeVisible();
-  await expect(page.locator('#ch-error')).toContainText('Amount');
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toBeVisible();
+  await expect(page.locator('[data-testid="debt-charge-error"]')).toContainText('Amount');
 });
 
 test('submitting a valid charge closes modal and persists the charge', async () => {
-  await page.fill('#ch-merchant', 'Amazon');
-  await page.fill('#ch-amount', '49.99');
-  await page.fill('#ch-note', 'Laptop stand');
+  await page.fill('[data-testid="debt-charge-merchant"]', 'Amazon');
+  await page.fill('[data-testid="debt-charge-amount"]', '49.99');
+  await page.fill('[data-testid="debt-charge-note"]', 'Laptop stand');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
   // Panel stays open after adding a charge
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
-  await expect(visaWrap.locator('.charges-item')).toHaveCount(1);
-  await expect(visaWrap.locator('.charges-item')).toContainText('Amazon');
-  await expect(visaWrap.locator('.charges-item')).toContainText('$49.99');
-  await expect(visaWrap.locator('.charges-item')).toContainText('Laptop stand');
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toHaveCount(1);
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toContainText('Amazon');
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toContainText('$49.99');
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toContainText('Laptop stand');
   // Charge increases account balance: $3,000 + $49.99 = $3,049.99
   await expect(visaRow.locator('[data-testid="debt-row-balance"]')).toContainText('$3,049.99');
   await page.screenshot({ path: 'tests/screenshots/dc-08-first-charge.png' });
@@ -269,15 +269,15 @@ test('charges button updates to show count after first charge', async () => {
   // Panel is open from previous test — close it to check button text
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
   await visaRow.locator('[data-testid="debt-charges-btn"]').click();
-  await expect(page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' }).locator('.charges-panel')).not.toBeVisible();
+  await expect(page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' }).locator('[data-testid="debt-charges-panel"]')).not.toBeVisible();
   await expect(visaRow.locator('[data-testid="debt-charges-btn"]')).toContainText('1');
 });
 
 test('merchant breakdown pill appears for Amazon after first charge', async () => {
   const visaRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Visa Pay Test' });
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
   await visaRow.locator('[data-testid="debt-charges-btn"]').click();
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
   const breakdown = visaWrap.locator('.charges-breakdown');
   await expect(breakdown).toBeVisible();
@@ -288,66 +288,66 @@ test('merchant breakdown pill appears for Amazon after first charge', async () =
 // ── Second charge: same merchant (breakdown should combine) ───────────────────
 
 test('adding second Amazon charge shows combined total in breakdown', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
   await visaWrap.locator('button', { hasText: '+ Add charge' }).click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#ch-merchant', 'Amazon');
-  await page.fill('#ch-amount', '19.99');
-  await page.fill('#ch-note', 'USB cable');
+  await page.fill('[data-testid="debt-charge-merchant"]', 'Amazon');
+  await page.fill('[data-testid="debt-charge-amount"]', '19.99');
+  await page.fill('[data-testid="debt-charge-note"]', 'USB cable');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
   // Panel stays open after adding a charge
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
   // Combined: $49.99 + $19.99 = $69.98
   const breakdown = visaWrap.locator('.charges-breakdown');
   await expect(breakdown).toContainText('Amazon');
   await expect(breakdown).toContainText('$69.98');
-  await expect(visaWrap.locator('.charges-item')).toHaveCount(2);
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toHaveCount(2);
   await page.screenshot({ path: 'tests/screenshots/dc-09-combined-breakdown.png' });
 });
 
 // ── Third charge: different merchant ─────────────────────────────────────────
 
 test('adding an Etsy charge shows both merchants in breakdown', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
   await visaWrap.locator('button', { hasText: '+ Add charge' }).click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#ch-merchant', 'Etsy');
-  await page.fill('#ch-amount', '34.50');
-  await page.fill('#ch-note', 'Handmade mug');
+  await page.fill('[data-testid="debt-charge-merchant"]', 'Etsy');
+  await page.fill('[data-testid="debt-charge-amount"]', '34.50');
+  await page.fill('[data-testid="debt-charge-note"]', 'Handmade mug');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
   // Panel stays open after adding a charge
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
   const breakdown = visaWrap.locator('.charges-breakdown');
   await expect(breakdown).toContainText('Amazon');
   await expect(breakdown).toContainText('Etsy');
   await expect(breakdown).toContainText('$34.50');
-  await expect(visaWrap.locator('.charges-item')).toHaveCount(3);
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toHaveCount(3);
   await page.screenshot({ path: 'tests/screenshots/dc-10-two-merchants.png' });
 });
 
 // ── Delete a charge ───────────────────────────────────────────────────────────
 
 test('deleting a charge reduces the item count and updates breakdown', async () => {
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Pay Test' });
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Pay Test' });
 
   // Panel should still be open — delete the last item (oldest)
-  const items = visaWrap.locator('.charges-item');
+  const items = visaWrap.locator('[data-testid="debt-charge-item"]');
   await expect(items).toHaveCount(3);
 
   page.once('dialog', (d) => d.accept());
   await items.last().locator('.icon-btn.danger').click();
 
   // Panel stays open after deletion
-  await expect(visaWrap.locator('.charges-panel')).toBeVisible();
-  await expect(visaWrap.locator('.charges-item')).toHaveCount(2);
+  await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]')).toHaveCount(2);
   await page.screenshot({ path: 'tests/screenshots/dc-11-charge-deleted.png' });
 });
 
@@ -364,7 +364,7 @@ test('recording a debt payment reduces the balance', async () => {
   await visaRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.fill('#pay-amount', '150');
+  await page.fill('[data-testid="debt-pay-amount"]', '150');
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 

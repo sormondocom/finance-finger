@@ -32,7 +32,7 @@ export class AffordPage {
   render(): HTMLElement {
     this.container = document.createElement('div');
     this.container.className = 'afford-page';
-    this.load();
+    void this.load();
     return this.container;
   }
 

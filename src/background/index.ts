@@ -2,7 +2,7 @@ import browser from 'webextension-polyfill';
 import { takeSnapshot } from '@/utils/snapshot';
 
 browser.action.onClicked.addListener(() => {
-  browser.tabs.create({ url: browser.runtime.getURL('src/app/index.html') });
+  void browser.tabs.create({ url: browser.runtime.getURL('src/app/index.html') });
 });
 
 // Register the repeating snapshot alarm on first install (alarm persists across SW restarts).
@@ -20,7 +20,10 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
   if (!config?.setupComplete) return;
   try {
     await takeSnapshot('Auto');
-  } catch {
-    // Swallow — DB may be mid-transaction or extension freshly installed
+    // Clear any previously recorded error now that a snapshot succeeded.
+    await browser.storage.local.remove('lastSnapshotError');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error during auto-snapshot';
+    await browser.storage.local.set({ lastSnapshotError: { message, time: Date.now() } });
   }
 });

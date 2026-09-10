@@ -2,7 +2,6 @@ import './setup.css';
 import browser from 'webextension-polyfill';
 import { generateKeyPair, readKeyInfo, validatePrivateKey } from '@/crypto/pgp';
 import { createVault } from '@/crypto/vault';
-import { navigate } from '@/app/router';
 import { createMember, saveMember, deleteMember } from '@/db';
 import type { AvatarType, MascotGender, VaultConfig } from '@/types';
 import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG } from '@/mascot/svgs';

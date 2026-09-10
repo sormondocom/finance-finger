@@ -144,10 +144,10 @@ test('logging an expense linked to Visa Card creates an auto-charge on the card'
 
 test('the auto-charge appears in Visa Card charges panel with the Auto badge', async () => {
   await openChargesPanel('Visa Card');
-  const wrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  await expect(wrap.locator('.charges-panel')).toBeVisible();
+  const wrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  await expect(wrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
 
-  const charge = wrap.locator('.charges-item').filter({ hasText: 'Electric Bill' });
+  const charge = wrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' });
   await expect(charge).toBeVisible();
   await expect(charge.locator('[data-testid="charge-auto-badge"]')).toBeVisible();
   await expect(charge.locator('[data-testid="charge-auto-badge"]')).toContainText('Auto');
@@ -174,12 +174,12 @@ test('editing the expense amount updates the auto-charge amount on Visa Card', a
 
   // Verify the charge on Visa Card reflects the new amount
   await openChargesPanel('Visa Card');
-  const wrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  const charge = wrap.locator('.charges-item').filter({ hasText: 'Electric Bill' });
+  const wrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  const charge = wrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' });
   await expect(charge).toBeVisible();
   await expect(charge).toContainText('$112.50');
   // Still only one charge (updated in place, not a new one)
-  await expect(wrap.locator('.charges-item').filter({ hasText: 'Electric Bill' })).toHaveCount(1);
+  await expect(wrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' })).toHaveCount(1);
 });
 
 // ── Test 5: swapping the card moves the charge ────────────────────────────────
@@ -196,13 +196,13 @@ test('swapping the card to Mastercard removes charge from Visa Card and creates 
 
   // Visa Card should have no charge for Electric Bill
   await openChargesPanel('Visa Card');
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  await expect(visaWrap.locator('.charges-item').filter({ hasText: 'Electric Bill' })).toHaveCount(0);
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' })).toHaveCount(0);
 
   // Mastercard should now have the charge with Auto badge
   await openChargesPanel('Mastercard');
-  const mcWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Mastercard' });
-  const charge = mcWrap.locator('.charges-item').filter({ hasText: 'Electric Bill' });
+  const mcWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Mastercard' });
+  const charge = mcWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' });
   await expect(charge).toBeVisible();
   await expect(charge.locator('[data-testid="charge-auto-badge"]')).toBeVisible();
 });
@@ -221,8 +221,8 @@ test('removing the card link from an expense deletes the auto-charge from Master
 
   // Mastercard charges panel should be empty for Electric Bill
   await openChargesPanel('Mastercard');
-  const mcWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Mastercard' });
-  await expect(mcWrap.locator('.charges-item').filter({ hasText: 'Electric Bill' })).toHaveCount(0);
+  const mcWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Mastercard' });
+  await expect(mcWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Electric Bill' })).toHaveCount(0);
 
   // Card badge should be gone from expense row
   await navigateTo(page, 'expenses');
@@ -245,8 +245,8 @@ test('set up: add a second linked expense for deletion test', async () => {
 
   // Confirm charge exists
   await openChargesPanel('Visa Card');
-  const wrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  await expect(wrap.locator('.charges-item').filter({ hasText: 'Water Bill' })).toBeVisible();
+  const wrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  await expect(wrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Water Bill' })).toBeVisible();
 });
 
 test('deleting the expense also removes its auto-charge from Visa Card', async () => {
@@ -257,8 +257,8 @@ test('deleting the expense also removes its auto-charge from Visa Card', async (
 
   // Charge should be gone from Visa Card
   await openChargesPanel('Visa Card');
-  const wrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  await expect(wrap.locator('.charges-item').filter({ hasText: 'Water Bill' })).toHaveCount(0);
+  const wrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  await expect(wrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Water Bill' })).toHaveCount(0);
 });
 
 // ── Test 8: expenses without a card link produce no charges ───────────────────
@@ -276,12 +276,12 @@ test('an expense in Groceries (no default card) with no card selected creates no
 
   // Neither card should have a charge for Supermarket Run
   await openChargesPanel('Visa Card');
-  const visaWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Visa Card' });
-  await expect(visaWrap.locator('.charges-item').filter({ hasText: 'Supermarket Run' })).toHaveCount(0);
+  const visaWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Visa Card' });
+  await expect(visaWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Supermarket Run' })).toHaveCount(0);
 
   await openChargesPanel('Mastercard');
-  const mcWrap = page.locator('.debt-account-wrap').filter({ hasText: 'Mastercard' });
-  await expect(mcWrap.locator('.charges-item').filter({ hasText: 'Supermarket Run' })).toHaveCount(0);
+  const mcWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Mastercard' });
+  await expect(mcWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Supermarket Run' })).toHaveCount(0);
 });
 
 // ── Test 10: category-change auto-updates card only if not manually overridden ─
