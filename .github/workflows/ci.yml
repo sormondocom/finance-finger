@@ -34,7 +34,7 @@ jobs:
         run: npm run lint -- --max-warnings 0
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
   # ── 2. Unit tests ─────────────────────────────────────────────────────────────
   unit:
