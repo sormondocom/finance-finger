@@ -4,6 +4,7 @@ import { fmt, fmtCents } from '@/utils/finance';
 import {
   saveExpense, saveExpensePaidRecord, createExpensePaidRecord, getExpensePaidRecords,
   saveCardCharge, deleteCardCharge, createCardCharge, findChargeByExpenseId,
+  saveDebtAccount,
 } from '@/db';
 import { showMascot } from '@/mascot/Mascot';
 import { computeNextDue } from '@/utils/billStatus';
@@ -421,16 +422,38 @@ export function openExpensePaymentModal({
 
       const existingCharge = await findChargeByExpenseId(expense.id);
       if (selectedCardId) {
+        const targetCard = cardAccounts.find((a) => a.id === selectedCardId);
         if (existingCharge && existingCharge.accountId === selectedCardId) {
+          // Same card — update charge and apply delta to balance
+          const amountDelta = paidAmount - existingCharge.amount;
           ops.push(saveCardCharge({ ...existingCharge, amount: paidAmount, date: paidDate }));
+          if (amountDelta !== 0 && targetCard) {
+            ops.push(saveDebtAccount({ ...targetCard, balance: targetCard.balance + amountDelta, updatedAt: Date.now() }));
+          }
         } else {
-          if (existingCharge) ops.push(deleteCardCharge(existingCharge.id));
+          if (existingCharge) {
+            // Remove from old card: delete charge + decrement its balance
+            ops.push(deleteCardCharge(existingCharge.id));
+            const oldCard = cardAccounts.find((a) => a.id === existingCharge.accountId);
+            if (oldCard) {
+              ops.push(saveDebtAccount({ ...oldCard, balance: oldCard.balance - existingCharge.amount, updatedAt: Date.now() }));
+            }
+          }
+          // Add to new card: create charge + increment its balance
           const charge = createCardCharge(selectedCardId, expense.description, paidAmount, paidDate, expense.categoryId || undefined);
           charge.sourceExpenseId = expense.id;
           ops.push(saveCardCharge(charge));
+          if (targetCard) {
+            ops.push(saveDebtAccount({ ...targetCard, balance: targetCard.balance + paidAmount, updatedAt: Date.now() }));
+          }
         }
       } else if (existingCharge) {
+        // Switched to no-card payment — remove charge + decrement old card balance
         ops.push(deleteCardCharge(existingCharge.id));
+        const oldCard = cardAccounts.find((a) => a.id === existingCharge.accountId);
+        if (oldCard) {
+          ops.push(saveDebtAccount({ ...oldCard, balance: oldCard.balance - existingCharge.amount, updatedAt: Date.now() }));
+        }
       }
 
       await Promise.all(ops);

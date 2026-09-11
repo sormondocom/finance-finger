@@ -1,5 +1,6 @@
 import {
   saveCardCharge, deleteCardCharge, createCardCharge, saveDebtAccount,
+  getExpensePaidRecords, deleteExpensePaidRecord,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { fmtCents } from '@/utils/finance';
@@ -342,10 +343,17 @@ export function buildChargesPanel(
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', async () => {
       if (!confirm(`Remove ${fmtCents.format(ch.amount)} charge from ${ch.merchant}?`)) return;
-      await Promise.all([
+      const ops: Promise<unknown>[] = [
         deleteCardCharge(ch.id),
         saveDebtAccount({ ...a, balance: a.balance - ch.amount, updatedAt: Date.now() }),
-      ]);
+      ];
+      if (ch.sourceExpenseId) {
+        // Remove the expense paid record that auto-created this charge
+        const paidRecs = await getExpensePaidRecords(ch.sourceExpenseId);
+        const linked = paidRecs.find((r) => r.cardId === ch.accountId);
+        if (linked) ops.push(deleteExpensePaidRecord(linked.id));
+      }
+      await Promise.all(ops);
       await onSaved(a.id);
     });
     item.appendChild(editBtn);

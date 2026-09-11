@@ -8,20 +8,24 @@
  */
 import { test, expect } from '@playwright/test';
 import { launchExtensionContext } from '../helpers/extension';
-import { completeSetupWizard, navigateTo } from '../helpers/setup-wizard';
+import { completeSetupWizard, navigateTo, TEST_PASSPHRASE } from '../helpers/setup-wizard';
 import type { BrowserContext, Page } from '@playwright/test';
 
 let context: BrowserContext;
 let page: Page;
 let cleanup: () => Promise<void>;
+let extUrl: string;
+let privateKey: string;
 
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
   context = ext.context;
   cleanup = ext.cleanup;
+  extUrl = ext.extUrl;
   page = await context.newPage();
   await page.goto(ext.extUrl);
-  await completeSetupWizard(page);
+  const result = await completeSetupWizard(page);
+  privateKey = result.privateKey;
   await navigateTo(page, 'budget');
 });
 
@@ -29,9 +33,29 @@ test.afterAll(async () => {
   await cleanup();
 });
 
+/**
+ * Guard against the renderer crashing (e.g. under memory pressure in the
+ * full suite run) between tests.  If the page object is dead we open a new
+ * tab and re-unlock the vault — all IndexedDB data is still intact because
+ * it lives in the persistent userDataDir for this context.
+ */
+test.beforeEach(async () => {
+  const isAlive = await page.evaluate(() => true).catch(() => false);
+  if (!isAlive) {
+    page = await context.newPage();
+    await page.goto(extUrl);
+    await page.waitForSelector('[data-testid="unlock-key-textarea"]', { timeout: 15_000 });
+    await page.fill('[data-testid="unlock-key-textarea"]', privateKey);
+    await page.fill('[data-testid="unlock-passphrase-input"]', TEST_PASSPHRASE);
+    await page.click('[data-testid="unlock-submit-btn"]');
+    await page.waitForSelector('[data-testid="nav-dashboard"]', { timeout: 30_000 });
+  }
+});
+
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 test('budget page shows empty state when no income or expenses exist', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-empty"]')).toBeVisible();
   await expect(page.locator('h1')).toContainText('Budget Overview');
   await page.screenshot({ path: 'tests/screenshots/budget-01-empty.png' });
@@ -61,7 +85,6 @@ test('set up: add a monthly income source', async () => {
 
 test('budget summary shows income after adding a source', async () => {
   await navigateTo(page, 'budget');
-
   await expect(page.locator('[data-testid="budget-summary"]')).toBeVisible();
   // Cents preserved via fmtCents: $4,999.50 not $5,000
   await expect(page.locator('[data-testid="budget-income-value"]')).toContainText('$4,999.50');
@@ -70,11 +93,13 @@ test('budget summary shows income after adding a source', async () => {
 });
 
 test('surplus stat shows full income when no expenses', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-stat-surplus"]')).toContainText('Surplus');
   await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$4,999.50');
 });
 
 test('cash flow card is visible when income exists', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-cashflow-card"]')).toBeVisible();
 });
 
@@ -104,30 +129,34 @@ test('set up: add a recurring expense with a category', async () => {
 
 test('budget summary shows expenses after adding a recurring expense', async () => {
   await navigateTo(page, 'budget');
-
+  await expect(page.locator('[data-testid="budget-summary"]')).toBeVisible();
   // Cents preserved via fmtCents: $1,499.90 not $1,500
   await expect(page.locator('[data-testid="budget-expenses-value"]')).toContainText('$1,499.90');
   await page.screenshot({ path: 'tests/screenshots/budget-03-with-expense.png' });
 });
 
 test('surplus is income minus expenses', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-stat-surplus"]')).toContainText('Surplus');
   // Surplus = $4,999.50 – $1,499.90 = $3,499.60 — trailing zero preserved
   await expect(page.locator('[data-testid="budget-surplus-value"]')).toContainText('$3,499.60');
 });
 
 test('category breakdown card is visible with at least one row', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-breakdown-card"]')).toBeVisible();
   await expect(page.locator('[data-testid="budget-breakdown-row"]')).toBeVisible();
   await expect(page.locator('[data-testid="budget-breakdown-row"]')).toContainText('Housing');
 });
 
 test('donut chart card is visible', async () => {
+  await navigateTo(page, 'budget');
   await expect(page.locator('[data-testid="budget-chart-card"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/budget-04-with-chart.png' });
 });
 
 test('cash flow card shows income, expenses, and surplus bars', async () => {
+  await navigateTo(page, 'budget');
   const cashflow = page.locator('[data-testid="budget-cashflow-card"]');
   await expect(cashflow).toBeVisible();
   await expect(cashflow).toContainText('Income');

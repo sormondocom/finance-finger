@@ -1,7 +1,7 @@
 import {
   getExpensePaidRecords, deleteExpensePaidRecord, findChargeByExpenseId,
   getCardCharges, deleteCardCharge, deleteExpense,
-  saveExpense, saveExpensePaidRecord, createExpensePaidRecord,
+  saveExpense, saveExpensePaidRecord, createExpensePaidRecord, saveDebtAccount,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { openExpenseForm } from './ExpenseForm';
@@ -149,6 +149,7 @@ function buildLedgerPanel(
 
     const delBtn = document.createElement('button');
     delBtn.className = 'icon-btn danger';
+    delBtn.setAttribute('data-testid', 'expense-ledger-del');
     delBtn.title = 'Remove this payment record';
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', async () => {
@@ -158,7 +159,13 @@ function buildLedgerPanel(
 
       if (r.cardId) {
         const charge = await findChargeByExpenseId(expense.id);
-        if (charge && charge.accountId === r.cardId) ops.push(deleteCardCharge(charge.id));
+        if (charge && charge.accountId === r.cardId) {
+          ops.push(deleteCardCharge(charge.id));
+          const card = ctx.cardAccounts.find((a) => a.id === r.cardId);
+          if (card) {
+            ops.push(saveDebtAccount({ ...card, balance: card.balance - charge.amount, updatedAt: Date.now() }));
+          }
+        }
       }
 
       if (isBill) {
@@ -523,9 +530,14 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     const allCharges = await getCardCharges();
     const linkedCharges = allCharges.filter((c) => c.sourceExpenseId === expense.id);
     const paidRecs = await getExpensePaidRecords(expense.id);
+    const balanceOps: Promise<unknown>[] = linkedCharges.flatMap((c) => {
+      const card = ctx.cardAccounts.find((a) => a.id === c.accountId);
+      return card ? [saveDebtAccount({ ...card, balance: card.balance - c.amount, updatedAt: Date.now() })] : [];
+    });
     await Promise.all([
       ...linkedCharges.map((c) => deleteCardCharge(c.id)),
       ...paidRecs.map((r) => deleteExpensePaidRecord(r.id)),
+      ...balanceOps,
     ]);
     await deleteExpense(expense.id);
     await ctx.onLoad();
@@ -538,6 +550,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
   const ledgerBtn = document.createElement('button');
   ledgerBtn.className = 'icon-btn';
   ledgerBtn.setAttribute('data-action', 'ledger');
+  ledgerBtn.setAttribute('data-testid', 'expense-ledger-btn');
   ledgerBtn.title = 'Payment history';
   ledgerBtn.textContent = records.length > 0 ? `📋 ${records.length}` : '📋';
   if (records.length > 0) ledgerBtn.style.color = 'var(--ff-gold-dark)';
