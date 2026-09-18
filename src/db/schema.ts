@@ -78,6 +78,10 @@ interface FinancialFingerDB extends DBSchema {
     key: string;
     value: EncryptedRecord;
   };
+  ledger: {
+    key: string;
+    value: EncryptedRecord;
+  };
 }
 
 export type AppDB = IDBPDatabase<FinancialFingerDB>;
@@ -87,7 +91,7 @@ let db: AppDB | null = null;
 export async function getDB(): Promise<AppDB> {
   if (db) return db;
 
-  db = await openDB<FinancialFingerDB>('financial-finger', 14, {
+  db = await openDB<FinancialFingerDB>('financial-finger', 15, {
     upgrade(database, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         database.createObjectStore('members');
@@ -146,6 +150,9 @@ export async function getDB(): Promise<AppDB> {
         const expenseStore = transaction.objectStore('expenses') as any;
         if (expenseStore.indexNames.contains('by_category')) expenseStore.deleteIndex('by_category');
         if (expenseStore.indexNames.contains('by_date')) expenseStore.deleteIndex('by_date');
+      }
+      if (oldVersion < 15) {
+        database.createObjectStore('ledger');
       }
     },
   });

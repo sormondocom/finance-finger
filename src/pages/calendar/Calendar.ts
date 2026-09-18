@@ -1,5 +1,6 @@
 import './calendar.css';
 import { navigate } from '@/app/router';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { makeHelpBtn } from '@/utils/helpNav';
 import { showPageError } from '@/utils/errorUI';
 import { getExpenses, getDebtAccounts, getDebtPayments,
@@ -508,7 +509,7 @@ export class CalendarPage {
       clearBtn.addEventListener('click', async () => {
         const label = new Date(this.year, this.month, 1)
           .toLocaleString('default', { month: 'long', year: 'numeric' });
-        if (!confirm(`Clear all marks for ${label}?`)) return;
+        if (!await openConfirmDialog({ message: `Clear all marks for ${label}?`, confirmLabel: 'Clear', danger: false })) return;
         await deleteCalendarMarksForMonth(this.year, this.month);
         this.marks.clear();
         this.paint();

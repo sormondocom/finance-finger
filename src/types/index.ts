@@ -271,6 +271,7 @@ export type MascotTrigger =
   | 'payment-overdue'
   | 'briefing'
   | 'expense-trend'
+  | 'payday-reset-credit'
   | 'custom';
 
 export interface MascotMessage {
@@ -375,6 +376,41 @@ export interface TransactionRule {
   autoManage: boolean;       // true = auto-apply on future imports
   createdAt: number;
   lastUsedAt: number;
+}
+
+// ── Ledger ────────────────────────────────────────────────────────────────────
+
+export type LedgerEntryType =
+  | 'charge'          // card charge — increases debt balance
+  | 'payment'         // debt payment — decreases debt balance
+  | 'bank-credit'     // money entering a bank account
+  | 'bank-debit'      // money leaving a bank account
+  | 'transfer-in'     // transfer credit leg
+  | 'transfer-out'    // transfer debit leg
+  | 'reconciliation'; // clean-break / starting balance override
+
+export interface LedgerEntry {
+  id: string;
+  type: LedgerEntryType;
+  accountId: string;       // which account this affects
+  accountType: 'debt' | 'bank';
+  // Signed amount relative to the account's natural balance:
+  //   debt accounts: positive = owe more, negative = owe less
+  //   bank accounts: positive = have more, negative = have less
+  signedAmount: number;
+  description: string;
+  date: number;            // business date — day the transaction occurred (use day-start, never wall-clock time)
+  createdAt: number;       // when this record was first written to the DB — never overridden after creation
+  updatedAt?: number;      // when this record was last modified (e.g. after a void/refund marks the original)
+  voidedAt?: number;       // set on the original entry when a void reversal is posted against it
+  refundedAt?: number;     // set on the original income bank-credit when it is refunded/deleted
+  correlationId?: string;  // groups ledger entries from the same operation
+  sourceId?: string;       // ID of the originating domain record
+  sourceType?: 'card-charge' | 'debt-payment' | 'bank-transaction' | 'transfer' | 'expense-payment';
+  // Reconciliation fields (only when type === 'reconciliation')
+  priorBalance?: number;   // computed balance immediately before this entry
+  targetBalance?: number;  // desired balance set by user
+  note?: string;
 }
 
 // ── Snapshots ─────────────────────────────────────────────────────────────────

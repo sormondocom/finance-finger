@@ -21,6 +21,7 @@ const SNAPSHOT_STORES = [
   'bank_transactions',
   'import_records',
   'transaction_rules',
+  'ledger',
 ] as const;
 
 const KEEP_HOURS = 24;

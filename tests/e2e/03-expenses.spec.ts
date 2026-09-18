@@ -89,8 +89,7 @@ test('adds a one-time expense', async () => {
 
 test('monthly total reflects recurring expenses only', async () => {
   const total = await page.locator('[data-testid="expenses-monthly-total"]').innerText();
-  // Monthly total uses fmt (rounds to whole dollars): $319.90 → $320
-  expect(total).toMatch(/\$320/);
+  expect(total).toMatch(/\$319\.90/);
 });
 
 test('filters by category', async () => {
@@ -117,15 +116,16 @@ test('edits an expense', async () => {
 });
 
 test('deletes an expense', async () => {
-  page.once('dialog', (d) => d.accept());
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'New Fridge' });
   await row.locator('[data-testid="expense-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(row).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/expenses-07-deleted.png' });
 });
 
 test('removes a category', async () => {
-  page.once('dialog', (d) => d.accept());
+  // Utilities has no expenses at this point (New Fridge was deleted), so deletion is silent — no confirm dialog
   const pill = page.locator('[data-testid="category-pill"]').filter({ hasText: 'Utilities' });
   await pill.locator('[data-testid="category-remove"]').click();
   await expect(pill).not.toBeVisible();

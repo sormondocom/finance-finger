@@ -1,9 +1,11 @@
 import {
   getMembers as _getMembers, getBankAccounts, getExpenses,
   saveExpense, saveBankAccount,
-  deleteMember, deleteIncomeSource, createMember, saveMember, saveIncomeSource,
+  deleteMember, createMember, saveMember, saveIncomeSource,
 } from '@/db';
+import { accounting } from '@/accounting';
 import { sourceMonthly, fmt, fmtCents, FREQUENCY_LABELS } from '@/utils/finance';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { openAddNotificationModal } from '@/utils/notificationModal';
 import type { HouseholdMember, IncomeSource, BankAccount } from '@/types';
@@ -102,11 +104,11 @@ export function buildMembersCard(ctx: IncomePanelContext): HTMLElement {
     chip.appendChild(nameSpan);
     chip.appendChild(removeBtn);
     removeBtn.addEventListener('click', async () => {
-      if (!confirm(`Remove "${m.name}"? Their income sources will also be removed.`)) return;
+      if (!await openConfirmDialog({ message: `Remove "${m.name}"? Their income sources will also be removed.`, confirmLabel: 'Remove' })) return;
       const toDelete = ctx.sources.filter((s) => s.memberId === m.id);
       const [allAccounts, allExpenses] = await Promise.all([getBankAccounts(), getExpenses()]);
       await Promise.all([
-        ...toDelete.map((s) => deleteIncomeSource(s.id)),
+        ...toDelete.map((s) => accounting.deleteIncomeSource(s)),
         ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
         ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
       ]);
@@ -282,8 +284,8 @@ function buildSourceRow(source: IncomeSource, ctx: IncomePanelContext): HTMLElem
   }
 
   row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
-    if (!confirm(`Delete "${source.name}"?`)) return;
-    await deleteIncomeSource(source.id);
+    if (!await openConfirmDialog({ message: `Delete "${source.name}"?` })) return;
+    await accounting.deleteIncomeSource(source);
     await ctx.onLoad();
   });
 

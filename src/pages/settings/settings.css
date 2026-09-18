@@ -517,11 +517,38 @@
   border: 1px solid var(--color-border);
 }
 
+/* ── Scrollable list wrappers ───────────────────────────────────────────── */
+
+.settings-scroll-wrap {
+  position: relative;
+}
+
+.settings-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--color-bg));
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.settings-scroll-wrap.no-overflow::after {
+  opacity: 0;
+}
+
 /* ── Snapshot list ──────────────────────────────────────────────────────── */
 
 .snapshot-list {
   display: flex;
   flex-direction: column;
+  max-height: 285px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  padding-bottom: 56px;
 }
 
 .snapshot-empty {
@@ -575,6 +602,16 @@
   padding: var(--space-1) var(--space-2);
 }
 
+
+/* ── Reconciliation account list ────────────────────────────────────────── */
+
+.recon-account-list {
+  max-height: 600px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  padding-bottom: 56px;
+}
 
 /* ── Repeat Transaction Detection ────────────────────────────────────────── */
 

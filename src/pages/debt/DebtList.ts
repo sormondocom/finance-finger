@@ -4,8 +4,10 @@ import {
   getCategories, saveCategory,
   getExpenses, saveExpense,
   getExpensePaidRecords, saveExpensePaidRecord,
+  deleteLedgerEntriesForAccount,
 } from '@/db';
 import { openImportWizard } from '@/components/ImportWizard';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
 import { computePaymentStatus } from '@/utils/paymentStatus';
 import { openAddNotificationModal } from '@/utils/notificationModal';
@@ -166,7 +168,7 @@ function buildDebtRow(
       </div>
       ${needsSetup ? '<button class="btn btn-secondary btn-sm debt-setup-btn" data-action="setup" data-testid="debt-setup">Complete setup →</button>' : ''}
     </div>
-    <div class="card-row-balance${a.balance === 0 ? ' card-row-balance--zero' : ''}" data-testid="debt-row-balance">${fmtCents.format(a.balance)}</div>
+    <div class="card-row-balance${a.balance === 0 ? ' card-row-balance--zero' : a.balance < 0 ? ' card-row-balance--overpaid' : ''}" data-testid="debt-row-balance">${fmtCents.format(a.balance)}</div>
     <div class="card-row-actions">
       <span class="priority-slot"></span>
       <button class="btn-pay" data-action="pay" data-testid="debt-pay-btn">💰 Pay</button>
@@ -302,7 +304,7 @@ function buildDebtRow(
   row.querySelector('[data-action="edit"]')!.addEventListener('click', () =>
     openDebtForm(a, false, callbacks.onDebtFormSaved));
   row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
-    if (!confirm(`Delete "${a.name}"?`)) return;
+    if (!await openConfirmDialog({ message: `Delete "${a.name}"?` })) return;
     const [allExpenses, allCategories, allPaidRecords] = await Promise.all([
       getExpenses(),
       getCategories(),
@@ -311,6 +313,7 @@ function buildDebtRow(
     await Promise.all([
       ...payments.map((p) => deleteDebtPayment(p.id)),
       ...charges.map((c) => deleteCardCharge(c.id)),
+      deleteLedgerEntriesForAccount(a.id),
       ...allExpenses.filter((e) => e.linkedCardId === a.id).map(({ linkedCardId: _, ...e }) => saveExpense(e)),
       ...allCategories.filter((c) => c.defaultCardId === a.id).map(({ defaultCardId: _, ...c }) => saveCategory(c)),
       ...allPaidRecords.filter((r) => r.cardId === a.id).map(({ cardId: _, ...r }) => saveExpensePaidRecord(r)),

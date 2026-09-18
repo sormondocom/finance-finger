@@ -1,4 +1,5 @@
 import './break-glass.css';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { computeBillStatus } from '@/utils/billStatus';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { navigate } from '@/app/router';
@@ -15,11 +16,13 @@ import {
   getBankAccounts, saveBankAccount, deleteBankAccount,
   getScenarios, saveScenario, deleteScenario,
   getAllCalendarMemos, saveCalendarMemo, deleteCalendarMemo,
+  getAllLedgerEntries, saveLedgerEntry, deleteLedgerEntry,
 } from '@/db';
 import type {
   MascotGender,
   HouseholdMember, IncomeSource, ExpenseCategory, Expense,
   DebtAccount, DebtPayment, CardCharge, ExpensePaidRecord, BankAccount, Scenario, CalendarMemo,
+  LedgerEntry,
 } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -68,6 +71,7 @@ export const STORES: Record<string, StoreEntry> = {
   expense_paid_records: storeOf('Paid Records',       () => getExpensePaidRecords(), saveExpensePaidRecord, deleteExpensePaidRecord, (r: ExpensePaidRecord) => `${fmtDate(r.date)} — ${fmt$(r.amount)}`),
   scenarios:            storeOf('Scenarios',          getScenarios,                saveScenario,         deleteScenario,         (r: Scenario)           => r.name),
   calendar_memos:       storeOf('Calendar Memos',     getAllCalendarMemos,          saveCalendarMemo,     deleteCalendarMemo,     (r: CalendarMemo)       => `${r.date} — ${r.text.slice(0, 40)}${r.text.length > 40 ? '…' : ''}`),
+  ledger:               storeOf('Ledger',             getAllLedgerEntries,          saveLedgerEntry,      deleteLedgerEntry,      (r: LedgerEntry)        => `${fmtDate(r.date)} — ${r.type} — ${fmt$(r.signedAmount)}${r.voidedAt ? ' [VOIDED]' : ''}${r.refundedAt ? ' [REFUNDED]' : ''}`),
 };
 
 // ── Orphan scan definitions ───────────────────────────────────────────────────
@@ -118,6 +122,12 @@ interface ConsistencyIssue {
   fix: () => Promise<void>;
 }
 
+interface QueryMatch {
+  storeKey: string;
+  record: Rec;
+  matchedFields: string[];
+}
+
 // ── Field type inference ──────────────────────────────────────────────────────
 
 type FieldType =
@@ -141,6 +151,7 @@ const PERCENT_FIELDS = new Set(['apr']);
 const DATE_FIELDS = new Set([
   'createdAt', 'updatedAt', 'date', 'paydayRef',
   'introAprEndDate', 'nextDueDateMs', 'addedAt',
+  'voidedAt', 'refundedAt',
 ]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -178,7 +189,7 @@ function displayFieldValue(type: FieldType, value: unknown): string {
     case 'id':
     case 'uuid-ref': return String(value);
     case 'currency': return `$${(value as number).toFixed(2)}`;
-    case 'percent':  return `${((value as number) * 100).toFixed(2)}%`;
+    case 'percent':  return `${(value as number).toFixed(2)}%`;
     case 'date': {
       const d = new Date(value as number);
       return d.toLocaleString(userLocale, {
@@ -333,15 +344,16 @@ function buildFieldEditor(rec: Rec): FieldEditorResult {
         wrap.className = 'bg-input-affix';
         const inp = document.createElement('input');
         inp.type = 'number';
-        inp.step = '0.0001';
+        inp.step = '0.01';
         inp.min = '0';
-        inp.value = ((value as number) * 100).toFixed(4);
+        inp.max = '999';
+        inp.value = (value as number).toFixed(2);
         const suf = document.createElement('span');
         suf.textContent = '%';
         wrap.appendChild(inp);
         wrap.appendChild(suf);
         control.appendChild(wrap);
-        getter = () => parseFloat(inp.value) / 100;
+        getter = () => parseFloat(inp.value);
         break;
       }
       case 'date': {
@@ -522,7 +534,7 @@ type DetailMode = 'view' | 'edit' | 'edit-raw';
 export class BreakGlassPage {
   private container!: HTMLElement;
   private tabContent!: HTMLElement;
-  private activeTab: 'browser' | 'scanner' = 'browser';
+  private activeTab: 'browser' | 'scanner' | 'query' = 'browser';
 
   // Browser state
   private currentStoreKey = 'members';
@@ -585,13 +597,19 @@ export class BreakGlassPage {
     const bar = document.createElement('div');
     bar.className = 'bg-tab-bar';
 
-    (['browser', 'scanner'] as const).forEach((tab) => {
+    const TAB_LABELS: Record<'browser' | 'scanner' | 'query', string> = {
+      browser: 'Data Browser',
+      scanner: 'Orphan Scanner',
+      query: 'Query',
+    };
+
+    (['browser', 'scanner', 'query'] as const).forEach((tab) => {
       const btn = document.createElement('button');
       btn.className = `bg-tab-btn${this.activeTab === tab ? ' bg-tab-btn--active' : ''}`;
       btn.type = 'button';
       btn.dataset['tab'] = tab;
       btn.dataset['testid'] = `bg-tab-${tab}`;
-      btn.textContent = tab === 'browser' ? 'Data Browser' : 'Orphan Scanner';
+      btn.textContent = TAB_LABELS[tab];
       btn.addEventListener('click', () => {
         if (this.activeTab === tab) return;
         this.showTab(tab);
@@ -605,14 +623,16 @@ export class BreakGlassPage {
     return bar;
   }
 
-  private showTab(tab: 'browser' | 'scanner'): void {
+  private showTab(tab: 'browser' | 'scanner' | 'query'): void {
     this.activeTab = tab;
     this.tabContent.innerHTML = '';
     if (tab === 'browser') {
       this.tabContent.appendChild(this.buildBrowserContent());
       void this.loadRecords();
-    } else {
+    } else if (tab === 'scanner') {
       this.tabContent.appendChild(this.buildScannerContent());
+    } else {
+      this.tabContent.appendChild(this.buildQueryContent());
     }
   }
 
@@ -824,7 +844,7 @@ export class BreakGlassPage {
     deleteBtn.dataset['testid'] = 'bg-delete-btn';
     deleteBtn.textContent = '🗑 Delete';
     deleteBtn.addEventListener('click', async () => {
-      if (!confirm(`Delete this record?\n\nStore: ${entry.label}\nID: ${rec.id}\n\nThis cannot be undone.`)) return;
+      if (!await openConfirmDialog({ title: 'Delete record', message: `Delete from ${entry.label} (ID: ${rec.id})? This cannot be undone.` })) return;
       try {
         await entry.delete(String(rec.id));
         await appendAuditLog({ ts: Date.now(), action: 'delete', store: this.currentStoreKey, id: String(rec.id) });
@@ -911,7 +931,238 @@ export class BreakGlassPage {
     return wrap;
   }
 
-  // Called from Orphan Scanner to jump to a record
+  // ── Query tab ─────────────────────────────────────────────────────────────────
+
+  private buildQueryContent(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'bg-query';
+
+    const form = document.createElement('div');
+    form.className = 'bg-query-form';
+
+    const textGroup = document.createElement('div');
+    textGroup.className = 'bg-query-field-group';
+    const textLabel = document.createElement('label');
+    textLabel.htmlFor = 'bg-query-text';
+    textLabel.className = 'bg-query-label';
+    textLabel.textContent = 'Text (payee, description, name…)';
+    const textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.id = 'bg-query-text';
+    textInput.className = 'bg-query-input';
+    textInput.dataset['testid'] = 'bg-query-text-input';
+    textInput.placeholder = 'e.g. Comcast, Amazon';
+    textGroup.appendChild(textLabel);
+    textGroup.appendChild(textInput);
+
+    const amountGroup = document.createElement('div');
+    amountGroup.className = 'bg-query-field-group';
+    const amountLabel = document.createElement('label');
+    amountLabel.htmlFor = 'bg-query-amount';
+    amountLabel.className = 'bg-query-label';
+    amountLabel.textContent = 'Amount ($)';
+    const amountRow = document.createElement('div');
+    amountRow.className = 'bg-query-amount-row';
+    const amountWrap = document.createElement('div');
+    amountWrap.className = 'bg-input-affix';
+    const dollarSign = document.createElement('span');
+    dollarSign.textContent = '$';
+    const amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.id = 'bg-query-amount';
+    amountInput.className = 'bg-query-input';
+    amountInput.dataset['testid'] = 'bg-query-amount-input';
+    amountInput.step = '0.01';
+    amountInput.placeholder = '0.00';
+    amountWrap.appendChild(dollarSign);
+    amountWrap.appendChild(amountInput);
+    const toleranceSep = document.createElement('span');
+    toleranceSep.className = 'bg-query-tolerance-sep';
+    toleranceSep.textContent = '±';
+    const toleranceWrap = document.createElement('div');
+    toleranceWrap.className = 'bg-input-affix';
+    const dollarSign2 = document.createElement('span');
+    dollarSign2.textContent = '$';
+    const toleranceInput = document.createElement('input');
+    toleranceInput.type = 'number';
+    toleranceInput.id = 'bg-query-tolerance';
+    toleranceInput.className = 'bg-query-input bg-query-tolerance-input';
+    toleranceInput.dataset['testid'] = 'bg-query-amount-tolerance-input';
+    toleranceInput.step = '0.01';
+    toleranceInput.min = '0';
+    toleranceInput.value = '0';
+    toleranceInput.placeholder = '0.00';
+    toleranceInput.title = 'Wiggle room — find amounts within this many dollars of the entered amount (0 = exact)';
+    toleranceWrap.appendChild(dollarSign2);
+    toleranceWrap.appendChild(toleranceInput);
+    const toleranceHint = document.createElement('span');
+    toleranceHint.className = 'bg-query-tolerance-hint';
+    toleranceHint.textContent = 'wiggle room';
+    amountRow.appendChild(amountWrap);
+    amountRow.appendChild(toleranceSep);
+    amountRow.appendChild(toleranceWrap);
+    amountRow.appendChild(toleranceHint);
+    amountGroup.appendChild(amountLabel);
+    amountGroup.appendChild(amountRow);
+
+    const searchBtn = document.createElement('button');
+    searchBtn.className = 'btn btn-primary bg-query-search-btn';
+    searchBtn.type = 'button';
+    searchBtn.dataset['testid'] = 'bg-query-search-btn';
+    searchBtn.textContent = 'Search All Stores';
+
+    form.appendChild(textGroup);
+    form.appendChild(amountGroup);
+    form.appendChild(searchBtn);
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'bg-query-status';
+    statusEl.dataset['testid'] = 'bg-query-status';
+
+    const resultsEl = document.createElement('div');
+    resultsEl.className = 'bg-query-results';
+    resultsEl.dataset['testid'] = 'bg-query-results';
+
+    const hint = document.createElement('p');
+    hint.className = 'bg-scanner-hint';
+    hint.textContent = 'Enter a value above and click "Search All Stores" to find matching records across all data stores.';
+    resultsEl.appendChild(hint);
+
+    const doSearch = async () => {
+      const text = textInput.value.trim();
+      const amountStr = amountInput.value.trim();
+
+      if (!text && amountStr === '') {
+        statusEl.textContent = 'Enter at least one search term.';
+        return;
+      }
+
+      searchBtn.disabled = true;
+      searchBtn.textContent = 'Searching…';
+      statusEl.textContent = '';
+      resultsEl.innerHTML = '';
+
+      const amount = amountStr !== '' ? parseFloat(amountStr) : null;
+      const parsedTolerance = parseFloat(toleranceInput.value.trim());
+      const amountTolerance = parsedTolerance > 0 ? parsedTolerance : 0.005;
+
+      try {
+        const matches = await this.runQuery(text, amount, amountTolerance);
+        this.renderQueryResults(resultsEl, matches);
+
+        const storeCount = new Set(matches.map((m) => m.storeKey)).size;
+        statusEl.textContent = matches.length === 0
+          ? 'No results found.'
+          : `${matches.length} match${matches.length !== 1 ? 'es' : ''} across ${storeCount} store${storeCount !== 1 ? 's' : ''}`;
+      } catch (e) {
+        const errP = document.createElement('p');
+        errP.className = 'bg-scanner-err';
+        errP.textContent = `Search failed: ${(e as Error).message}`;
+        resultsEl.replaceChildren(errP);
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Search All Stores';
+      }
+    };
+
+    searchBtn.addEventListener('click', () => void doSearch());
+    textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') void doSearch(); });
+    amountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') void doSearch(); });
+    toleranceInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') void doSearch(); });
+
+    wrapper.appendChild(form);
+    wrapper.appendChild(statusEl);
+    wrapper.appendChild(resultsEl);
+    return wrapper;
+  }
+
+  private async runQuery(text: string, amount: number | null, amountTolerance = 0.005): Promise<QueryMatch[]> {
+    const results: QueryMatch[] = [];
+    const textLower = text.toLowerCase();
+
+    await Promise.all(
+      Object.entries(STORES).map(async ([storeKey, entry]) => {
+        const records = await entry.getAll();
+        for (const rec of records) {
+          const matched = new Set<string>();
+          for (const [field, value] of Object.entries(rec)) {
+            if (text && typeof value === 'string' && value.toLowerCase().includes(textLower)) {
+              matched.add(field);
+            }
+            if (amount !== null && typeof value === 'number' && Math.abs(value - amount) <= amountTolerance) {
+              matched.add(field);
+            }
+          }
+          if (matched.size > 0) {
+            results.push({ storeKey, record: rec, matchedFields: [...matched] });
+          }
+        }
+      }),
+    );
+
+    return results;
+  }
+
+  private renderQueryResults(container: HTMLElement, matches: QueryMatch[]): void {
+    container.innerHTML = '';
+
+    if (matches.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bg-scanner-clean';
+      empty.innerHTML = '<span class="bg-scanner-clean-icon">🔍</span> No matching records found.';
+      container.appendChild(empty);
+      return;
+    }
+
+    const byStore = new Map<string, QueryMatch[]>();
+    for (const match of matches) {
+      const list = byStore.get(match.storeKey) ?? [];
+      list.push(match);
+      byStore.set(match.storeKey, list);
+    }
+
+    byStore.forEach((storeMatches, storeKey) => {
+      const storeEntry = STORES[storeKey]!;
+      const group = document.createElement('div');
+      group.className = 'bg-scanner-group';
+
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'bg-scanner-group-header';
+      groupHeader.innerHTML = `
+        <span class="bg-scanner-group-store">${storeEntry.label}</span>
+        <span class="bg-scanner-group-count">${storeMatches.length} match${storeMatches.length !== 1 ? 'es' : ''}</span>
+      `;
+      group.appendChild(groupHeader);
+
+      storeMatches.forEach((match) => {
+        const row = document.createElement('div');
+        row.className = 'bg-scanner-issue';
+
+        const summary = document.createElement('span');
+        summary.className = 'bg-issue-desc';
+        summary.textContent = storeEntry.getDisplay(match.record);
+
+        const fields = document.createElement('span');
+        fields.className = 'bg-query-match-fields';
+        fields.textContent = `matched: ${match.matchedFields.map(humanLabel).join(', ')}`;
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'btn btn-secondary bg-issue-view-btn';
+        viewBtn.type = 'button';
+        viewBtn.textContent = 'View in Browser →';
+        viewBtn.addEventListener('click', () => this.openInBrowser(storeKey, match.record.id));
+
+        row.appendChild(summary);
+        row.appendChild(fields);
+        row.appendChild(viewBtn);
+        group.appendChild(row);
+      });
+
+      container.appendChild(group);
+    });
+  }
+
+  // Called from Orphan Scanner / Query tab to jump to a record
   openInBrowser(storeKey: string, recordId: string): void {
     this.activeTab = 'browser';
     this.currentStoreKey = storeKey;
@@ -1206,7 +1457,7 @@ export class BreakGlassPage {
         fixBtn.type = 'button';
         fixBtn.textContent = 'Fix';
         fixBtn.addEventListener('click', async () => {
-          if (!confirm(`Apply automatic fix?\n\n${issue.description}`)) return;
+          if (!await openConfirmDialog({ title: 'Apply fix', message: issue.description, confirmLabel: 'Apply fix', danger: false })) return;
           fixBtn.disabled = true;
           fixBtn.textContent = 'Fixing…';
           try {

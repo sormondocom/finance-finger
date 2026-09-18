@@ -1,0 +1,573 @@
+.ledger-page {
+  padding: var(--space-6);
+  max-width: 860px;
+}
+
+.ledger-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.ledger-title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin: 0;
+}
+
+.ledger-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  margin: var(--space-1) 0 0;
+}
+
+/* ── Search ── */
+
+.ledger-search-wrap {
+  margin-bottom: var(--space-4);
+}
+
+.ledger-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+}
+
+.ledger-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
+}
+
+.ledger-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+mark.ledger-highlight {
+  background: rgba(201, 168, 76, 0.35);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ── Filters ── */
+
+.ledger-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-lg);
+}
+
+.ledger-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ledger-filter-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+}
+
+.ledger-filter-group select,
+.ledger-filter-group input[type="date"] {
+  font-size: var(--text-sm);
+  min-width: 150px;
+}
+
+.ledger-filter-reset {
+  align-self: flex-end;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) 0;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.ledger-filter-reset:hover {
+  color: var(--color-primary-dark);
+}
+
+/* ── Summary strip ── */
+
+.ledger-summary {
+  display: flex;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
+.ledger-summary-count {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* ── Pagination ── */
+
+.ledger-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  min-height: 36px;
+}
+
+.ledger-page-btn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background var(--ease-default);
+}
+
+.ledger-page-btn:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+}
+
+.ledger-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ledger-page-info {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* ── Type badge ── */
+
+.ledger-type-badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ledger-type-badge--charge         { background: #fee2e2; color: #991b1b; }
+.ledger-type-badge--payment        { background: #d1fae5; color: #065f46; }
+.ledger-type-badge--bank-credit    { background: #dbeafe; color: #1e3a8a; }
+.ledger-type-badge--bank-debit     { background: #fef3c7; color: #92400e; }
+.ledger-type-badge--transfer-in    { background: #ede9fe; color: #4c1d95; }
+.ledger-type-badge--transfer-out   { background: #f3e8ff; color: #6b21a8; }
+.ledger-type-badge--reconciliation { background: #f0f9ff; color: #0369a1; }
+
+[data-theme="dark"] .ledger-type-badge--charge         { background: #450a0a; color: #fca5a5; }
+[data-theme="dark"] .ledger-type-badge--payment        { background: #052e16; color: #86efac; }
+[data-theme="dark"] .ledger-type-badge--bank-credit    { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .ledger-type-badge--bank-debit     { background: #451a03; color: #fcd34d; }
+[data-theme="dark"] .ledger-type-badge--transfer-in    { background: #2e1065; color: #c4b5fd; }
+[data-theme="dark"] .ledger-type-badge--transfer-out   { background: #3b0764; color: #d8b4fe; }
+[data-theme="dark"] .ledger-type-badge--reconciliation { background: #082f49; color: #7dd3fc; }
+
+.ledger-type-badge--paycheck { background: #ccfbf1; color: #0f766e; }
+[data-theme="dark"] .ledger-type-badge--paycheck { background: #042f2e; color: #5eead4; }
+.ledger-type-badge--void     { background: #f3f4f6; color: #6b7280; }
+[data-theme="dark"] .ledger-type-badge--void     { background: #374151; color: #9ca3af; }
+
+/* ── Void row (inside payment cards) ── */
+
+.ledger-void-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5) var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+/* When rendered between the card header and the coins, add a bottom border too */
+.ledger-void-row--top {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ledger-void-row-time {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
+.ledger-void-row-amount {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* ── Amount colours ── */
+
+.ledger-amount--good   { color: var(--color-success); }
+.ledger-amount--bad    { color: var(--color-danger);  }
+.ledger-amount--voided { color: var(--color-muted); font-style: italic; }
+
+/* ── Feed ── */
+
+.ledger-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ledger-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ledger-day-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ledger-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Transaction card ── */
+
+.ledger-txn {
+  background: var(--color-bg-elevated, var(--color-surface-2));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+
+.ledger-txn--reconciliation {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-bg-elevated, var(--color-surface-2)));
+  font-style: italic;
+}
+
+.ledger-txn-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.ledger-txn-desc {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-txn-date {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ── Account coins ── */
+
+.ledger-v-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ledger-coin {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-1, var(--color-surface-2));
+}
+
+/* Type-specific border tints */
+.ledger-coin--bank {
+  border-color: color-mix(in srgb, #3b82f6 40%, var(--color-border));
+}
+.ledger-coin--debt {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+}
+.ledger-coin--expense {
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+  border-style: dashed;
+}
+
+[data-theme="dark"] .ledger-coin--bank  { border-color: color-mix(in srgb, #60a5fa 35%, var(--color-border)); }
+[data-theme="dark"] .ledger-coin--debt  { border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border)); }
+
+.ledger-coin-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+
+/* Coloured dot — identifies account type */
+.ledger-coin-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ledger-coin-dot--bank    { background: #3b82f6; }
+.ledger-coin-dot--debt    { background: var(--color-danger); }
+.ledger-coin-dot--expense { background: var(--color-success); }
+
+[data-theme="dark"] .ledger-coin-dot--bank { background: #60a5fa; }
+
+.ledger-coin-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ledger-coin-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-coin-balance {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-coin-balance--unknown {
+  opacity: 0.45;
+}
+
+/* Right-side delta amount */
+.ledger-coin-delta {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Coin right section (amount + expand toggle) ── */
+
+.ledger-coin-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ── Expand toggle button inside coin ── */
+
+.ledger-coin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 2px var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  transition: background 0.12s ease, color 0.12s ease;
+  white-space: nowrap;
+}
+
+.ledger-coin-toggle:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.ledger-coin-count {
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-coin-chevron {
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.ledger-coin-toggle[aria-expanded="true"] .ledger-coin-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Nested charge items ── */
+
+.ledger-coin-charges {
+  margin-top: var(--space-2);
+  margin-left: calc(var(--space-5) + 10px); /* aligns with coin name text */
+  border-left: 2px solid var(--color-border);
+  padding-left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ledger-charge-item {
+  display: grid;
+  grid-template-columns: 1rem 1fr auto auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: 3px 0;
+  font-size: var(--text-xs);
+}
+
+.ledger-charge-dot {
+  color: var(--color-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.ledger-charge-name {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ledger-charge-date {
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.ledger-charge-amount {
+  font-weight: 700;
+  color: var(--color-danger);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Vertical connector between coins ── */
+
+.ledger-v-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: var(--space-5);
+}
+
+.ledger-v-line {
+  width: 1.5px;
+  height: 8px;
+  background: var(--color-border);
+}
+
+.ledger-v-arrow {
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--color-muted);
+  margin-top: -1px;
+}
+
+/* ── Reconciliation body ── */
+
+.ledger-recon-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  font-style: normal;
+}
+
+.ledger-recon-account {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ledger-recon-sep {
+  color: var(--color-muted);
+}
+
+.ledger-recon-label {
+  color: var(--color-muted);
+}
+
+.ledger-recon-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.ledger-recon-marker {
+  font-size: var(--text-xs);
+  color: var(--color-primary);
+  margin-left: var(--space-1);
+}
+
+/* ── Note line ── */
+
+.ledger-txn-note {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* ── Empty state ── */
+
+.ledger-empty {
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ledger-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+}
+
+.ledger-empty-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
+.ledger-empty-body {
+  font-size: var(--text-sm);
+}

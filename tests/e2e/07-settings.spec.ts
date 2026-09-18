@@ -125,10 +125,10 @@ test('cancel on add form hides the form without adding', async () => {
 // ── Remove member ─────────────────────────────────────────────────────────────
 
 test('can remove a member', async () => {
-  // Use dialog auto-accept
-  page.once('dialog', (dialog) => dialog.accept());
   const row = page.locator('[data-testid="settings-member-row"]').filter({ hasText: 'Alice' });
   await row.locator('[data-testid="settings-member-remove"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   await expect(page.locator('[data-testid="settings-member-row"]').filter({ hasText: 'Alice' })).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/settings-05-member-removed.png' });

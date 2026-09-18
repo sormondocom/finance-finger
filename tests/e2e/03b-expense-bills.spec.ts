@@ -31,11 +31,13 @@ const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
 const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
 const DUE_SOON_DAY: number | null = dayOfMonth < daysInMonth ? dayOfMonth + 1 : null;
 
-// Build a YYYY-MM-DD string for the given day in the current month.
-// The form's "First due date" picker extracts dueDay + auto-sets expense.date
-// to one period prior, so no separate PREV_MONTH_DATE seed is needed.
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
+
+// A date in the previous month — used to place expense.date outside the
+// 14-day cycle window so computeBillStatus returns 'past-due' (not 'paid').
+const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
+const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
 
 // -----------------------------------------------------------------------------
 
@@ -89,6 +91,7 @@ test('adds a past-due recurring bill (Electric Bill)', async () => {
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');

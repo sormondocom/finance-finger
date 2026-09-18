@@ -89,6 +89,18 @@ const BUCK_LINES: Record<MascotTrigger, string[][]> = {
       "The budget ain't gonna fix itself. Might be worth raisin' that threshold.",
     ],
   ],
+  'payday-reset-credit': [
+    [
+      "Whoa there, partner — we spotted a payday while you were cleanin' house!",
+      "You cleared {account}, so we went ahead and re-added {sources} for ya.",
+      "Don't want us doin' that? Pull those income sources from the system and we'll ride on past.",
+    ],
+    [
+      "Hold up — today's payday and you just zeroed out {account}.",
+      "We re-added {sources} so you ain't short-changed.",
+      "If that income source is gone for good, wrangle it out of the Income page and this won't happen again.",
+    ],
+  ],
   custom: [["Howdy!", "Got something to tell ya."]],
 };
 
@@ -179,6 +191,18 @@ const PENNY_LINES: Record<MascotTrigger, string[][]> = {
       "Okay, so here's the thing.",
       "{bill} keeps sneaking past your {threshold} budget — happened {count} times lately.",
       "I'm not judging, hon. But maybe adjust your expectations, or find a way to trim it.",
+    ],
+  ],
+  'payday-reset-credit': [
+    [
+      "Sugar, we noticed today's payday just as you cleared {account}!",
+      "We went ahead and re-added {sources} — can't let a payday slip by!",
+      "If you don't want this to happen, just remove those income sources and we'll leave the account alone, darlin'.",
+    ],
+    [
+      "Oh honey — payday and a fresh start on the same day!",
+      "We re-added {sources} to {account} so you're not left short.",
+      "If that income is gone for good, pop over to the Income page and remove it — otherwise we'll always re-add it on payday.",
     ],
   ],
   custom: [["Hey now!", "Lean in — got somethin' to tell ya."]],

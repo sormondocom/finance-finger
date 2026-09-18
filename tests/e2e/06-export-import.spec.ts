@@ -296,6 +296,6 @@ test('bank accounts created in Context A appear in Context B after import', asyn
 test('account transfer survives the export/import roundtrip: Export Checking balance reflects the $250 transfer out', async () => {
   // Export Checking initial balance $1,000 minus the $250 transfer = $750
   const checkingRow = pageB.locator('[data-testid="account-row"]').filter({ hasText: 'Export Checking' });
-  await expect(checkingRow.locator('[data-testid="account-balance"]')).toContainText('750');
+  await expect(checkingRow.locator('[data-testid="account-actual-balance"]')).toContainText('750');
   await pageB.screenshot({ path: 'tests/screenshots/ei-08-transfer-roundtrip.png' });
 });

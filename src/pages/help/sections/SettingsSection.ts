@@ -5,6 +5,7 @@ export function render(grid: HTMLElement): void {
   grid.appendChild(cardReminders());
   grid.appendChild(cardDataSharing());
   grid.appendChild(cardSnapshots());
+  grid.appendChild(cardReconciliation());
   grid.appendChild(cardBreakGlass());
 }
 
@@ -84,6 +85,26 @@ function cardSnapshots(): HTMLElement {
   return card;
 }
 
+function cardReconciliation(): HTMLElement {
+  const card = makeCard('⚖️', 'Reconciliation');
+  card.innerHTML += `
+    <div class="edu-card-voice">
+      <p>Reconciliation lets you set a verified, known-good balance for any debt card or bank account. When your Ledger balance doesn't match your actual bank statement, reconciliation snaps it back to the correct number and records exactly why — permanently, in the Ledger, with a memo you write.</p>
+      <p>Open <strong>Settings → Reconciliation</strong> to see every account listed with a balance input and a required memo field.</p>
+    </div>
+    <div class="help-steps">
+      <div class="help-step"><span class="help-step-num">📋</span><div class="help-step-body"><strong>Balance drift correction</strong> — after months of use, small rounding differences or a missed transaction can cause your in-app balance to drift from your bank statement. Enter the statement's closing balance and a memo like "Sep 2026 statement — $4,218.73" to reset the Ledger to the verified figure.</div></div>
+      <div class="help-step"><span class="help-step-num">📥</span><div class="help-step-body"><strong>Post-import reconciliation</strong> — after importing a bank statement CSV, use reconciliation to confirm the ending balance matches your actual statement. This closes the loop and prevents future drift if the import missed a row.</div></div>
+      <div class="help-step"><span class="help-step-num">🏁</span><div class="help-step-body"><strong>Opening balance correction</strong> — if you added an account without a starting balance or entered the wrong one, reconciliation lets you set the correct value at any time. The reconciliation entry marks the point from which the running balance rebuilds.</div></div>
+      <div class="help-step"><span class="help-step-num">✅</span><div class="help-step-body"><strong>Zeroing a paid-off account</strong> — once a debt is fully paid, reconcile it to $0 with a memo like "Paid in full — Jul 2026" to close the balance cleanly, even if rounding left a few cents behind.</div></div>
+    </div>
+    <div class="help-callout">
+      <strong>The memo is required.</strong> It is written permanently into the Ledger alongside the reconciliation entry so you — or a future you — can understand why the balance was manually adjusted. "Sep 2026 statement" is far more useful than "reconcile" — be specific.
+    </div>
+  `;
+  return card;
+}
+
 function cardBreakGlass(): HTMLElement {
   const card = makeCard('🔧', 'Break Glass & Danger Zone');
   card.innerHTML += `
@@ -94,6 +115,7 @@ function cardBreakGlass(): HTMLElement {
     <div class="help-steps">
       <div class="help-step"><span class="help-step-num">📂</span><div class="help-step-body"><strong>Data Browser</strong> — select a store (Members, Income Sources, Expenses, etc.) and click any record to view, edit, or delete it. UUID reference fields are clickable links that jump to the referenced record.</div></div>
       <div class="help-step"><span class="help-step-num">🔍</span><div class="help-step-body"><strong>Orphan Scanner</strong> — scans inter-store relationships for dangling references, stale bill dates, and orphaned card charges. Runs automatically when you switch to the tab. Each issue has a Fix or View button.</div></div>
+      <div class="help-step"><span class="help-step-num">🔎</span><div class="help-step-body"><strong>Query</strong> — search every store at once by text (payee name, description, UUID) or by dollar amount. Use the <strong>± wiggle room</strong> field to find amounts within a dollar range — enter <em>5</em> to match anything within $5 of the target. Results are grouped by store; click <strong>View in Browser →</strong> on any result to jump directly to that record. Paste a record ID (UUID) into the text field to instantly find all records that reference it — the fastest way to trace a broken link or a mystery balance.</div></div>
     </div>
     <div class="edu-card-voice">
       <p><strong>Danger Zone</strong> at the bottom of Settings contains the vault wipe button — this permanently deletes all data and returns the extension to the first-run setup wizard. There is no undo.</p>

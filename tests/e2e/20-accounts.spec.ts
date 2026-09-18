@@ -162,7 +162,7 @@ test('Chase Checking row shows "Household" ownership badge', async () => {
 
 test('Chase Checking row shows the balance before the action buttons', async () => {
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'Chase Checking' });
-  const balance = row.locator('[data-testid="account-balance"]');
+  const balance = row.locator('[data-testid="account-actual-balance"]');
   await expect(balance).toBeVisible();
   // Cents preserved: $3,200.50 not $3,200 or $3,201
   await expect(balance).toContainText('$3,200.50');
@@ -235,8 +235,9 @@ test('editing Main Checking to add a URL shows a portal link', async () => {
 
 test('deleting Savings Fund removes it from the list', async () => {
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'Savings Fund' });
-  page.once('dialog', (d) => d.accept());
   await row.locator('[data-testid="account-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(page.locator('[data-testid="account-row"]').filter({ hasText: 'Savings Fund' })).not.toBeVisible();
   await expect(page.locator('[data-testid="account-row"]').filter({ hasText: 'Main Checking' })).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/accounts-07-deleted.png' });

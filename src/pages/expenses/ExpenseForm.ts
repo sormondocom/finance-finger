@@ -1,22 +1,12 @@
 import {
   saveExpense, createExpense,
-  findChargeByExpenseId, saveCardCharge, deleteCardCharge, createCardCharge,
+  findChargeByExpenseId,
 } from '@/db';
+import { accounting } from '@/accounting';
 import { openFormModal } from '@/components/Modal';
 import { navigate } from '@/app/router';
-import { FREQUENCY_OPTIONS } from '@/utils/finance';
+import { FREQUENCY_OPTIONS, freqThresholdLabel } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
-
-function freqThresholdLabel(freq: string | null | undefined): string {
-  switch (freq) {
-    case 'weekly':      return 'Weekly';
-    case 'biweekly':    return 'Biweekly';
-    case 'semimonthly': return 'Semi-monthly';
-    case 'quarterly':   return 'Quarterly';
-    case 'annual':      return 'Annual';
-    default:            return 'Monthly';
-  }
-}
 import { computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier } from '@/utils/notifier';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
@@ -33,30 +23,28 @@ export async function syncLinkedCharge(expense: Expense, _prevLinkedCardId?: str
   const existing = await findChargeByExpenseId(expense.id);
 
   if (!newCardId) {
-    if (existing) await deleteCardCharge(existing.id);
+    if (existing) await accounting.deleteCharge(existing.id);
     return;
   }
 
   if (existing && existing.accountId === newCardId) {
-    const { categoryId: _cat, ...existingBase } = existing;
-    await saveCardCharge({
-      ...existingBase,
-      merchant: expense.description,
+    await accounting.updateCharge({
+      chargeId: existing.id,
+      amount: expense.amount,
+      date: existing.date,  // preserve the original charge date; only amount/description sync here
+      description: expense.description,
+      categoryId: expense.categoryId ?? null,
+    });
+  } else {
+    if (existing) await accounting.deleteCharge(existing.id);
+    await accounting.recordCharge({
+      accountId: newCardId,
+      description: expense.description,
       amount: expense.amount,
       date: expense.date,
       ...(expense.categoryId ? { categoryId: expense.categoryId } : {}),
+      sourceExpenseId: expense.id,
     });
-  } else {
-    if (existing) await deleteCardCharge(existing.id);
-    const charge = createCardCharge(
-      newCardId,
-      expense.description,
-      expense.amount,
-      expense.date,
-      expense.categoryId || undefined,
-    );
-    charge.sourceExpenseId = expense.id;
-    await saveCardCharge(charge);
   }
 }
 
@@ -121,8 +109,9 @@ export function openExpenseForm(
           value="${existing?.amount ?? ''}" placeholder="0.00" />
       </div>
       <div class="form-group">
-        <label class="form-label" for="ef-date">Date <span class="req">*</span></label>
+        <label class="form-label" for="ef-date">Effective Date <span class="req">*</span></label>
         <input id="ef-date" type="date" value="${existingDate}" />
+        <span class="form-hint">When this expense or service takes effect — the start date, not the due date. For a brand-new bill, today is fine.</span>
       </div>
     </div>
     <div class="form-row">
@@ -199,18 +188,18 @@ export function openExpenseForm(
 
   const dueDateInput = body.querySelector<HTMLInputElement>('#ef-duedate')!;
   const mainDateInput = body.querySelector<HTMLInputElement>('#ef-date')!;
-  const syncDateFromDue = () => {
-    if (!dueDateInput.value || !recurChk.checked) return;
-    const firstDue = new Date(dueDateInput.value + 'T00:00:00');
-    const interval = freqInterval(body.querySelector<HTMLSelectElement>('#ef-freq')?.value);
-    const prev = new Date(firstDue);
-    prev.setMonth(prev.getMonth() - interval);
-    const maxDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
-    prev.setDate(Math.min(firstDue.getDate(), maxDay));
-    mainDateInput.value = prev.toISOString().split('T')[0]!;
+  const validateDueDateOrder = () => {
+    if (!dueDateInput.value || !mainDateInput.value) { dueDateInput.setCustomValidity(''); return; }
+    const due = new Date(dueDateInput.value + 'T00:00:00');
+    const main = new Date(mainDateInput.value + 'T00:00:00');
+    if (due < main) {
+      dueDateInput.setCustomValidity('First due date cannot be before the Effective Date.');
+    } else {
+      dueDateInput.setCustomValidity('');
+    }
   };
-  dueDateInput.addEventListener('change', syncDateFromDue);
-  body.querySelector<HTMLSelectElement>('#ef-freq')?.addEventListener('change', syncDateFromDue);
+  dueDateInput.addEventListener('change', validateDueDateOrder);
+  mainDateInput.addEventListener('change', validateDueDateOrder);
 
   const catSel = body.querySelector<HTMLSelectElement>('#ef-cat')!;
   let efCardSel: HTMLSelectElement | null = null;
@@ -389,7 +378,7 @@ export function openExpenseForm(
       const missing: string[] = [];
       if (!description)                missing.push('Description');
       if (isNaN(amount) || amount < 0) missing.push('Amount');
-      if (!dateStr)                    missing.push('Date');
+      if (!dateStr)                    missing.push('Effective Date');
       if (missing.length > 0) {
         errEl.textContent = missing.length === 1
           ? `${missing[0]} is required.`
@@ -398,18 +387,31 @@ export function openExpenseForm(
         return;
       }
 
+      if (recurring && dueDateStr && dateStr) {
+        const firstDue = new Date(dueDateStr + 'T00:00:00');
+        const startDate = new Date(dateStr + 'T00:00:00');
+        if (firstDue < startDate) {
+          errEl.textContent = 'First due date cannot be before the Effective Date.';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+
       let dueDay: number | undefined = undefined;
       let date = new Date(dateStr + 'T00:00:00').getTime();
       if (recurring && dueDateStr) {
         const firstDue = new Date(dueDateStr + 'T00:00:00');
         dueDay = firstDue.getDate();
-        if (!existing || dueDateStr !== defaultDueDate) {
-          const interval = freqInterval(recurringFrequency);
-          const prevPeriod = new Date(firstDue);
-          prevPeriod.setMonth(prevPeriod.getMonth() - interval);
-          const maxDay = new Date(prevPeriod.getFullYear(), prevPeriod.getMonth() + 1, 0).getDate();
-          prevPeriod.setDate(Math.min(dueDay, maxDay));
-          date = prevPeriod.getTime();
+        // If the user explicitly set a future First Due Date, anchor expense.date
+        // to one billing interval before it. Without this, only dueDay (day-of-month)
+        // is stored and the year/month intent is lost — a past-due bill stays past-due
+        // even though the user indicated the next due cycle is in the future.
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        if (firstDue > todayMidnight) {
+          const anchor = new Date(firstDue);
+          anchor.setMonth(anchor.getMonth() - freqInterval(recurringFrequency ?? null));
+          date = anchor.getTime();
         }
       }
 

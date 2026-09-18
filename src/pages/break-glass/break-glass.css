@@ -769,3 +769,109 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* ── Query tab ───────────────────────────────────────────────────────────── */
+
+.bg-query {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bg-query-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.bg-query-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 160px;
+}
+
+.bg-query-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bg-query-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.bg-query-input:focus {
+  outline: none;
+  border-color: var(--ff-navy);
+}
+
+[data-theme="dark"] .bg-query-input:focus {
+  border-color: var(--ff-gold);
+}
+
+.bg-query-search-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.bg-query-status {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.bg-query-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bg-query-match-fields {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+
+.bg-query-amount-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bg-query-tolerance-sep {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.bg-query-tolerance-input {
+  width: 80px;
+}
+
+.bg-query-tolerance-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}

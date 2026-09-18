@@ -13,6 +13,7 @@ export type Route =
   | '/insights'
   | '/help'
   | '/settings'
+  | '/ledger'
   | '/break-glass';
 
 type RouteHandler = (params?: Record<string, string>) => HTMLElement | Promise<HTMLElement>;

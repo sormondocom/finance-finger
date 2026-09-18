@@ -1,4 +1,5 @@
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { saveCustomNotification, createCustomNotification, deleteCustomNotification, getCustomNotifications, getExpenses } from '@/db';
 import type { CustomNotification, NotificationTriggerType, NotifLinkedItemType, Expense } from '@/types';
 
@@ -443,7 +444,7 @@ export function buildLinkedRemindersSection(
           void refresh();
           return;
         }
-        if (!confirm(`Delete reminder "${n.label}"?`)) return;
+        if (!await openConfirmDialog({ message: `Delete reminder "${n.label}"?` })) return;
         await deleteCustomNotification(n.id);
         await refresh();
       });

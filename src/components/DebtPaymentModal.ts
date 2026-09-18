@@ -1,6 +1,6 @@
 import { openFormModal } from '@/components/Modal';
 import { navigate } from '@/app/router';
-import { saveDebtPayment, createDebtPayment, saveDebtAccount } from '@/db';
+import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { computeMinPayment } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
@@ -61,6 +61,39 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
     <div id="pay-error" class="form-error" style="display:none" data-testid="debt-pay-error"></div>
   `;
 
+  // ── Bank balance warning ───────────────────────────────────────────────────
+  const bankSel = body.querySelector<HTMLSelectElement>('#pay-bank')!;
+  const amountInput = body.querySelector<HTMLInputElement>('#pay-amount')!;
+
+  const balanceWarn = document.createElement('div');
+  balanceWarn.id = 'pay-balance-warn';
+  balanceWarn.style.cssText = 'display:none;font-size:var(--text-xs);margin-top:var(--space-1)';
+  bankSel.after(balanceWarn);
+
+  const checkBankBalance = async () => {
+    const bankId = bankSel.value;
+    const amount = parseFloat(amountInput.value);
+    if (!bankId || isNaN(amount) || amount <= 0) {
+      balanceWarn.style.display = 'none';
+      return;
+    }
+    const available = await accounting.getBankBalance(bankId);
+    const bankName = bankAccounts.find((b) => b.id === bankId)?.name ?? 'that account';
+    if (amount > available) {
+      const over = amount - available;
+      balanceWarn.textContent = `⚠ This payment would overdraw ${bankName} by ${fmtCents.format(over)}.`;
+      balanceWarn.style.color = 'var(--color-warning)';
+    } else {
+      const remaining = available - amount;
+      balanceWarn.textContent = `${fmtCents.format(remaining)} remaining in ${bankName} after payment.`;
+      balanceWarn.style.color = 'var(--color-text-muted)';
+    }
+    balanceWarn.style.display = 'block';
+  };
+
+  bankSel.addEventListener('change', () => void checkBankBalance());
+  amountInput.addEventListener('input', () => void checkBankBalance());
+
   // eslint-disable-next-line prefer-const -- forward-referenced inside event handler before assignment below
   let closeModal: (() => void) | undefined;
   if (bankAccounts.length === 0) {
@@ -103,21 +136,24 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
         return;
       }
 
-      const payment = createDebtPayment(a.id, amountRaw, typeVal, note || undefined);
-      payment.date = new Date(dateStr + 'T12:00:00').getTime();
-      if (bankAccountId) payment.bankAccountId = bankAccountId;
+      const date = new Date(dateStr + 'T00:00:00').getTime();
+      await accounting.recordDebtPayment({
+        accountId: a.id,
+        amount: amountRaw,
+        date,
+        type: typeVal,
+        ...(note ? { note } : {}),
+        ...(bankAccountId ? { bankAccountId } : {}),
+      });
 
       const newBalance = Math.max(0, a.balance - amountRaw);
-      const updatedAccount: DebtAccount = { ...a, balance: newBalance, updatedAt: Date.now() };
-
-      await Promise.all([saveDebtPayment(payment), saveDebtAccount(updatedAccount)]);
-
       const wasPaidOff = a.balance > 0 && newBalance === 0;
+
       close();
       await onSave();
       void refreshNotifier();
 
-      if (wasPaidOff) onPayoff?.(updatedAccount, newBalance);
+      if (wasPaidOff) onPayoff?.({ ...a, balance: newBalance }, newBalance);
     },
   });
   closeModal = modal.close;

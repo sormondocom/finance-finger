@@ -252,8 +252,9 @@ test('set up: add a second linked expense for deletion test', async () => {
 test('deleting the expense also removes its auto-charge from Visa Card', async () => {
   await navigateTo(page, 'expenses');
   const expRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' });
-  page.once('dialog', (d) => d.accept());
   await expRow.locator('[data-testid="expense-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Charge should be gone from Visa Card
   await openChargesPanel('Visa Card');

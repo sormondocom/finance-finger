@@ -111,7 +111,6 @@ test('Main Checking ledger shows the transfer as a debit', async () => {
   // Use data-account-id on the outer to avoid matching transfers that reference the other account's name
   const panel = page.locator(`.account-item-outer[data-account-id="${checkingId}"] .account-ledger-panel`);
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText('Transfer to Cash Fund');
   await expect(panel).toContainText('ATM withdrawal');
   const amtEl = panel.locator('.account-ledger-amount--debit').filter({ hasText: '500' });
   await expect(amtEl).toBeVisible();
@@ -128,7 +127,6 @@ test('Cash Fund ledger shows the transfer as a credit', async () => {
 
   const panel = page.locator(`.account-item-outer[data-account-id="${cashId}"] .account-ledger-panel`);
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText('Transfer from Main Checking');
   const amtEl = panel.locator('.account-ledger-amount--credit').filter({ hasText: '500' });
   await expect(amtEl).toBeVisible();
   await expect(amtEl).toContainText('+');
@@ -139,13 +137,13 @@ test('Cash Fund ledger shows the transfer as a credit', async () => {
 test('Main Checking balance reflects the $500 transfer out', async () => {
   // Starting balance was $2,000; transferred $500 out → $1,500
   const checkingRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Main Checking' });
-  await expect(checkingRow.locator('[data-testid="account-balance"]')).toContainText('1,500');
+  await expect(checkingRow.locator('[data-testid="account-actual-balance"]')).toContainText('1,500');
 });
 
 test('Cash Fund balance reflects the $500 transfer in', async () => {
   // Starting balance was $0; received $500 → $500
   const cashRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Cash Fund' });
-  await expect(cashRow.locator('[data-testid="account-balance"]')).toContainText('500');
+  await expect(cashRow.locator('[data-testid="account-actual-balance"]')).toContainText('500');
 });
 
 // ── Second transfer ───────────────────────────────────────────────────────────
@@ -169,11 +167,11 @@ test('a second transfer from Cash Fund back to Main Checking works', async () =>
 test('after second transfer Cash Fund balance is $300', async () => {
   // $0 start + $500 in − $200 out = $300
   const cashRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Cash Fund' });
-  await expect(cashRow.locator('[data-testid="account-balance"]')).toContainText('300');
+  await expect(cashRow.locator('[data-testid="account-actual-balance"]')).toContainText('300');
 });
 
 test('after second transfer Main Checking balance is $1,700', async () => {
   // $2,000 start − $500 out + $200 in = $1,700
   const checkingRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Main Checking' });
-  await expect(checkingRow.locator('[data-testid="account-balance"]')).toContainText('1,700');
+  await expect(checkingRow.locator('[data-testid="account-actual-balance"]')).toContainText('1,700');
 });

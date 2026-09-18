@@ -95,6 +95,7 @@ test('setup: add Power Bill ($100, variable, non-auto-pay)', async () => {
   await page.fill('#ef-amount', '100');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   // Leave fixed-amount and auto-pay unchecked
 
@@ -111,6 +112,7 @@ test('setup: add Broadband ($60, auto-pay)', async () => {
   await page.fill('#ef-amount', '60');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 

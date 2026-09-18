@@ -3,6 +3,7 @@ import {
   getCardCharges, saveCardCharge,
 } from '@/db';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { CATEGORY_COLORS } from '@/utils/finance';
 import { saveExpense } from '@/db';
 import type { ExpenseCategory, Expense, DebtAccount } from '@/types';
@@ -206,7 +207,7 @@ export function buildCategoriesCard(
     removeBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const inUse = expenses.some((ex) => ex.categoryId === cat.id);
-      if (inUse && !confirm(`"${cat.name}" has expenses. Remove the category anyway? (Expenses won't be deleted)`)) return;
+      if (inUse && !await openConfirmDialog({ message: `"${cat.name}" has expenses. Remove the category anyway? Expenses won't be deleted.`, confirmLabel: 'Remove' })) return;
       await Promise.all(
         expenses
           .filter((ex) => ex.categoryId === cat.id)

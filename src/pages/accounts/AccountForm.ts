@@ -1,9 +1,7 @@
 import { openFormModal } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
-import {
-  saveBankAccount, createBankAccount,
-  saveAccountTransfer, createAccountTransfer,
-} from '@/db';
+import { saveBankAccount, createBankAccount } from '@/db';
+import { accounting } from '@/accounting';
 import { escapeHtml } from '@/utils/escapeHtml';
 import type { BankAccount, BankAccountType, BankAccountOwnership, HouseholdMember } from '@/types';
 
@@ -151,6 +149,20 @@ export function openAccountForm(
       else delete account.color;
 
       await saveBankAccount(account);
+
+      // Create a ledger entry for the opening/corrected balance so every
+      // balance read goes through the accounting service consistently.
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const startOfDay = todayMidnight.getTime();
+      if (balance != null && !isNaN(balance)) {
+        if (!existing && balance > 0) {
+          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Opening balance', date: startOfDay });
+        } else if (existing && balance !== (existing.balance ?? 0)) {
+          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Balance correction', date: startOfDay });
+        }
+      }
+
       await flushReminders(account.id);
       close();
       await onSaved();
@@ -223,8 +235,15 @@ export function openTransferModal(
       const dateParts = dateStr.split('-').map(Number);
       const date = new Date(dateParts[0]!, dateParts[1]! - 1, dateParts[2]!).getTime();
 
-      const transfer = createAccountTransfer(fromAccount.id, toAccountId, amount, date, note);
-      await saveAccountTransfer(transfer);
+      await accounting.recordTransfer({
+        fromAccountId: fromAccount.id,
+        fromAccountType: 'bank',
+        toAccountId,
+        toAccountType: 'bank',
+        amount,
+        date,
+        ...(note ? { note } : {}),
+      });
       close();
       await onSaved();
     },

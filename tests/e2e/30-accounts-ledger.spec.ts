@@ -1,19 +1,24 @@
 /**
- * E2E tests for the Accounts page transaction ledger.
+ * Account ledger panel E2E tests.
  *
  * Verifies that the ledger button on each account row toggles a panel
- * showing income deposits, expense paid records, and debt payments
- * linked to that account.
+ * showing bank-credit entries (one-time income deposits), expense
+ * bank-debit entries, and debt payment bank-debit entries linked to
+ * that account.
  *
- * Flow: create account → link income + expense + debt payment → open ledger → verify entries
+ * Each of those three flows creates a LedgerEntry in the accounting
+ * service — monthly income sources do NOT create LedgerEntries; only
+ * one-time income sources linked to a bank account do.
+ *
+ * Accounts created:
+ *   Test Checking  — bank account (no opening balance)
+ *   Test Card      — debt card   $1,500  19.99% APR
  */
 import { test, expect } from '@playwright/test';
 import { launchExtensionContext } from '../helpers/extension';
 import { completeSetupWizard, navigateTo } from '../helpers/setup-wizard';
 import type { BrowserContext, Page } from '@playwright/test';
 
-// Retries disabled: cascade failures in tests 175+ are caused by test 157 retrying
-// and leaving the accounts page in a corrupted state.
 test.describe.configure({ retries: 0 });
 
 let context: BrowserContext;
@@ -49,28 +54,33 @@ test('setup: add Test Checking bank account', async () => {
   await expect(page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' })).toBeVisible();
 });
 
-// ── Setup: income linked to account ───────────────────────────────────────────
+// ── Setup: one-time income linked to account ───────────────────────────────────
 
-test('setup: add monthly income source linked to Test Checking', async () => {
+test('setup: add one-time income "Bonus Pay" linked to Test Checking', async () => {
   await navigateTo(page, 'income');
-  // Need a household member first
+  // Add a household member so the income form renders
   await page.fill('[data-testid="income-add-member-input"]', 'Sam');
   await page.click('[data-testid="income-add-member-btn"]');
 
-  // Add income source
   await page.click('[data-testid="income-add-source-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
-  await page.fill('#sf-name', 'Monthly Salary');
+
+  await page.fill('#sf-name', 'Bonus Pay');
+  // Switch to one-time — this reveals the date field and creates a bank-credit LedgerEntry
+  await page.selectOption('#sf-freq', 'once');
   await page.fill('#sf-amount', '4000.90');
-  // Explicitly set payday to local today (avoids UTC/local mismatch in Income.ts default)
-  await page.fill('#sf-payday', todayStr);
-  // Bank account select — assert it's visible (only renders when bank accounts are loaded)
+  await page.fill('#sf-date', todayStr);
+
   const bankSelect = page.locator('[data-testid="income-sf-account-select"]');
   await expect(bankSelect).toBeVisible({ timeout: 8_000 });
   await bankSelect.selectOption({ label: 'Test Checking' });
+
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
-  await expect(page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Monthly Salary' })).toBeVisible({ timeout: 8_000 });
+  await expect(
+    page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Bonus Pay' }),
+  ).toBeVisible({ timeout: 8_000 });
+  await page.screenshot({ path: 'tests/screenshots/30-00-income-setup.png' });
 });
 
 // ── Setup: expense paid from account ──────────────────────────────────────────
@@ -83,7 +93,7 @@ test('setup: add expense category', async () => {
   await expect(page.locator('[data-testid="category-pill"]').filter({ hasText: 'Bills' })).toBeVisible();
 });
 
-test('setup: add Electric Bill expense (one-time) and mark it paid from Test Checking', async () => {
+test('setup: add Electric Bill expense and mark it paid from Test Checking', async () => {
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-desc', 'Electric Bill');
@@ -92,14 +102,12 @@ test('setup: add Electric Bill expense (one-time) and mark it paid from Test Che
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // Mark the expense as paid from Test Checking
   const expRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
   await expect(expRow).toBeVisible();
   await expRow.locator('[data-action="record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  // Select "Test Checking" as the payment source
-  const srcSel = page.locator('#mp-source');
+  const srcSel = page.locator('#pay-src');
   if (await srcSel.isVisible()) {
     await srcSel.selectOption({ label: 'Test Checking' });
   }
@@ -121,7 +129,6 @@ test('setup: add a credit card debt and record a payment from Test Checking', as
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // Record a payment from Test Checking
   const debtRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Test Card' });
   await debtRow.locator('[data-testid="debt-pay-btn"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -135,7 +142,7 @@ test('setup: add a credit card debt and record a payment from Test Checking', as
   await page.screenshot({ path: 'tests/screenshots/30-02-debt-paid.png' });
 });
 
-// ── Ledger panel ───────────────────────────────────────────────────────────────
+// ── Ledger button ──────────────────────────────────────────────────────────────
 
 test('account row has a ledger button', async () => {
   await navigateTo(page, 'accounts');
@@ -144,11 +151,11 @@ test('account row has a ledger button', async () => {
   await expect(acctRow.locator('[data-testid="account-ledger"]')).toBeVisible();
 });
 
-test('ledger button shows a count badge when transactions exist', async () => {
+test('ledger button shows count = 3 (one-time income + expense payment + debt payment)', async () => {
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   const ledgerBtn = acctRow.locator('[data-testid="account-ledger"]');
   const btnText = await ledgerBtn.textContent();
-  // Count = 1 paid expense + 1 debt payment + 1 income source = 3
+  // 1 bank-credit (Bonus Pay) + 1 bank-debit (Electric Bill) + 1 bank-debit (debt payment) = 3
   expect(btnText).toMatch(/📋\s*3/);
 });
 
@@ -159,8 +166,9 @@ test('clicking ledger button opens the transaction panel', async () => {
   await page.screenshot({ path: 'tests/screenshots/30-03-ledger-open.png' });
 });
 
-test('ledger panel shows income deposit entry with + prefix', async () => {
-  // Navigate fresh so the accounts page re-reads the income source with bankAccountId
+// ── Ledger panel content ───────────────────────────────────────────────────────
+
+test('ledger panel shows income deposit entry with + prefix and correct amount', async () => {
   await navigateTo(page, 'accounts');
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   await expect(acctRow).toBeVisible({ timeout: 8_000 });
@@ -169,16 +177,16 @@ test('ledger panel shows income deposit entry with + prefix', async () => {
     await acctRow.locator('[data-testid="account-ledger"]').click();
     await expect(panel).toBeVisible({ timeout: 5_000 });
   }
-  // Monthly Salary should appear as a deposit
-  await expect(panel).toContainText('Monthly Salary', { timeout: 10_000 });
-  // Deposit amounts are prefixed with +; verify full cents (trailing zero preserved)
-  const incomeAmt = panel.locator('.account-ledger-amount--credit').first();
-  await expect(incomeAmt).toContainText('+');
-  await expect(incomeAmt).toContainText('$4,000.90');
+
+  // One-time income "Bonus Pay" should appear as a bank-credit in the ledger
+  await expect(panel).toContainText('Bonus Pay', { timeout: 10_000 });
+  const creditAmts = panel.locator('.account-ledger-amount--credit');
+  await expect(creditAmts.first()).toContainText('+');
+  await expect(creditAmts.first()).toContainText('$4,000.90');
+  await page.screenshot({ path: 'tests/screenshots/30-04-income-entry.png' });
 });
 
 test('ledger panel shows expense payment entry with − prefix', async () => {
-  // Ensure we're on the accounts page with the panel open (guards against drift from test 157 retries)
   await navigateTo(page, 'accounts');
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   await expect(acctRow).toBeVisible({ timeout: 8_000 });
@@ -188,12 +196,10 @@ test('ledger panel shows expense payment entry with − prefix', async () => {
     await expect(panel).toBeVisible({ timeout: 5_000 });
   }
   await expect(panel).toContainText('Electric Bill');
-  const debitAmts = panel.locator('.account-ledger-amount--debit');
-  // At least one debit (the expense payment)
-  await expect(debitAmts.first()).toContainText('−');
+  await expect(panel.locator('.account-ledger-amount--debit').first()).toContainText('−');
 });
 
-test('ledger panel shows debt payment entry', async () => {
+test('ledger panel shows debt payment entry with amount', async () => {
   await navigateTo(page, 'accounts');
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   await expect(acctRow).toBeVisible({ timeout: 8_000 });
@@ -202,12 +208,13 @@ test('ledger panel shows debt payment entry', async () => {
     await acctRow.locator('[data-testid="account-ledger"]').click();
     await expect(panel).toBeVisible({ timeout: 5_000 });
   }
-  await expect(panel).toContainText('Test Card payment');
-  // Trailing zero preserved: $149.90 not $149.9
+  // bank-debit description format: "Regular payment — Test Card"
+  await expect(panel).toContainText('Regular payment');
+  await expect(panel).toContainText('Test Card');
   await expect(panel).toContainText('$149.90');
 });
 
-test('ledger entries include a Date column', async () => {
+test('ledger panel Date / Time column header is visible', async () => {
   await navigateTo(page, 'accounts');
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   await expect(acctRow).toBeVisible({ timeout: 8_000 });
@@ -216,7 +223,26 @@ test('ledger entries include a Date column', async () => {
     await acctRow.locator('[data-testid="account-ledger"]').click();
     await expect(panel).toBeVisible({ timeout: 5_000 });
   }
-  await expect(panel.locator('.account-ledger-col-header')).toContainText('Date');
+  await expect(panel.locator('.account-ledger-col-header').first()).toContainText('Date');
+});
+
+test('ledger panel each entry shows a timestamp line', async () => {
+  await navigateTo(page, 'accounts');
+  const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
+  await expect(acctRow).toBeVisible({ timeout: 8_000 });
+  const panel = page.locator('.account-ledger-panel');
+  if (!(await panel.isVisible())) {
+    await acctRow.locator('[data-testid="account-ledger"]').click();
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+  }
+  // Each entry should show a time sub-label (AM/PM format from toLocaleTimeString)
+  const timeCells = panel.locator('.account-ledger-date-time');
+  const count = await timeCells.count();
+  expect(count).toBeGreaterThanOrEqual(3);
+  // Verify at least one time contains AM or PM
+  const firstTime = await timeCells.first().textContent();
+  expect(firstTime).toMatch(/AM|PM/i);
+  await page.screenshot({ path: 'tests/screenshots/30-05-timestamps.png' });
 });
 
 test('clicking ledger button again closes the panel', async () => {
@@ -224,12 +250,11 @@ test('clicking ledger button again closes the panel', async () => {
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
   await expect(acctRow).toBeVisible({ timeout: 8_000 });
   const panel = page.locator('.account-ledger-panel');
-  // Ensure panel is open before we close it
   if (!(await panel.isVisible())) {
     await acctRow.locator('[data-testid="account-ledger"]').click();
     await expect(panel).toBeVisible({ timeout: 5_000 });
   }
   await acctRow.locator('[data-testid="account-ledger"]').click();
   await expect(page.locator('.account-ledger-panel')).not.toBeVisible();
-  await page.screenshot({ path: 'tests/screenshots/30-04-ledger-closed.png' });
+  await page.screenshot({ path: 'tests/screenshots/30-06-ledger-closed.png' });
 });

@@ -56,7 +56,10 @@ export function buildPaymentRemindersCard(
     row.className = `payment-reminder-row payment-reminder-row--${severity}`;
     row.setAttribute('data-testid', 'payment-reminder-row');
     row.style.cursor = 'pointer';
-    row.addEventListener('click', () => navigate('/debt'));
+    row.addEventListener('click', () => {
+      sessionStorage.setItem('cal-focus-account', account.id);
+      navigate('/debt');
+    });
 
     const minPay = computeMinPayment(account);
     const dueDateStr = status.dueDayThisMonth
@@ -92,7 +95,10 @@ export function buildPaymentRemindersCard(
     row.className = `payment-reminder-row payment-reminder-row--${severity}`;
     row.setAttribute('data-testid', 'payment-reminder-row');
     row.style.cursor = 'pointer';
-    row.addEventListener('click', () => navigate('/expenses'));
+    row.addEventListener('click', () => {
+      sessionStorage.setItem('cal-focus-expense', expense.id);
+      navigate('/expenses');
+    });
 
     const dueDateStr = status.dueDayThisMonth
       ? status.dueDayThisMonth.toLocaleDateString(userLocale, { month: 'short', day: 'numeric' })

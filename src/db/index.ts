@@ -25,6 +25,8 @@ import type {
   BankTransaction,
   ImportRecord,
   TransactionRule,
+  LedgerEntry,
+  LedgerEntryType,
 } from '@/types';
 
 function uuid(): string {
@@ -81,6 +83,9 @@ export async function getIncomeSources(): Promise<IncomeSource[]> {
 export async function deleteIncomeSource(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('income_sources', id);
+  // Ledger entries are NOT hard-deleted here. User-facing deletes go through
+  // accounting.deleteIncomeSource() which writes a reversal entry instead.
+  // Internal callers (resetAccount) already wipe ledger entries separately.
 }
 
 export function createIncomeSource(
@@ -696,6 +701,84 @@ export async function deleteTransactionRule(id: string): Promise<void> {
 export async function clearAllTransactionRules(): Promise<void> {
   const db = await getDB();
   await db.clear('transaction_rules');
+}
+
+// ── Ledger ────────────────────────────────────────────────────────────────────
+
+export async function saveLedgerEntry(entry: LedgerEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('ledger', await encryptRecord(entry), entry.id);
+}
+
+export async function getAllLedgerEntries(): Promise<LedgerEntry[]> {
+  const db = await getDB();
+  const keys = await db.getAllKeys('ledger');
+  const all = await Promise.all(
+    keys.map(async (k) => {
+      const rec = await db.get('ledger', k);
+      return decryptRecord<LedgerEntry>(rec!);
+    }),
+  );
+  const ds = (ts: number) => { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+  return all.sort((a, b) => ds(a.date) - ds(b.date) || a.createdAt - b.createdAt);
+}
+
+export async function getLedgerEntriesForAccount(accountId: string): Promise<LedgerEntry[]> {
+  const all = await getAllLedgerEntries();
+  return all.filter((e) => e.accountId === accountId);
+}
+
+export async function deleteLedgerEntry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('ledger', id);
+}
+
+export async function deleteLedgerEntriesBySource(sourceId: string): Promise<void> {
+  const all = await getAllLedgerEntries();
+  const db = await getDB();
+  const matches = all.filter((e) => e.sourceId === sourceId);
+  await Promise.all(matches.map((e) => db.delete('ledger', e.id)));
+}
+
+export async function deleteLedgerEntriesByCorrelation(correlationId: string): Promise<void> {
+  const all = await getAllLedgerEntries();
+  const db = await getDB();
+  const matches = all.filter((e) => e.correlationId === correlationId);
+  await Promise.all(matches.map((e) => db.delete('ledger', e.id)));
+}
+
+export async function deleteLedgerEntriesForAccount(accountId: string): Promise<void> {
+  const all = await getAllLedgerEntries();
+  const db = await getDB();
+  const matches = all.filter((e) => e.accountId === accountId);
+  await Promise.all(matches.map((e) => db.delete('ledger', e.id)));
+}
+
+export function createLedgerEntry(
+  type: LedgerEntryType,
+  accountId: string,
+  accountType: 'debt' | 'bank',
+  signedAmount: number,
+  description: string,
+  date: number,
+  opts?: {
+    correlationId?: string;
+    sourceId?: string;
+    sourceType?: LedgerEntry['sourceType'];
+    priorBalance?: number;
+    targetBalance?: number;
+    note?: string;
+  },
+): LedgerEntry {
+  const now = Date.now();
+  const entry: LedgerEntry = { id: crypto.randomUUID(), type, accountId, accountType, signedAmount, description, date, createdAt: now };
+  if (opts?.correlationId) entry.correlationId = opts.correlationId;
+  if (opts?.sourceId) entry.sourceId = opts.sourceId;
+  if (opts?.sourceType) entry.sourceType = opts.sourceType;
+  if (opts?.priorBalance !== undefined) entry.priorBalance = opts.priorBalance;
+  if (opts?.targetBalance !== undefined) entry.targetBalance = opts.targetBalance;
+  if (opts?.note) entry.note = opts.note;
+  return entry;
 }
 
 // ── Snapshots ─────────────────────────────────────────────────────────────────

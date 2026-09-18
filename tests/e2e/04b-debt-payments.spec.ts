@@ -246,8 +246,9 @@ test('deleting extra payment restores balance', async () => {
 
   const items = panel.locator('[data-testid="payment-history-item"]');
   // Delete the first item (extra $350 — newest)
-  page.once('dialog', (d) => d.accept());
   await items.first().locator('[data-testid="payment-history-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // $5,950.10 + $350 restored = $6,300.10
   await expect(chaseRow.locator('[data-testid="debt-row-balance"]')).toContainText('$6,300.10');
@@ -310,9 +311,10 @@ test('debt total is correct after payment activity', async () => {
 
 test('deleting a debt account with payments removes cleanly', async () => {
   // The Chase Freedom has 1 recorded payment; delete the account
-  page.once('dialog', (d) => d.accept());
   const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
   await chaseRow.locator('[data-testid="debt-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Row should be gone
   await expect(

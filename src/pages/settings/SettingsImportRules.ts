@@ -1,4 +1,5 @@
 import { getSetting, saveSetting, getTransactionRules, deleteTransactionRule, clearAllTransactionRules } from '@/db';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import type { TransactionRule } from '@/types';
 
 export function buildImportRulesSection(showToast: (msg: string) => void): HTMLElement {
@@ -157,7 +158,7 @@ export function buildImportRulesSection(showToast: (msg: string) => void): HTMLE
   clearBtn.className = 'btn btn-danger setting-row-control';
   clearBtn.textContent = 'Clear all';
   clearBtn.addEventListener('click', async () => {
-    if (!confirm('Clear all auto-match rules? This cannot be undone.')) return;
+    if (!await openConfirmDialog({ message: 'Clear all auto-match rules? This cannot be undone.', confirmLabel: 'Clear all' })) return;
     await clearAllTransactionRules();
     await renderRules();
     showToast('All rules cleared.');

@@ -1,4 +1,6 @@
-import { fmtCents, sourceMonthly, toMonthly } from '@/utils/finance';
+import { fmtCents, sourceMonthly } from '@/utils/finance';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
+import { getPaydaysInMonth } from '@/utils/paydays';
 import { openImportWizard } from '@/components/ImportWizard';
 import { openAddNotificationModal } from '@/utils/notificationModal';
 import { navigate } from '@/app/router';
@@ -7,12 +9,12 @@ import {
   saveIncomeSource, saveExpense, saveExpensePaidRecord, saveDebtPayment,
   deleteBankAccount, deleteBankTransactionsByAccount,
 } from '@/db';
-import { computeActualBalance, buildAccountLedgerPanel } from './AccountLedger';
+import { buildAccountLedgerPanel } from './AccountLedger';
 import { openAccountForm, openTransferModal } from './AccountForm';
 import type {
   BankAccount, BankAccountType, BankAccountOwnership,
   HouseholdMember, IncomeSource, Expense, ExpensePaidRecord,
-  DebtPayment, DebtAccount, AccountTransfer, BankTransaction, ExpenseCategory,
+  DebtPayment, AccountTransfer, ExpenseCategory, LedgerEntry,
 } from '@/types';
 
 const ACCOUNT_TYPE_LABELS: Record<BankAccountType, string> = {
@@ -41,10 +43,10 @@ export type AccountRowContext = {
   expenses: Expense[];
   paidRecords: ExpensePaidRecord[];
   debtPayments: DebtPayment[];
-  debtAccounts: DebtAccount[];
   transfers: AccountTransfer[];
-  bankTransactions: BankTransaction[];
   categories: ExpenseCategory[];
+  ledgerBalances: Map<string, number>;
+  accountLedgerEntries: Map<string, LedgerEntry[]>;
   viewYear: number;
   viewMonth: number;
   onLoad: () => Promise<void>;
@@ -75,9 +77,9 @@ function buildIncomeItem(source: IncomeSource, amountLabel: string): HTMLElement
 
 export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): HTMLElement {
   const {
-    accounts, members, incomeSources, expenses, paidRecords,
-    debtPayments, debtAccounts, transfers, bankTransactions,
-    categories, viewYear, viewMonth, onLoad,
+    accounts, members, incomeSources, paidRecords,
+    debtPayments, transfers, categories,
+    ledgerBalances, accountLedgerEntries, viewYear, viewMonth, onLoad,
   } = ctx;
 
   const activeSources = incomeSources.filter(
@@ -92,28 +94,6 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
       && s.date != null && s.date >= monthStart && s.date < monthEnd,
   );
   const oneTimeIncome = oneTimeSources.reduce((sum, s) => sum + s.amount, 0);
-
-  const unpaidEstimates = expenses
-    .filter((e) => e.bankAccountId === account.id && e.recurring)
-    .reduce((sum, e) => {
-      const hasPaid = paidRecords.some(
-        (r) => r.expenseId === e.id && r.date >= monthStart && r.date < monthEnd,
-      );
-      return sum + (hasPaid ? 0 : toMonthly(e.amount, e.recurringFrequency ?? 'monthly'));
-    }, 0);
-
-  const expensePaidFromAccount = paidRecords
-    .filter((r) => r.bankAccountId === account.id && r.date >= monthStart && r.date < monthEnd)
-    .reduce((sum, r) => sum + r.amount, 0);
-
-  const legacyExpensePaid = paidRecords
-    .filter((r) => !r.bankAccountId && r.date >= monthStart && r.date < monthEnd)
-    .reduce((sum, r) => {
-      const exp = expenses.find((e) => e.id === r.expenseId && e.bankAccountId === account.id);
-      return sum + (exp ? r.amount : 0);
-    }, 0);
-
-  const monthlyExpenses = unpaidEstimates + expensePaidFromAccount + legacyExpensePaid;
 
   const debtPaymentsTotal = debtPayments
     .filter((p) => p.bankAccountId === account.id && p.date >= monthStart && p.date < monthEnd)
@@ -171,18 +151,36 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   nameBottom.className = 'account-row-name-bottom';
   nameBottom.setAttribute('data-testid', 'account-balance-cell');
 
-  const monthlyNet = monthlyIncome + oneTimeIncome - monthlyExpenses - debtPaymentsTotal + transfersIn - transfersOut;
-  const hasLinkedData = monthlyIncome > 0 || oneTimeIncome > 0 || monthlyExpenses > 0 || debtPaymentsTotal > 0 || expensePaidFromAccount > 0 || transfersIn > 0 || transfersOut > 0;
-  const displayBalance = (account.balance != null || hasLinkedData)
-    ? (account.balance ?? 0) + monthlyNet
-    : null;
-
-  const actualBalance = computeActualBalance(account, accountPaidRecords, accountDebtPayments, accountSources, accountTransfers);
+  // Use the ledger-derived balance as the authoritative "Actual" figure.
+  // Fall back to account.balance only when the ledger has no entries yet
+  // (pre-ledger accounts that have had no transactions recorded through the
+  // accounting service).
+  const ledgerBalance = ctx.ledgerBalances.get(account.id) ?? 0;
+  const actualBalance = ledgerBalance !== 0 ? ledgerBalance : (account.balance ?? 0);
   const hasActualData = account.balance != null
+    || ledgerBalance !== 0
     || accountPaidRecords.length > 0
     || accountDebtPayments.length > 0
-    || accountSources.length > 0
     || accountTransfers.length > 0;
+
+  // Projected = declared starting balance + all expected income for the viewed month.
+  // Uses account.balance (not ledgerBalance) so the projection is independent of
+  // recorded transactions and consistent across all months in the nav.
+  let allPaychecks = 0;
+  for (const source of activeSources) {
+    const days = getPaydaysInMonth(source, viewYear, viewMonth);
+    for (let i = 0; i < days.length; i++) {
+      allPaychecks +=
+        source.frequency === 'semimonthly' && source.amount2 != null && i === 1
+          ? source.amount2
+          : source.amount;
+    }
+  }
+
+  const startingBalance = account.balance ?? 0;
+  const projectedBalance = allPaychecks > 0 || oneTimeIncome > 0
+    ? startingBalance + allPaychecks + oneTimeIncome
+    : null;
 
   if (hasActualData) {
     const block = document.createElement('div');
@@ -200,27 +198,27 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
     nameBottom.appendChild(block);
   }
 
-  if (displayBalance != null) {
+  if (projectedBalance != null) {
     const block = document.createElement('div');
     block.className = 'account-balance-block';
     const lbl = document.createElement('span');
     lbl.className = 'account-balance-label';
     lbl.textContent = 'Projected';
     block.appendChild(lbl);
-    const isNeg = displayBalance < 0;
+    const isNeg = projectedBalance < 0;
     const val = document.createElement('span');
     val.className = `account-row-balance account-row-balance--projected${isNeg ? ' account-row-balance--negative' : ''}`;
     val.setAttribute('data-testid', 'account-balance');
-    val.textContent = fmtCents.format(displayBalance);
+    val.textContent = fmtCents.format(projectedBalance);
     block.appendChild(val);
     nameBottom.appendChild(block);
   }
 
-  if (!hasActualData && displayBalance == null) {
+  if (!hasActualData && projectedBalance == null) {
     const hint = document.createElement('span');
     hint.className = 'account-row-balance-hint';
     hint.setAttribute('data-testid', 'account-balance-hint');
-    hint.textContent = 'Link income or expenses to see balance';
+    hint.textContent = 'Set an opening balance or record a transaction to see your actual balance';
     nameBottom.appendChild(hint);
   }
   nameCell.appendChild(nameBottom);
@@ -341,7 +339,7 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   deleteBtn.title = 'Delete';
   deleteBtn.textContent = '🗑️';
   deleteBtn.addEventListener('click', async () => {
-    if (!confirm(`Delete "${account.name}"?`)) return;
+    if (!await openConfirmDialog({ message: `Delete "${account.name}"?` })) return;
     const [sources, exps, paid, debtPmts] = await Promise.all([
       getIncomeSources(), getExpenses(), getExpensePaidRecords(), getDebtPayments(),
     ]);
@@ -357,12 +355,9 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   });
   actionsCell.appendChild(deleteBtn);
 
-  const accountBankTxns = bankTransactions.filter((t) => t.bankAccountId === account.id);
-  const ledgerPanel = buildAccountLedgerPanel(
-    account, accountPaidRecords, accountDebtPayments, accountSources,
-    accountTransfers, accountBankTxns, expenses, debtAccounts, accounts,
-  );
-  const ledgerCount = accountPaidRecords.length + accountDebtPayments.length + accountSources.length + accountTransfers.length + accountBankTxns.length;
+  const accountEntries = accountLedgerEntries.get(account.id) ?? [];
+  const ledgerPanel = buildAccountLedgerPanel(accountEntries, accountPaidRecords);
+  const ledgerCount = accountEntries.filter((e) => e.type !== 'reconciliation').length;
 
   const ledgerBtn = document.createElement('button');
   ledgerBtn.className = 'icon-btn';

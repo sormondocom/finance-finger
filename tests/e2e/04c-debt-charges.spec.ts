@@ -342,8 +342,9 @@ test('deleting a charge reduces the item count and updates breakdown', async () 
   const items = visaWrap.locator('[data-testid="debt-charge-item"]');
   await expect(items).toHaveCount(3);
 
-  page.once('dialog', (d) => d.accept());
   await items.last().locator('.icon-btn.danger').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Panel stays open after deletion
   await expect(visaWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
@@ -389,9 +390,10 @@ test('deleting a card account also removes its charges', async () => {
   await navigateTo(page, 'debt');
 
   // Delete Intro APR Card (has no payments, set up cleanly for this test)
-  page.once('dialog', (d) => d.accept());
   const introRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Intro APR Card' });
   await introRow.locator('[data-testid="debt-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   await expect(
     page.locator('[data-testid="debt-row"]').filter({ hasText: 'Intro APR Card' }),

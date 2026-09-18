@@ -1,5 +1,6 @@
-import { saveDebtPayment, deleteDebtPayment, saveDebtAccount } from '@/db';
+import { accounting } from '@/accounting';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { openDebtPaymentModal } from '@/components/DebtPaymentModal';
 import { computePaymentStatus } from '@/utils/paymentStatus';
 import { fmtCents } from '@/utils/finance';
@@ -65,8 +66,8 @@ function openEditPaymentModal(
       const newAmount     = parseFloat(body.querySelector<HTMLInputElement>('#ep-amount')!.value);
       const dateStr       = body.querySelector<HTMLInputElement>('#ep-date')!.value;
       const typeVal       = (body.querySelector<HTMLInputElement>('[name="ep-type"]:checked')?.value ?? 'regular') as 'regular' | 'extra';
-      const note          = body.querySelector<HTMLInputElement>('#ep-note')!.value.trim();
-      const bankAccountId = body.querySelector<HTMLSelectElement>('#ep-bank')!.value || undefined;
+      const note          = body.querySelector<HTMLInputElement>('#ep-note')!.value.trim() || null;
+      const bankAccountId = body.querySelector<HTMLSelectElement>('#ep-bank')!.value || null;
       const errEl         = body.querySelector<HTMLElement>('#ep-error')!;
 
       errEl.style.display = 'none';
@@ -81,24 +82,15 @@ function openEditPaymentModal(
         return;
       }
 
-      const balanceDelta = p.amount - newAmount;
-      const updatedAccount: DebtAccount = {
-        ...a,
-        balance: Math.max(0, a.balance + balanceDelta),
-        updatedAt: Date.now(),
-      };
-
-      const { note: _n, bankAccountId: _b, ...pBase } = p;
-      const updatedPayment: DebtPayment = {
-        ...pBase,
+      await accounting.updateDebtPayment({
+        paymentId: p.id,
         amount: newAmount,
-        date: new Date(dateStr + 'T12:00:00').getTime(),
+        date: new Date(dateStr + 'T00:00:00').getTime(),
         type: typeVal,
-        ...(note ? { note } : {}),
-        ...(bankAccountId ? { bankAccountId } : {}),
-      };
+        note,
+        bankAccountId,
+      });
 
-      await Promise.all([saveDebtPayment(updatedPayment), saveDebtAccount(updatedAccount)]);
       close();
       await onSave();
       void refreshNotifier();
@@ -222,12 +214,8 @@ export function buildPaymentHistoryPanel(
     delBtn.setAttribute('data-testid', 'payment-history-delete');
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', async () => {
-      if (!confirm(`Remove this ${p.type} payment of ${fmtCents.format(p.amount)}?\nThe balance on "${a.name}" will be restored by that amount.`)) return;
-      const restoredBalance = a.balance + p.amount;
-      await Promise.all([
-        deleteDebtPayment(p.id),
-        saveDebtAccount({ ...a, balance: restoredBalance, updatedAt: Date.now() }),
-      ]);
+      if (!await openConfirmDialog({ message: `Remove this ${p.type} payment of ${fmtCents.format(p.amount)}? The balance on "${a.name}" will be restored by that amount.`, confirmLabel: 'Remove' })) return;
+      await accounting.deleteDebtPayment(p.id);
       await onSave();
     });
 

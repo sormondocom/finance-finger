@@ -80,9 +80,10 @@ test('takes a second snapshot that captures the new member', async () => {
 });
 
 test('deletes the member so we can verify restore brings it back', async () => {
-  page.once('dialog', (d) => d.accept());
   const memberRow = page.locator('[data-testid="settings-member-row"]').filter({ hasText: 'Snapshot Test Member' });
   await memberRow.locator('[data-testid="settings-member-remove"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(memberRow).not.toBeVisible({ timeout: 6_000 });
   await page.screenshot({ path: 'tests/screenshots/snap-05-member-deleted.png' });
 });
@@ -92,9 +93,9 @@ test('restoring the snapshot brings back the deleted member', async () => {
   const restoreBtn = page.locator('[data-testid="settings-snapshot-restore-btn"]').first();
   await expect(restoreBtn).toBeVisible();
 
-  // Intercept the confirm dialog (Playwright auto-accepts by default, but we use once() to be explicit)
-  page.once('dialog', (d) => d.accept());
   await restoreBtn.click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // After restore the app reloads → lands on /unlock (vault key cleared from memory)
   await expect(page.locator('[data-testid="unlock-key-textarea"]')).toBeVisible({ timeout: 20_000 });

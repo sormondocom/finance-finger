@@ -40,6 +40,7 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Bill cost thresholds](#bill-cost-thresholds)
   - [Budget](#budget)
   - [Debt](#debt)
+  - [Ledger](#ledger)
   - [Reports](#reports)
   - [Mascots: Buck & Penny](#mascots-buck--penny)
   - [Settings](#settings)
@@ -51,6 +52,7 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Calendar](#calendar)
   - [Budget](#budget-1)
   - [Debt](#debt-1)
+  - [Ledger](#ledger-1)
   - [Reports](#reports-1)
   - [What If? (Scenario Films)](#what-if-scenario-films)
   - [Learn (Financial Education)](#learn-financial-education)
@@ -87,6 +89,7 @@ A fully offline browser extension for household budgeting, debt management, and 
 - [Troubleshooting](#troubleshooting)
   - [Break Glass](#break-glass)
   - [Orphan Record Scanner](#orphan-record-scanner)
+  - [Cross-Store Search (Query tab)](#cross-store-search-query-tab)
 - [Help](#help)
 - [FAQ](#faq)
   - [I lost my private key / forgot my passphrase. Can I recover my data?](#i-lost-my-private-key--forgot-my-passphrase-can-i-recover-my-data)
@@ -378,6 +381,31 @@ When a card is paid off, its full minimum payment **rolls over** to the next foc
 
 ---
 
+### Ledger
+
+The Ledger page is a complete, chronological accounting trail for every debt card and bank account in your household. Every balance-affecting action — charges, payments, transfers, reconciliations, and CSV imports — is recorded as a ledger entry automatically; you never create entries directly.
+
+**Running balance** — entries replay oldest-to-newest to compute a per-account running balance. The Ledger displays newest-first so the current balance is always at the top. The balance shown matches the "actual balance" on the Accounts and Debt pages — all three derive from the same ledger replay.
+
+**Entry types:**
+
+| Type | What creates it |
+|---|---|
+| **Charge** | Adding a card charge, recording an expense payment charged to a card, or importing a credit card statement |
+| **Payment** | Recording a debt payment on any debt account |
+| **Bank Credit** | Income deposit, transfer-in, or any money entering a bank account |
+| **Bank Debit** | Expense payment, debt payment sourced from a bank account, or transfer-out |
+| **Transfer** | Moving money between two bank accounts — creates a linked pair (transfer-out + transfer-in) |
+| **Reconciliation** | Setting a verified balance via Settings → Reconciliation |
+
+**Filters** — narrow the view by account, entry type, date range, or any combination. An empty-state message confirms when a filter is active but no entries match.
+
+**Transfer correlation** — a transfer between two bank accounts creates a linked pair. Each row shows a pill that links to its counterpart entry, making it easy to verify both sides of the move.
+
+**Reconciliation entries** — appear in the Ledger as a clear break point with a dashed separator. Everything above the entry reflects transactions after the reconciliation; below shows pre-reconciliation history. The balance at the reconciliation row is exactly the verified value you set.
+
+---
+
 ### Reports
 
 The Reports page provides date-range analytics across your full financial history. Use the preset buttons — **This Week, This Month, Last Month, Last 3 Mo., Last 6 Mo., This Year, Last Year, All Time** — or set a custom date range.
@@ -443,8 +471,9 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 - **Import Rules** — view and manage the auto-match rules created by the CSV import wizard; toggle or delete rules to control which patterns are applied on future imports
 - **Reminders** — centralized view of all custom bell notifications (see [Custom Reminders](#custom-reminders))
 - **Snapshots** — automatic point-in-time backups every 30 minutes; restore any snapshot from Settings to recover from accidental data changes (see [Snapshots](#snapshots))
+- **Reconciliation** — set a verified known-good balance for any debt card or bank account; requires a memo that is written permanently into the Ledger as a dated audit entry; use it to correct balance drift, close out post-import gaps, or zero a paid-off account
 - **Danger zone** — full vault wipe and IndexedDB reset
-- **Break Glass** — emergency direct-access panel for reading, editing, and deleting raw database records; includes an Orphan Scanner for finding broken references (see [Troubleshooting → Break Glass](#break-glass))
+- **Break Glass** — emergency direct-access panel with three tabs: a **Data Browser** for reading, editing, and deleting raw records; an **Orphan Scanner** for finding broken FK references, stale bill dates, and orphaned charges; and a **Query** tool for searching all stores at once by text or amount with optional wiggle-room tolerance (see [Troubleshooting → Break Glass](#break-glass))
 
 ---
 
@@ -842,6 +871,46 @@ When you record a payment that brings a **single card** to zero, a full-screen o
 
 ---
 
+### Ledger
+
+The Ledger page shows a complete audit trail of every balance-affecting action across all your accounts. Open it from the left navigation sidebar.
+
+**Reading the Ledger**
+
+Entries are displayed newest-first. Each row shows:
+
+| Column | Content |
+|---|---|
+| **Date** | The transaction date |
+| **Description** | Merchant name, memo, transfer note, or reconciliation reason |
+| **Account** | The account whose balance was affected |
+| **Type** | Charge, Payment, Bank Credit, Bank Debit, Transfer, or Reconciliation |
+| **Amount** | Signed — positive values increase the balance; negative values decrease it |
+| **Balance** | Running account balance at this point in history |
+
+The balance at the top row matches the "actual balance" shown on the Accounts and Debt pages. All three are derived from the same ledger replay (oldest to newest), then displayed newest-first.
+
+**Filtering**
+
+Use the filter bar to narrow the view. All filters can be combined:
+
+- **Account** — show entries for a single debt card or bank account.
+- **Type** — filter to Charge, Payment, Bank Credit, Bank Debit, Transfer, or Reconciliation.
+- **Date range** — enter a start date, end date, or both. Only entries whose transaction date falls in the range are shown.
+- **Reset** — click to clear all active filters and return to the full view.
+
+When a date filter is active and no entries match, an empty-state message confirms the filter is working — there simply aren't entries in that range.
+
+**Transfer correlation**
+
+Transfers between bank accounts create a linked entry pair (transfer-out on the source, transfer-in on the destination). Each row displays a pill linking to its counterpart — click it to jump to the matched entry. This makes it easy to verify both sides of a transfer without manually searching.
+
+**Reconciliation entries**
+
+When you set a verified balance in Settings → Reconciliation, a reconciliation entry appears in the Ledger with a dashed separator. It shows the memo you entered and the target balance that was set. All entries above the reconciliation point build their running balance forward from that known-good baseline.
+
+---
+
 ### Reports
 
 <p align="center">
@@ -971,8 +1040,9 @@ The Learn page provides plain-language financial education with interactive calc
 | **Import** | Decrypts a `.ffx` file shared from another Financial Finger installation using your private key and passphrase. Choose **Merge** to add incoming records alongside your existing data, or **Replace** to wipe your database first. |
 | **Import Rules** | View and manage the auto-match patterns that the CSV import wizard has learned. Toggle a rule off to stop auto-applying it on future imports, or delete it entirely. |
 | **Snapshots** | Lists automatic and manual point-in-time snapshots of your data. Click **Snapshot now** to capture immediately. Click **Restore** on any row to roll back to that point — your current data is safety-snapshotted first, then the selected snapshot is applied, and the app reloads. See [Snapshots](#snapshots). |
+| **Reconciliation** | Set a verified known-good balance for any debt card or bank account. Enter the confirmed balance and a required memo — the memo is written permanently into the Ledger so you can trace why the balance was manually adjusted. Use cases: correcting balance drift after months of use, confirming the ending balance after a CSV import, setting an opening balance you skipped at account creation, or zeroing a paid-off debt to the penny. |
 | **Danger zone** | Wipes the vault completely. All data, settings, and the vault key are deleted. The extension returns to the first-run setup wizard. This is permanent and irreversible. |
-| **Break Glass** | Emergency direct-access panel. Opens the Break Glass data browser where you can read, edit, or delete any raw record in the database. Also contains the Orphan Scanner for finding records with broken FK references. See [Troubleshooting → Break Glass](#break-glass) for full details. |
+| **Break Glass** | Emergency direct-access panel with three tabs: **Data Browser** (read/edit/delete raw records), **Orphan Scanner** (find broken FK references, stale bill dates, orphaned charges), and **Query** (search every store at once by text or amount, with an optional ± wiggle room for fuzzy amount matching). See [Troubleshooting → Break Glass](#break-glass) for full details. |
 
 ---
 
@@ -1055,7 +1125,7 @@ If both people enter data independently on their own machines, merge mode will c
 
 Financial Finger includes a built-in **Help** page accessible from the navigation sidebar. It covers every section of the app with plain-language explanations and examples — no internet connection required.
 
-The Help page is organized into **12 topic tabs**:
+The Help page is organized into **13 topic tabs**:
 
 | Tab | What it covers |
 |---|---|
@@ -1067,10 +1137,11 @@ The Help page is organized into **12 topic tabs**:
 | **Calendar** | Grid layout, chip types, paint tool, memos, and marking payments |
 | **Budget** | Spending buckets, to-assign counter, donut chart, and zero-based budgeting |
 | **Debt** | Adding debt accounts, amortization, payoff strategies, what-if grid, and recording payments |
+| **Ledger** | What the Ledger is, how entries are created, reading running balances, filters, and transfer correlation |
 | **Reports** | Date range presets, all report cards, and Common Overage Offenders |
 | **What If?** | Creating scenario films, adding items, activating films, and layering scenarios |
 | **Learn** | Overview of the financial education tabs and interactive calculators |
-| **Settings & Data** | Mascot, theme, currency, security, data sharing, import rules, snapshots, and Break Glass |
+| **Settings & Data** | Mascot, theme, currency, security, data sharing, import rules, snapshots, reconciliation, and Break Glass |
 
 Help pages are context-sensitive — some pages in the app include a **?** icon that deep-links directly into the relevant Help tab so you can read the explanation without losing your place.
 
@@ -1510,6 +1581,54 @@ With the orphaned record open in the Data Browser:
 - Click **🗑 Delete** to remove the orphan if it is no longer needed.
 
 Re-run the scan after each fix to confirm the database is clean.
+
+---
+
+### Cross-Store Search (Query tab)
+
+The **Query tab** inside Break Glass is a diagnostic search tool that finds records anywhere in the database without needing to know which store they live in. It is the fastest way to track down a mystery balance, an unrecognized charge, or a broken reference chain.
+
+**Opening the Query tab**
+
+Open Break Glass (Settings → 🔧 Open Break Glass → confirm the warning), then click the **Query** tab.
+
+**Searching by text**
+
+Enter any string in the **Text** field — a payee name, description, account name, or any partial text. The search is case-insensitive and matches any string field that contains the entered text. Examples:
+
+- `Comcast` — finds every record mentioning that payee across all stores
+- `Bank of` — finds all records with that phrase in any string field
+- Paste a UUID — finds every record that *references* that ID (see [UUID search](#uuid--id-search) below)
+
+**Searching by amount**
+
+Enter a dollar value in the **Amount ($)** field to find records with a numeric field close to that value.
+
+The **± wiggle room** input next to it controls the tolerance:
+
+| Wiggle room | What it finds |
+|---|---|
+| `0` (default) | Exact match — within floating-point rounding (±$0.005) |
+| `1` | Any amount within $1 of the entered value |
+| `10` | Any amount within $10 of the entered value |
+
+Leave wiggle room at `0` when you know the exact amount. Increase it when you remember roughly what a charge was — enter `953` with wiggle room `5` to match anything from $948 to $958.
+
+**Combining text and amount**
+
+Both fields can be filled at the same time. A record matches if it has a field matching the text *or* a field matching the amount — the two criteria are ORed together.
+
+**Reading results**
+
+Results are grouped by store (Members, Income Sources, Expenses, Debt Accounts, etc.). Each result row shows the record's display name, which field(s) matched (e.g. `matched: Amount, Description`), and a **View in Browser →** button that switches to the Data Browser tab with that record already selected.
+
+**UUID / ID search**
+
+Paste any record ID (UUID) into the Text field to find every record in the database that references it. This is the fastest way to trace a broken reference — for example, paste a member's ID to immediately surface all income sources, reminders, or other records that point to that member. A common diagnostic workflow:
+
+1. Open the Data Browser, find the member or record in question, and copy its `id` field value.
+2. Switch to the Query tab, paste the ID into the Text field, and click **Search All Stores**.
+3. Every record that references that ID appears — grouped by store — alongside a **View in Browser →** link for each.
 
 ---
 

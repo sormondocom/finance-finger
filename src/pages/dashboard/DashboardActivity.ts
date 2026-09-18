@@ -1,10 +1,12 @@
 import {
-  deleteIncomeSource, deleteExpense,
-  getExpensePaidRecords, deleteExpensePaidRecord,
+  deleteExpense,
+  getExpensePaidRecords,
 } from '@/db';
+import { accounting } from '@/accounting';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { openOneTimeIncomeForm, openOneTimeExpenseForm } from './DashboardForms';
 import { fmt, fmtCents } from '@/utils/finance';
-import type { ExpenseCategory, HouseholdMember, IncomeSource, Expense } from '@/types';
+import type { ExpenseCategory, HouseholdMember, IncomeSource, Expense, BankAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
 
 export interface MonthBucket {
@@ -79,6 +81,7 @@ function buildMonthActivityContent(
   bucket: MonthBucket,
   categories: ExpenseCategory[],
   members: HouseholdMember[],
+  bankAccounts: BankAccount[],
   onIncomeDeleted: (id: string) => void,
   onExpenseDeleted: (id: string) => void,
   onAddIncomeSaved: (src: IncomeSource) => void,
@@ -102,7 +105,7 @@ function buildMonthActivityContent(
   addIncBtn.className = 'btn btn-secondary btn-sm';
   addIncBtn.setAttribute('data-testid', 'add-unexpected-income-btn');
   addIncBtn.textContent = '+ Log';
-  addIncBtn.addEventListener('click', () => openOneTimeIncomeForm(bucket, members, onAddIncomeSaved));
+  addIncBtn.addEventListener('click', () => openOneTimeIncomeForm(bucket, members, bankAccounts, onAddIncomeSaved));
   incHeader.appendChild(addIncBtn);
   incSection.appendChild(incHeader);
 
@@ -124,8 +127,8 @@ function buildMonthActivityContent(
         label: src.name, sub: member?.name, dateStr,
         amount: src.amount, colorClass: 'ma-amount-income', prefix: '+',
         onDelete: async () => {
-          if (!confirm(`Delete "${src.name}"?`)) return;
-          await deleteIncomeSource(src.id);
+          if (!await openConfirmDialog({ message: `Delete "${src.name}"?` })) return;
+          await accounting.deleteIncomeSource(src);
           onIncomeDeleted(src.id);
         },
       }));
@@ -171,9 +174,9 @@ function buildMonthActivityContent(
         label: e.description, dotColor: cat?.color, dateStr,
         amount: e.amount, colorClass: 'ma-amount-expense', prefix: '−',
         onDelete: async () => {
-          if (!confirm(`Delete "${e.description}"?`)) return;
+          if (!await openConfirmDialog({ message: `Delete "${e.description}"?` })) return;
           const paidRecords = await getExpensePaidRecords(e.id);
-          await Promise.all(paidRecords.map((r) => deleteExpensePaidRecord(r.id)));
+          await Promise.all(paidRecords.map((r) => accounting.deleteExpensePayment(r)));
           await deleteExpense(e.id);
           onExpenseDeleted(e.id);
         },
@@ -337,8 +340,8 @@ function buildRangeReportContent(
             label: src.name, dateStr, amount: src.amount,
             colorClass: 'ma-amount-income', prefix: '+',
             onDelete: async () => {
-              if (!confirm(`Delete "${src.name}"?`)) return;
-              await deleteIncomeSource(src.id);
+              if (!await openConfirmDialog({ message: `Delete "${src.name}"?` })) return;
+              await accounting.deleteIncomeSource(src);
               onIncomeDeleted(src.id);
             },
           }));
@@ -360,7 +363,9 @@ function buildRangeReportContent(
             label: e.description, dotColor: cat?.color, dateStr,
             amount: e.amount, colorClass: 'ma-amount-expense', prefix: '−',
             onDelete: async () => {
-              if (!confirm(`Delete "${e.description}"?`)) return;
+              if (!await openConfirmDialog({ message: `Delete "${e.description}"?` })) return;
+              const paidRecords = await getExpensePaidRecords(e.id);
+              await Promise.all(paidRecords.map((r) => accounting.deleteExpensePayment(r)));
               await deleteExpense(e.id);
               onExpenseDeleted(e.id);
             },
@@ -488,6 +493,7 @@ export function buildActivitySection(
   viewMode: 'month' | 'custom',
   categories: ExpenseCategory[],
   members: HouseholdMember[],
+  bankAccounts: BankAccount[],
   rangeStart: Date | null,
   rangeEnd: Date | null,
   onIncomeDeleted: (id: string) => void,
@@ -501,7 +507,7 @@ export function buildActivitySection(
 
   if (viewMode === 'month') {
     buildMonthActivityContent(
-      section, buckets[0]!, categories, members,
+      section, buckets[0]!, categories, members, bankAccounts,
       onIncomeDeleted, onExpenseDeleted, onAddIncomeSaved, onAddExpenseSaved,
     );
   } else {

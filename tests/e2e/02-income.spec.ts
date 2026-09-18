@@ -75,8 +75,7 @@ test('adds a monthly income source', async () => {
 
 test('monthly total updates after adding source', async () => {
   const total = await page.locator('[data-testid="income-monthly-total"]').innerText();
-  // Monthly total uses fmt (rounds to whole dollars): $4,999.50 → $5,000
-  expect(total).toMatch(/\$5,000/);
+  expect(total).toMatch(/\$4,999\.50/);
 });
 
 // ── Month navigation ──────────────────────────────────────────────────────────
@@ -132,9 +131,9 @@ test('monthly total shows recurring and one-time breakdown when both are present
   // value to a three-row breakdown: Recurring / + One-time / Total
   await expect(page.locator('.income-totals-label').filter({ hasText: 'Recurring' })).toBeVisible();
   await expect(page.locator('.income-totals-label').filter({ hasText: '+ One-time' })).toBeVisible();
-  // Combined total: $4,999.50 (Day Job) + $1,200 (Tax Refund) = $6,199.50 → rounds to $6,200
+  // Combined total: $4,999.50 (Day Job) + $1,200 (Tax Refund) = $6,199.50
   const total = await page.locator('[data-testid="income-monthly-total"]').innerText();
-  expect(total).toMatch(/\$6,200/);
+  expect(total).toMatch(/\$6,199\.50/);
   await page.screenshot({ path: 'tests/screenshots/income-10-breakdown.png' });
 });
 
@@ -173,17 +172,19 @@ test('toggles a source inactive', async () => {
 });
 
 test('deletes an income source', async () => {
-  page.once('dialog', (d) => d.accept());
   const row = page.locator('[data-testid="income-source-row"]').filter({ hasText: 'Tax Refund' });
   await row.locator('[data-testid="income-source-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(row).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-06-source-deleted.png' });
 });
 
 test('removes a household member', async () => {
-  page.once('dialog', (d) => d.accept());
   const chip = page.locator('[data-testid="income-member-chip"]').filter({ hasText: 'Jamie' });
   await chip.locator('[data-testid="income-member-remove"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(chip).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/income-07-member-removed.png' });
 });

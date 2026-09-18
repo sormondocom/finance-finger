@@ -33,6 +33,11 @@ const DUE_SOON_CARD_DAY = Math.min(28, dayOfMonth + 5);
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
+// A date in the previous month — expense.date must be outside the 14-day
+// cycle window so computeBillStatus returns 'past-due' (not 'paid').
+const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
+const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
+
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
   context = ext.context;
@@ -76,6 +81,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '55');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_BILL_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' })).toBeVisible();

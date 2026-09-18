@@ -51,6 +51,10 @@ async function launchFirefoxExtensionContext(): Promise<ExtensionContext> {
     // Headless by default. Set HEADED=1 to show the browser window for debugging.
     headless: process.env['HEADED'] !== '1',
     args: ['-start-debugger-server', String(rdpPort)],
+    recordVideo: {
+      dir: 'test-results/videos',
+      size: { width: 1280, height: 800 },
+    },
     firefoxUserPrefs: {
       'xpinstall.signatures.required': false,
       'extensions.webextensions.uuids': JSON.stringify({ [GECKO_ID]: FIREFOX_FIXED_UUID }),
@@ -125,6 +129,10 @@ export async function launchExtensionContext(): Promise<ExtensionContext> {
       `--disable-extensions-except=${EXTENSION_PATH}`,
       `--load-extension=${EXTENSION_PATH}`,
     ],
+    recordVideo: {
+      dir: 'test-results/videos',
+      size: { width: 1280, height: 800 },
+    },
   });
 
   let background = context.serviceWorkers()[0];

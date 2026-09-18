@@ -35,11 +35,13 @@ const DUE_SOON_DAY: number | null = dayOfMonth < daysInMonth ? dayOfMonth + 1 : 
 // Null when fewer than 8 days remain in the month (no valid day exists).
 const OK_DAY: number | null = dayOfMonth + 8 <= daysInMonth ? dayOfMonth + 8 : null;
 
-// Build a YYYY-MM-DD string for the given day in the current month.
-// The expense form's date picker extracts dueDay and auto-sets expense.date
-// to one period prior, so no separate prev-month date seed is needed.
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
+
+// A date in the previous month — expense.date must be outside the 14-day
+// cycle window so computeBillStatus returns 'past-due' (not 'paid').
+const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
+const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
 
 // ── Suite setup ───────────────────────────────────────────────────────────────
 
@@ -74,6 +76,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '120');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' })).toBeVisible();

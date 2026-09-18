@@ -145,6 +145,10 @@
   color: var(--color-success);
 }
 
+.card-row-balance--overpaid {
+  color: var(--color-success);
+}
+
 .card-row-actions {
   display: flex;
   gap: var(--space-2);

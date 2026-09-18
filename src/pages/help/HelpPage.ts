@@ -7,6 +7,7 @@ import * as ExpensesSection from './sections/ExpensesSection';
 import * as CalendarSection from './sections/CalendarSection';
 import * as BudgetSection   from './sections/BudgetSection';
 import * as DebtSection     from './sections/DebtSection';
+import * as LedgerSection   from './sections/LedgerSection';
 import * as ReportsSection  from './sections/ReportsSection';
 import * as WhatIfSection   from './sections/WhatIfSection';
 import * as LearnSection    from './sections/LearnSection';
@@ -21,6 +22,7 @@ type HelpSection =
   | 'calendar'
   | 'budget'
   | 'debt'
+  | 'ledger'
   | 'reports'
   | 'whatif'
   | 'learn'
@@ -35,6 +37,7 @@ const SECTION_LABELS: Record<HelpSection, string> = {
   calendar:  'Calendar',
   budget:    'Budget',
   debt:      'Debt',
+  ledger:    'Ledger',
   reports:   'Reports',
   whatif:    'What If?',
   learn:     'Learn',
@@ -50,6 +53,7 @@ const SECTION_RENDERERS: Record<HelpSection, (grid: HTMLElement) => void> = {
   calendar:  CalendarSection.render,
   budget:    BudgetSection.render,
   debt:      DebtSection.render,
+  ledger:    LedgerSection.render,
   reports:   ReportsSection.render,
   whatif:    WhatIfSection.render,
   learn:     LearnSection.render,

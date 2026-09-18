@@ -230,9 +230,9 @@ test('activating the high-expense scenario shows a cannot-afford verdict', async
 test('deleting the second scenario removes it from the shelf', async () => {
   const cards = page.locator('[data-testid="scenario-card"]');
   const secondCard = cards.nth(1);
-  // Confirm dialog will fire — accept it
-  page.once('dialog', (d) => d.accept());
   await secondCard.getByText('Delete film').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(page.locator('[data-testid="scenario-card"]')).toHaveCount(1, { timeout: 6_000 });
   // Projection panel should be gone (no active scenarios)
   await expect(page.locator('[data-testid="projection-panel"]')).not.toBeVisible();
@@ -246,7 +246,8 @@ test('deleting the only remaining scenario restores empty state', async () => {
     await card.locator('[data-testid="scenario-header"]').click();
     await expect(card.locator('[data-testid="add-income-item-btn"]')).toBeVisible({ timeout: 4_000 });
   }
-  page.once('dialog', (d) => d.accept());
   await card.getByText('Delete film').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(page.locator('[data-testid="scenarios-empty"]')).toBeVisible({ timeout: 6_000 });
 });

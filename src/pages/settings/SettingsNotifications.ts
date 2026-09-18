@@ -1,5 +1,6 @@
 import { saveCustomNotification, deleteCustomNotification, createCustomNotification } from '@/db';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import type { CustomNotification, NotificationTriggerType, Expense } from '@/types';
 
 export function buildNotificationsSection(
@@ -120,7 +121,7 @@ export function buildNotificationsSection(
       delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger)';
       delBtn.textContent = 'Delete';
       delBtn.addEventListener('click', async () => {
-        if (!confirm(`Delete reminder "${n.label}"?`)) return;
+        if (!await openConfirmDialog({ message: `Delete reminder "${n.label}"?` })) return;
         await deleteCustomNotification(n.id);
         notifications = notifications.filter((x) => x.id !== n.id);
         renderList();

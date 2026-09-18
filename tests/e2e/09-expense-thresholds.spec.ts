@@ -98,6 +98,7 @@ test('can add a recurring bill with a monthly threshold', async () => {
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-threshold', '120');
 
@@ -200,6 +201,10 @@ test('resetting bill date to last month via edit makes Mark Paid reappear', asyn
   await row.locator('[data-testid="expense-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-date', PREV_MONTH_DATE);
+  // Also fill duedate to this month so ExpenseForm doesn't override #ef-date
+  // (the form overrides date when firstDue > today, which would happen if the
+  // pre-filled duedate is already next month after the first payment update).
+  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 

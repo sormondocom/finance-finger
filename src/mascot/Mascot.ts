@@ -7,6 +7,7 @@ import { playCowbell } from '@/utils/bellSound';
 import type { NotifierItem } from '@/utils/notifier';
 import type { CustomNotification, MascotGender, MascotTrigger, VaultConfig } from '@/types';
 import { userLocale } from '@/utils/locale';
+import type { MissedPayday } from '@/utils/paydayDeposits';
 
 // ── Debt Payoff Celebration ───────────────────────────────────────────────────
 
@@ -652,6 +653,132 @@ export async function showBellNotification(notif: CustomNotification): Promise<v
       console.error('[FinancialFinger] showBellNotification error:', err);
       resolve(); // Always resolve so the notification queue never stalls
     }
+  });
+}
+
+// ── Missed Payday Prompt ──────────────────────────────────────────────────────
+
+const MISSED_PAYDAY_INTRO: Record<MascotGender, string> = {
+  buck:  "Whoa there, partner! Looks like a paycheck slipped through the fence while you were away.",
+  penny: "Oh sugar, it seems a payday deposit got away from us while the app was closed!",
+};
+
+const MISSED_PAYDAY_YES: Record<MascotGender, string> = {
+  buck:  "Round it up! 🤠",
+  penny: "Yes, record it! 🌻",
+};
+
+const MISSED_PAYDAY_NO: Record<MascotGender, string> = {
+  buck:  "Leave it be",
+  penny: "No thanks",
+};
+
+// Shows a mascot prompt for each missed payday, one at a time.
+// Calls onRecord when the user confirms — the caller handles the actual ledger write.
+// Paydays dismissed this session are stored in sessionStorage so they aren't re-asked.
+export async function showMissedPaydayPrompt(
+  missed: MissedPayday[],
+  onRecord: (m: MissedPayday) => Promise<void>,
+): Promise<void> {
+  const queue = missed.filter((m) => !sessionStorage.getItem(`ff-payday-skip-${m.correlationId}`));
+  if (queue.length === 0) return;
+
+  await loadConfig();
+  const gender: MascotGender = activeConfig?.mascotGender ?? 'buck';
+
+  for (const item of queue) {
+    if (sessionStorage.getItem(`ff-payday-skip-${item.correlationId}`)) continue;
+    await showOnePaydayPrompt(item, gender, onRecord);
+  }
+}
+
+function showOnePaydayPrompt(
+  item: MissedPayday,
+  gender: MascotGender,
+  onRecord: (m: MissedPayday) => Promise<void>,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'bell-notif-toast';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bell-notif-toast-bubble';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'bell-notif-toast-header';
+    const iconEl = document.createElement('span');
+    iconEl.className = 'bell-notif-toast-bell';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.textContent = '💰';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'bell-notif-toast-title';
+    titleEl.textContent = 'Missed Payday';
+    header.appendChild(iconEl);
+    header.appendChild(titleEl);
+    bubble.appendChild(header);
+
+    const introEl = document.createElement('p');
+    introEl.className = 'bell-notif-toast-canned';
+    introEl.textContent = MISSED_PAYDAY_INTRO[gender];
+    bubble.appendChild(introEl);
+
+    const detailEl = document.createElement('blockquote');
+    detailEl.className = 'bell-notif-toast-custom';
+    const dateStr = new Date(item.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
+    const amtStr  = new Intl.NumberFormat(userLocale, { style: 'currency', currency: 'USD' }).format(item.amount);
+    detailEl.textContent = `${item.sourceName} — ${amtStr} on ${dateStr}`;
+    bubble.appendChild(detailEl);
+
+    // Action buttons
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:var(--space-3);margin-top:var(--space-2)';
+
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'btn btn-primary bell-notif-toast-btn';
+    yesBtn.style.flex = '1';
+    yesBtn.textContent = MISSED_PAYDAY_YES[gender];
+
+    const noBtn = document.createElement('button');
+    noBtn.className = 'btn btn-secondary bell-notif-toast-btn';
+    noBtn.style.flex = '1';
+    noBtn.textContent = MISSED_PAYDAY_NO[gender];
+
+    btnRow.appendChild(yesBtn);
+    btnRow.appendChild(noBtn);
+    bubble.appendChild(btnRow);
+
+    const figEl = document.createElement('div');
+    figEl.className = 'bell-notif-toast-figure';
+    figEl.setAttribute('aria-hidden', 'true');
+    figEl.innerHTML = gender === 'buck' ? BUCK_SVG : PENNY_SVG;
+
+    overlay.appendChild(bubble);
+    overlay.appendChild(figEl);
+    document.body.appendChild(overlay);
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      overlay.classList.add('bell-notif-out');
+      setTimeout(() => {
+        if (document.body.contains(overlay)) overlay.remove();
+        resolve();
+      }, 380);
+    };
+
+    yesBtn.addEventListener('click', async () => {
+      yesBtn.disabled = true;
+      noBtn.disabled  = true;
+      try { await onRecord(item); } catch { /* recording failure is non-fatal */ }
+      finish();
+    });
+
+    noBtn.addEventListener('click', () => {
+      sessionStorage.setItem(`ff-payday-skip-${item.correlationId}`, '1');
+      finish();
+    });
   });
 }
 

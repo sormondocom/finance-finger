@@ -10,6 +10,7 @@ import {
 } from '@/db';
 import { toMonthly, sourceMonthly, fmt, fmtCents, FREQUENCY_OPTIONS, FREQUENCY_LABELS } from '@/utils/finance';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import type { Scenario, ScenarioItem, IncomeFrequency } from '@/types';
 
 const SCENARIO_COLORS = [
@@ -400,7 +401,7 @@ export class AffordPage {
     deleteBtn.style.fontSize = 'var(--text-xs)';
     deleteBtn.textContent = 'Delete film';
     deleteBtn.addEventListener('click', async () => {
-      if (!confirm(`Delete "${s.name}"? This cannot be undone.`)) return;
+      if (!await openConfirmDialog({ message: `Delete "${s.name}"? This cannot be undone.` })) return;
       await dbDeleteScenario(s.id);
       if (this.expandedId === s.id) this.expandedId = null;
       this.adding = null;

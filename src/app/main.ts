@@ -33,6 +33,7 @@ function buildNav(): HTMLElement {
       <a href="#/help"      class="nav-link" data-route="/help"      data-testid="nav-help">Help</a>
     </nav>
     <div class="nav-footer">
+      <a href="#/ledger"   class="nav-link" data-route="/ledger"   data-testid="nav-ledger">Ledger</a>
       <a href="#/settings" class="nav-link" data-route="/settings" data-testid="nav-settings">Settings</a>
       <button class="nav-lock-btn" id="nav-lock-btn" data-testid="nav-lock-btn">🔒 Lock Vault</button>
       <a href="https://buymeacoffee.com/sormondocom" target="_blank" rel="noopener noreferrer" class="nav-coffee">☕ buy me a coffee</a>
@@ -125,6 +126,10 @@ function launchApp(): void {
     const { HelpPage } = await import('@/pages/help/HelpPage');
     return new HelpPage().render();
   });
+  register('/ledger', async () => {
+    const { LedgerPage } = await import('@/pages/ledger/Ledger');
+    return new LedgerPage().render();
+  });
   register('/settings', async () => {
     const { SettingsPage } = await import('@/pages/settings/Settings');
     return new SettingsPage().render();
@@ -151,6 +156,29 @@ function launchApp(): void {
     }
   });
 
+  // Auto-record recent missed paydays and prompt the user via mascot for older ones.
+  void import('@/utils/paydayDeposits').then(({ autoRecordPaydays }) => {
+    void autoRecordPaydays().then(async ({ pendingPrompts }) => {
+      if (pendingPrompts.length === 0) return;
+      const [{ showMissedPaydayPrompt }, { accounting }] = await Promise.all([
+        import('@/mascot/Mascot'),
+        import('@/accounting'),
+      ]);
+      void showMissedPaydayPrompt(pendingPrompts, (m) =>
+        accounting.recordBankCredit({
+          accountId: m.bankAccountId,
+          description: m.sourceName,
+          amount: m.amount,
+          date: m.date,
+          correlationId: m.correlationId,
+        }).then(() => undefined),
+      );
+    });
+  });
+
+  // Clear the background-set pending flag.
+  void browser.storage.local.remove('pendingPaydayCheck');
+
   // Check for any due custom notifications after the dashboard has rendered, then
   // align the repeating poll to the top of each clock minute so time-triggered
   // notifications fire as close to HH:MM:00 as possible rather than at whatever
@@ -159,13 +187,40 @@ function launchApp(): void {
     void import('@/utils/notifications').then(({ checkAndFireNotifications }) => {
       void checkAndFireNotifications();
 
+      let lastPaydayCheckDate = new Date().toDateString();
+
       // Wait until the next whole minute, then tick every 60 s from there.
       const now = new Date();
       const msUntilNextMinute =
         (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
       setTimeout(() => {
         void checkAndFireNotifications();
-        setInterval(() => { void checkAndFireNotifications(); }, 60_000);
+        setInterval(() => {
+          void checkAndFireNotifications();
+          // If the calendar date rolled over while the popup was open, re-run the payday check.
+          const today = new Date().toDateString();
+          if (today !== lastPaydayCheckDate) {
+            lastPaydayCheckDate = today;
+            void import('@/utils/paydayDeposits').then(({ autoRecordPaydays }) => {
+              void autoRecordPaydays().then(async ({ pendingPrompts }) => {
+                if (pendingPrompts.length === 0) return;
+                const [{ showMissedPaydayPrompt }, { accounting }] = await Promise.all([
+                  import('@/mascot/Mascot'),
+                  import('@/accounting'),
+                ]);
+                void showMissedPaydayPrompt(pendingPrompts, (m) =>
+                  accounting.recordBankCredit({
+                    accountId: m.bankAccountId,
+                    description: m.sourceName,
+                    amount: m.amount,
+                    date: m.date,
+                    correlationId: m.correlationId,
+                  }).then(() => undefined),
+                );
+              });
+            });
+          }
+        }, 60_000);
       }, msUntilNextMinute);
     });
   }, 1500);

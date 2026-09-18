@@ -156,7 +156,7 @@ export class Dashboard {
 
     // ── Activity / Report section (date-sensitive) ───────────────────────────
     this.el.appendChild(buildActivitySection(
-      this.currentBuckets(), this.viewMode, this.categories, this.members,
+      this.currentBuckets(), this.viewMode, this.categories, this.members, this.bankAccounts,
       this.rangeStart, this.rangeEnd,
       (id) => { this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== id); this.refreshDateSections(); },
       (id) => { this.allExpenses = this.allExpenses.filter((x) => x.id !== id); this.refreshDateSections(); },
@@ -309,7 +309,7 @@ export class Dashboard {
 
     const oldActivity = this.el.querySelector('[data-section="activity"]');
     if (oldActivity) oldActivity.replaceWith(buildActivitySection(
-      buckets, this.viewMode, this.categories, this.members,
+      buckets, this.viewMode, this.categories, this.members, this.bankAccounts,
       this.rangeStart, this.rangeEnd,
       (id) => { this.allIncomeSources = this.allIncomeSources.filter((x) => x.id !== id); this.refreshDateSections(); },
       (id) => { this.allExpenses = this.allExpenses.filter((x) => x.id !== id); this.refreshDateSections(); },

@@ -91,7 +91,7 @@ test('adds River Bank with no starting balance and no linked income', async () =
 test('account with no data shows a placeholder hint, not a number', async () => {
   const row = page.locator('[data-testid="account-row"]').filter({ hasText: 'River Bank' });
   await expect(row.locator('[data-testid="account-balance-hint"]')).toBeVisible();
-  await expect(row.locator('[data-testid="account-balance-hint"]')).toContainText('Link income or expenses');
+  await expect(row.locator('[data-testid="account-balance-hint"]')).toContainText('Set an opening balance');
   await expect(row.locator('[data-testid="account-balance"]')).not.toBeVisible();
 });
 

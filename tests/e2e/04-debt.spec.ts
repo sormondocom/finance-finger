@@ -138,9 +138,10 @@ test('switches payoff strategy to avalanche', async () => {
 });
 
 test('deletes the medical debt', async () => {
-  page.once('dialog', (d) => d.accept());
   const row = page.locator('[data-testid="debt-row"]').filter({ hasText: 'ER Bill' });
   await row.locator('[data-testid="debt-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
   await expect(row).not.toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/debt-08-deleted.png' });
 });

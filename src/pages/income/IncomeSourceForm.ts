@@ -1,10 +1,11 @@
 import { navigate } from '@/app/router';
 import { openFormModal } from '@/components/Modal';
-import { createIncomeSource, saveIncomeSource } from '@/db';
+import { createIncomeSource, saveIncomeSource, deleteLedgerEntriesByCorrelation } from '@/db';
 import { fmtCents, FREQUENCY_OPTIONS, MONTHLY_FACTORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { accounting } from '@/accounting';
 import type { HouseholdMember, IncomeSource, IncomeFrequency, BankAccount } from '@/types';
 
 export type IncomeFormContext = {
@@ -30,7 +31,7 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
   const _now = new Date();
   const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   const existingDate = existing?.date
-    ? new Date(existing.date).toISOString().split('T')[0]!
+    ? (() => { const d = new Date(existing.date); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })()
     : today;
 
   body.innerHTML = `
@@ -246,6 +247,12 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
       syncUnequalUI();
     }
     syncHourlyPreview();
+    // Chrome extension context: value attribute on a hidden input may not
+    // populate .value until the element is visible. Explicitly seed the date.
+    if (!once && !semi) {
+      const paydayInput = body.querySelector<HTMLInputElement>('#sf-payday')!;
+      if (!paydayInput.value) paydayInput.value = today;
+    }
   };
 
   unequalCheck.addEventListener('change', syncUnequalUI);
@@ -369,6 +376,31 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
       else delete source.bankAccountId;
 
       await saveIncomeSource(source);
+
+      // Keep ledger in sync for one-time sources that are linked to a bank account.
+      // A stable correlationId (based on income source id) prevents duplicate entries
+      // on re-saves and allows clean removal when the bank link or frequency changes.
+      const onceCorrId = `income-once-${source.id}`;
+      const wasOnce = existing?.frequency === 'once';
+      const isOnce  = source.frequency === 'once';
+      const hadBank = !!(existing?.bankAccountId);
+      const hasBank = !!(source.bankAccountId);
+
+      if (wasOnce || (isEdit && hadBank)) {
+        // Remove any existing ledger entry so we can re-create with updated values.
+        await deleteLedgerEntriesByCorrelation(onceCorrId);
+      }
+
+      if (isOnce && hasBank && source.date != null) {
+        await accounting.recordBankCredit({
+          accountId: source.bankAccountId!,
+          description: source.name,
+          amount: source.amount,
+          date: source.date,
+          correlationId: onceCorrId,
+        });
+      }
+
       await flushReminders(source.id);
       close();
       await ctx.onLoad();

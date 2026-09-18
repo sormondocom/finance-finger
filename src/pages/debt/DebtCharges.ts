@@ -1,8 +1,6 @@
-import {
-  saveCardCharge, deleteCardCharge, createCardCharge, saveDebtAccount,
-  getExpensePaidRecords, deleteExpensePaidRecord,
-} from '@/db';
+import { accounting } from '@/accounting';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
 import type { DebtAccount, CardCharge, ExpenseCategory } from '@/types';
 import { userLocale } from '@/utils/locale';
@@ -71,8 +69,8 @@ function openEditChargeModal(
       const merchant   = body.querySelector<HTMLInputElement>('#ch-merchant')!.value.trim();
       const amount     = parseFloat(body.querySelector<HTMLInputElement>('#ch-amount')!.value);
       const dateVal    = body.querySelector<HTMLInputElement>('#ch-date')!.value;
-      const categoryId = body.querySelector<HTMLSelectElement>('#ch-cat')!.value || undefined;
-      const note       = body.querySelector<HTMLInputElement>('#ch-note')!.value.trim() || undefined;
+      const categoryId = body.querySelector<HTMLSelectElement>('#ch-cat')!.value || null;
+      const note       = body.querySelector<HTMLInputElement>('#ch-note')!.value.trim() || null;
       const errEl      = body.querySelector<HTMLElement>('#ch-error')!;
 
       errEl.style.display = 'none';
@@ -88,18 +86,8 @@ function openEditChargeModal(
         return;
       }
 
-      const date = new Date(dateVal + 'T12:00:00').getTime();
-      const amountDelta = amount - ch.amount;
-      const updated: CardCharge = { ...ch, merchant, amount, date };
-      if (categoryId) updated.categoryId = categoryId; else delete updated.categoryId;
-      if (note)       updated.note = note;              else delete updated.note;
-
-      await Promise.all([
-        saveCardCharge(updated),
-        ...(amountDelta !== 0
-          ? [saveDebtAccount({ ...a, balance: a.balance + amountDelta, updatedAt: Date.now() })]
-          : []),
-      ]);
+      const date = new Date(dateVal + 'T00:00:00').getTime();
+      await accounting.updateCharge({ chargeId: ch.id, amount, date, description: merchant, categoryId, note });
       close();
       await onSaved(a.id);
     },
@@ -173,12 +161,8 @@ function openAddChargeModal(
         return;
       }
 
-      const date = new Date(dateStr + 'T12:00:00').getTime();
-      const charge = createCardCharge(a.id, merchant, amount, date, categoryId, note);
-      await Promise.all([
-        saveCardCharge(charge),
-        saveDebtAccount({ ...a, balance: a.balance + amount, updatedAt: Date.now() }),
-      ]);
+      const date = new Date(dateStr + 'T00:00:00').getTime();
+      await accounting.recordCharge({ accountId: a.id, description: merchant, amount, date, ...(categoryId ? { categoryId } : {}), ...(note ? { note } : {}) });
       close();
       await onSaved(a.id);
     },
@@ -342,18 +326,8 @@ export function buildChargesPanel(
     delBtn.title = 'Remove charge';
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', async () => {
-      if (!confirm(`Remove ${fmtCents.format(ch.amount)} charge from ${ch.merchant}?`)) return;
-      const ops: Promise<unknown>[] = [
-        deleteCardCharge(ch.id),
-        saveDebtAccount({ ...a, balance: a.balance - ch.amount, updatedAt: Date.now() }),
-      ];
-      if (ch.sourceExpenseId) {
-        // Remove the expense paid record that auto-created this charge
-        const paidRecs = await getExpensePaidRecords(ch.sourceExpenseId);
-        const linked = paidRecs.find((r) => r.cardId === ch.accountId);
-        if (linked) ops.push(deleteExpensePaidRecord(linked.id));
-      }
-      await Promise.all(ops);
+      if (!await openConfirmDialog({ message: `Remove ${fmtCents.format(ch.amount)} charge from ${ch.merchant}?`, confirmLabel: 'Remove' })) return;
+      await accounting.deleteCharge(ch.id);
       await onSaved(a.id);
     });
     item.appendChild(editBtn);

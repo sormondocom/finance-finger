@@ -237,7 +237,7 @@ export function renderDebtPanel(cards: DebtAccount[]): string {
           <span class="text-sm font-bold">${c.name}</span>
           <span class="text-xs text-muted" style="display:block">${c.apr}% APR</span>
         </div>
-        <span class="text-sm" style="color:var(--color-danger)">${fmtCents.format(c.balance)}</span>
+        <span class="text-sm" style="color:${c.balance <= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${fmtCents.format(c.balance)}</span>
       </div>
     `,
     )

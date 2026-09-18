@@ -119,6 +119,7 @@ test('setup: add Internet Service ($80, recurring, past-due)', async () => {
   await page.fill('#ef-amount', '80');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -134,7 +135,7 @@ test('recording a payment to Card Alpha increases its balance by the payment amo
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('[data-testid="expense-pay-amount"]', '80');
-  await page.selectOption('#mp-source', { label: 'Card Alpha' });
+  await page.selectOption('#pay-src', { label: 'Card Alpha' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -188,7 +189,7 @@ test('switching payment from Card Alpha to Card Beta decrements Alpha and increm
   await row.locator('[data-testid="expense-edit-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await page.selectOption('#mp-source', { label: 'Card Beta' });
+  await page.selectOption('#pay-src', { label: 'Card Beta' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -224,7 +225,7 @@ test('clearing the card from the payment decrements Card Beta back to $500', asy
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Select "Not specified" to clear the card
-  await page.selectOption('#mp-source', { value: '' });
+  await page.selectOption('#pay-src', { value: '' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -250,7 +251,7 @@ test('setup for ledger delete: re-record Internet Service payment ($80) to Card 
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   await page.fill('[data-testid="expense-pay-amount"]', '80');
-  await page.selectOption('#mp-source', { label: 'Card Alpha' });
+  await page.selectOption('#pay-src', { label: 'Card Alpha' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -270,8 +271,9 @@ test('deleting the paid record from the ledger decrements Card Alpha back to $1,
   await expect(ledger).toBeVisible();
 
   // Delete the paid record
-  page.once('dialog', (d) => d.accept());
   await ledger.locator('[data-testid="expense-ledger-del"]').first().click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Balance: $1,080 − $80 = $1,000
   await navigateTo(page, 'debt');
@@ -296,6 +298,7 @@ test('setup: add Phone Bill ($60, recurring) and pay it to Card Beta', async () 
   await page.fill('#ef-amount', '60');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -304,7 +307,7 @@ test('setup: add Phone Bill ($60, recurring) and pay it to Card Beta', async () 
   await phoneRow.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('[data-testid="expense-pay-amount"]', '60');
-  await page.selectOption('#mp-source', { label: 'Card Beta' });
+  await page.selectOption('#pay-src', { label: 'Card Beta' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -317,8 +320,9 @@ test('setup: add Phone Bill ($60, recurring) and pay it to Card Beta', async () 
 test('deleting Phone Bill (with linked charge) decrements Card Beta back to $500', async () => {
   await navigateTo(page, 'expenses');
   const phoneRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Phone Bill' });
-  page.once('dialog', (d) => d.accept());
   await phoneRow.locator('[data-testid="expense-delete"]').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   await expect(
     page.locator('[data-testid="expense-row"]').filter({ hasText: 'Phone Bill' }),
@@ -339,7 +343,7 @@ test('setup: re-record Internet Service payment ($80) to Card Alpha for debt-sid
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('[data-testid="expense-pay-amount"]', '80');
-  await page.selectOption('#mp-source', { label: 'Card Alpha' });
+  await page.selectOption('#pay-src', { label: 'Card Alpha' });
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
@@ -357,8 +361,9 @@ test('deleting the Auto charge from the debt page decrements Card Alpha back to 
   await expect(charge).toBeVisible();
   await expect(charge.locator('[data-testid="charge-auto-badge"]')).toBeVisible();
 
-  page.once('dialog', (d) => d.accept());
   await charge.locator('.icon-btn.danger').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Panel updates — charge gone
   await expect(alphaWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Internet Service' })).toHaveCount(0);

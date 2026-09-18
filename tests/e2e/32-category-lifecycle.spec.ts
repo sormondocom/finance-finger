@@ -68,18 +68,11 @@ test('clicking ✕ on Groceries (with linked expenses) triggers a confirm dialog
   // The ✕ remove button on the pill
   const removeBtn = pill.locator('button, [data-action="remove"]').first();
 
-  // Register dialog handler BEFORE the click
-  let dialogFired = false;
-  page.once('dialog', (d) => {
-    dialogFired = true;
-    expect(d.message()).toContain('Groceries');
-    expect(d.message()).toContain('expenses');
-    d.dismiss(); // cancel — expenses should remain unaffected
-  });
-
   await removeBtn.click();
-  await page.waitForTimeout(300);
-  expect(dialogFired).toBe(true);
+  // Custom confirm dialog appears — dismiss (cancel) so expenses remain unaffected
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible({ timeout: 4_000 });
+  await page.click('[data-testid="confirm-cancel"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible({ timeout: 4_000 });
 });
 
 test('after dismissing, Groceries category pill still exists', async () => {
@@ -95,8 +88,9 @@ test('accepting the confirm dialog removes the category pill', async () => {
   const pill = page.locator('[data-testid="category-pill"]').filter({ hasText: 'Groceries' });
   const removeBtn = pill.locator('button, [data-action="remove"]').first();
 
-  page.once('dialog', (d) => d.accept());
   await removeBtn.click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible({ timeout: 4_000 });
+  await page.click('[data-testid="confirm-ok"]');
 
   await expect(
     page.locator('[data-testid="category-pill"]').filter({ hasText: 'Groceries' }),

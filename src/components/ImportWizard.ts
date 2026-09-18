@@ -10,23 +10,22 @@ import {
 import { findDuplicateImport, recordImport, importSnapshotLabel } from '@/utils/importManager';
 import { takeSnapshot } from '@/utils/snapshot';
 import {
-  saveCardCharge, saveBankTransaction,
+  saveBankTransaction,
   getExpenses, saveExpense,
   getDebtAccounts, saveDebtAccount, createDebtAccount,
   getBankAccounts,
   saveCategory,
   createExpensePaidRecord, saveExpensePaidRecord,
-  saveDebtPayment,
-  saveAccountTransfer,
   getTransactionRules, saveTransactionRule,
   getSetting,
 } from '@/db';
+import { accounting } from '@/accounting';
 import { normalizePattern, toRuleAction } from '@/utils/importRules';
 import { inferActionType } from '@/utils/importSuggest';
 import { fmt, fmtCents } from '@/utils/finance';
 import type {
-  CardCharge, BankTransaction, ExpenseCategory, ImportRecord,
-  Expense, DebtPayment, AccountTransfer,
+  BankTransaction, ExpenseCategory, ImportRecord,
+  Expense,
   DebtAccountType, IncomeFrequency,
   TransactionRule,
   ReviewAction,
@@ -1617,22 +1616,19 @@ export function openImportWizard(opts: ImportWizardOptions): void {
     const importId = crypto.randomUUID();
 
     if (isCard) {
-      const charges: CardCharge[] = rows.map((r, i) => {
+      for (const [i, r] of rows.entries()) {
         const dec = decisions[i];
         const categoryId = dec?.type === 'category' ? dec.categoryId : undefined;
         const note = (dec?.type === 'category' && dec.note) ? dec.note : (r.note || undefined);
-        return {
-          id: crypto.randomUUID(),
+        await accounting.recordCharge({
           accountId: opts.targetId,
-          merchant: r.description || 'Imported charge',
+          description: r.description || 'Imported charge',
           amount: Math.abs(r.amount!),
           date: r.date!,
           ...(categoryId ? { categoryId } : {}),
           ...(note ? { note } : {}),
-          createdAt: now,
-        };
-      });
-      await Promise.all(charges.map(saveCardCharge));
+        });
+      }
     } else {
       const txns: BankTransaction[] = rows.map((r) => ({
         id: crypto.randomUUID(),
@@ -1647,64 +1643,61 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       await Promise.all(txns.map(saveBankTransaction));
 
       // After saving bank transactions, create linked records
-      const linkedOps: Promise<void>[] = [];
-      const debtBalanceUpdates = new Map<string, number>(); // debtId -> amount to deduct
-
-      rows.forEach((r, i) => {
+      for (const [i, r] of rows.entries()) {
         const dec = decisions[i];
-        if (!dec || dec.type === 'skip' || dec.type === 'income' || dec.type === 'category') return;
+        if (!dec || dec.type === 'skip' || dec.type === 'income' || dec.type === 'category') continue;
 
         if (dec.type === 'expense') {
           const record = createExpensePaidRecord(dec.expenseId, Math.abs(r.amount!), r.date!);
           record.bankAccountId = opts.targetId;
-          linkedOps.push(saveExpensePaidRecord(record));
+          await saveExpensePaidRecord(record);
         }
 
         if (dec.type === 'debt-payment') {
-          const payment: DebtPayment = {
-            id: crypto.randomUUID(),
+          await accounting.recordDebtPayment({
             accountId: dec.debtAccountId,
             amount: Math.abs(r.amount!),
             date: r.date!,
             type: 'regular',
             bankAccountId: opts.targetId,
-            createdAt: now,
             ...(dec.note ? { note: dec.note } : {}),
-          };
-          linkedOps.push(saveDebtPayment(payment));
-          // Track balance reduction per debt account
-          debtBalanceUpdates.set(
-            dec.debtAccountId,
-            (debtBalanceUpdates.get(dec.debtAccountId) ?? 0) + Math.abs(r.amount!),
-          );
+          });
         }
 
         if (dec.type === 'transfer') {
-          const transfer: AccountTransfer = {
-            id: crypto.randomUUID(),
+          await accounting.recordTransfer({
             fromAccountId: opts.targetId,
+            fromAccountType: 'bank',
             toAccountId: dec.toAccountId,
+            toAccountType: 'bank',
             amount: Math.abs(r.amount!),
             date: r.date!,
-            createdAt: now,
             ...(dec.note ? { note: dec.note } : {}),
-          };
-          linkedOps.push(saveAccountTransfer(transfer));
+          });
         }
-      });
+      }
 
-      await Promise.all(linkedOps);
-
-      // Update debt account balances
-      if (debtBalanceUpdates.size > 0) {
-        const allDebts = await getDebtAccounts();
-        const debtSaves: Promise<void>[] = [];
-        allDebts.forEach((d) => {
-          const paid = debtBalanceUpdates.get(d.id);
-          if (!paid) return;
-          debtSaves.push(saveDebtAccount({ ...d, balance: Math.max(0, d.balance - paid), updatedAt: now }));
-        });
-        await Promise.all(debtSaves);
+      // Create bank-side LedgerEntries for all rows not already handled by
+      // recordDebtPayment / recordTransfer (those methods write their own bank entries).
+      for (const [i, r] of rows.entries()) {
+        const dec = decisions[i];
+        if (dec?.type === 'debt-payment' || dec?.type === 'transfer') continue;
+        const description = r.description || 'Imported transaction';
+        if (r.amount! < 0) {
+          await accounting.recordBankDebit({
+            accountId: opts.targetId,
+            description,
+            amount: Math.abs(r.amount!),
+            date: r.date!,
+          });
+        } else {
+          await accounting.recordBankCredit({
+            accountId: opts.targetId,
+            description,
+            amount: r.amount!,
+            date: r.date!,
+          });
+        }
       }
     }
 

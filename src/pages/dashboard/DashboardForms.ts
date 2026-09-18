@@ -2,7 +2,8 @@ import { createIncomeSource, saveIncomeSource } from '@/db';
 import { createExpense, saveExpense } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { escapeHtml } from '@/utils/escapeHtml';
-import type { ExpenseCategory, HouseholdMember, IncomeSource, Expense } from '@/types';
+import { accounting } from '@/accounting';
+import type { ExpenseCategory, HouseholdMember, IncomeSource, Expense, BankAccount } from '@/types';
 
 type MonthBucket = { year: number; month: number };
 
@@ -13,6 +14,7 @@ function toLocalDate(d: Date): string {
 export function openOneTimeIncomeForm(
   bucket: MonthBucket,
   members: HouseholdMember[],
+  bankAccounts: BankAccount[],
   onSaved: (src: IncomeSource) => void,
 ): void {
   const body = document.createElement('div');
@@ -27,6 +29,11 @@ export function openOneTimeIncomeForm(
   const memberOptions = [
     `<option value="">— No specific member —</option>`,
     ...members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`),
+  ].join('');
+
+  const accountOptions = [
+    `<option value="">— No account —</option>`,
+    ...bankAccounts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`),
   ].join('');
 
   body.innerHTML = `
@@ -48,6 +55,12 @@ export function openOneTimeIncomeForm(
       <label class="form-label" for="ui-member">Member (optional)</label>
       <select id="ui-member">${memberOptions}</select>
     </div>
+    ${bankAccounts.length > 0 ? `
+    <div class="form-group">
+      <label class="form-label" for="ui-account">Deposit to account</label>
+      <select id="ui-account">${accountOptions}</select>
+    </div>
+    ` : ''}
     <div id="ui-error" class="form-error" style="display:none"></div>
   `;
 
@@ -60,6 +73,7 @@ export function openOneTimeIncomeForm(
       const amount = parseFloat(body.querySelector<HTMLInputElement>('#ui-amount')!.value);
       const dateStr = body.querySelector<HTMLInputElement>('#ui-date')!.value;
       const memberId = body.querySelector<HTMLSelectElement>('#ui-member')!.value;
+      const bankAccountId = body.querySelector<HTMLSelectElement>('#ui-account')?.value || undefined;
       const errEl = body.querySelector<HTMLElement>('#ui-error')!;
 
       if (!name) { errEl.textContent = 'Description is required.'; errEl.style.display = 'block'; return; }
@@ -69,7 +83,20 @@ export function openOneTimeIncomeForm(
       const date = new Date(dateStr + 'T00:00:00').getTime();
       const src = createIncomeSource(memberId || (members[0]?.id ?? ''), name, amount, 'once');
       src.date = date;
+      if (bankAccountId) src.bankAccountId = bankAccountId;
+
       await saveIncomeSource(src);
+
+      if (bankAccountId) {
+        await accounting.recordBankCredit({
+          accountId: bankAccountId,
+          description: name,
+          amount,
+          date,
+          correlationId: `income-once-${src.id}`,
+        });
+      }
+
       close();
       onSaved(src);
     },

@@ -3,13 +3,14 @@ import { makeHelpBtn } from '@/utils/helpNav';
 import { showPageError } from '@/utils/errorUI';
 import {
   getBankAccounts, getMembers, getIncomeSources, getExpenses,
-  getExpensePaidRecords, getDebtPayments, getDebtAccounts,
-  getAccountTransfers, getBankTransactions, getCategories,
+  getExpensePaidRecords, getDebtPayments,
+  getAccountTransfers, getCategories, getAllLedgerEntries,
 } from '@/db';
+import { deriveBalance } from '@/accounting';
 import { buildDepositsChart, type ChartRef } from './AccountsChart';
 import { buildAccountRow, type AccountRowContext } from './AccountRow';
 import { openAccountForm } from './AccountForm';
-import type { BankAccount, HouseholdMember, IncomeSource, Expense, ExpensePaidRecord, DebtPayment, DebtAccount, AccountTransfer, BankTransaction, ExpenseCategory } from '@/types';
+import type { BankAccount, HouseholdMember, IncomeSource, Expense, ExpensePaidRecord, DebtPayment, AccountTransfer, ExpenseCategory, LedgerEntry } from '@/types';
 
 export class AccountsPage {
   private accounts: BankAccount[] = [];
@@ -18,10 +19,10 @@ export class AccountsPage {
   private expenses: Expense[] = [];
   private paidRecords: ExpensePaidRecord[] = [];
   private debtPayments: DebtPayment[] = [];
-  private debtAccounts: DebtAccount[] = [];
   private transfers: AccountTransfer[] = [];
-  private bankTransactions: BankTransaction[] = [];
   private categories: ExpenseCategory[] = [];
+  private ledgerBalances: Map<string, number> = new Map();
+  private accountLedgerEntries: Map<string, LedgerEntry[]> = new Map();
   private container!: HTMLElement;
   private _chartRef: ChartRef = { instance: null };
   private viewYear: number = new Date().getFullYear();
@@ -36,9 +37,47 @@ export class AccountsPage {
 
   private async load(): Promise<void> {
     try {
-      [this.accounts, this.members, this.incomeSources, this.expenses, this.paidRecords, this.debtPayments, this.debtAccounts, this.transfers, this.bankTransactions, this.categories] = await Promise.all([
-        getBankAccounts(), getMembers(), getIncomeSources(), getExpenses(), getExpensePaidRecords(), getDebtPayments(), getDebtAccounts(), getAccountTransfers(), getBankTransactions(), getCategories(),
+      // Fetch accounts first so we have IDs for grouping ledger entries.
+      this.accounts = await getBankAccounts();
+
+      const [members, incomeSources, expenses, paidRecords, debtPayments, transfers, categories, allLedgerEntries] = await Promise.all([
+        getMembers(), getIncomeSources(), getExpenses(), getExpensePaidRecords(),
+        getDebtPayments(), getAccountTransfers(), getCategories(),
+        getAllLedgerEntries(),
       ]);
+
+      this.members = members;
+      this.incomeSources = incomeSources;
+      this.expenses = expenses;
+      this.paidRecords = paidRecords;
+      this.debtPayments = debtPayments;
+      this.transfers = transfers;
+      this.categories = categories;
+
+      // Group bank ledger entries by account and sort by date so the panel and
+      // balance computation both see entries in chronological order.
+      const entryMap = new Map<string, LedgerEntry[]>();
+      for (const entry of allLedgerEntries) {
+        if (entry.accountType !== 'bank') continue;
+        const arr = entryMap.get(entry.accountId) ?? [];
+        arr.push(entry);
+        entryMap.set(entry.accountId, arr);
+      }
+      for (const arr of entryMap.values()) {
+        arr.sort((a, b) => {
+          const dateDiff = a.date - b.date;
+          if (dateDiff !== 0) return dateDiff;
+          const ap = a.type === 'reconciliation' ? 0 : 1;
+          const bp = b.type === 'reconciliation' ? 0 : 1;
+          if (ap !== bp) return ap - bp;
+          return a.createdAt - b.createdAt;
+        });
+      }
+      this.accountLedgerEntries = entryMap;
+      this.ledgerBalances = new Map(
+        this.accounts.map((a) => [a.id, deriveBalance(entryMap.get(a.id) ?? [])]),
+      );
+
       this.paint();
     } catch (err) {
       showPageError(this.container, err instanceof Error ? err.message : 'Failed to load accounts', () => { void this.load(); });
@@ -134,10 +173,10 @@ export class AccountsPage {
         expenses: this.expenses,
         paidRecords: this.paidRecords,
         debtPayments: this.debtPayments,
-        debtAccounts: this.debtAccounts,
         transfers: this.transfers,
-        bankTransactions: this.bankTransactions,
         categories: this.categories,
+        ledgerBalances: this.ledgerBalances,
+        accountLedgerEntries: this.accountLedgerEntries,
         viewYear: this.viewYear,
         viewMonth: this.viewMonth,
         onLoad: () => this.load(),

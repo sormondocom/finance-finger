@@ -54,6 +54,13 @@ const NEXT_MONTH_DATE = (() => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
 })();
 
+// A date in the previous month — expense.date must be outside the 14-day
+// cycle window so computeBillStatus returns 'past-due' (not 'paid').
+const PREV_MONTH_DATE = (() => {
+  const d = new Date(today.getFullYear(), today.getMonth() - 1, 15);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
+})();
+
 function thisMonthDate(day: number): string {
   return `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 }
@@ -112,6 +119,7 @@ test('setup: adds Electric Bill (variable, no flags)', async () => {
   await page.fill('#ef-amount', '95');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');
@@ -129,6 +137,7 @@ test('setup: adds Cable Bill (isFixedAmount = true)', async () => {
   await page.fill('#ef-amount', '89');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-fixed-amount');
 
@@ -148,6 +157,7 @@ test('setup: adds Netflix (isAutoPay = true)', async () => {
   await page.fill('#ef-amount', '18');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 
@@ -301,8 +311,8 @@ test('Record Payment dialog has a date picker', async () => {
 });
 
 test('Record Payment dialog shows a card dropdown because a card account exists', async () => {
-  await expect(page.locator('#mp-source')).toBeVisible();
-  await expect(page.locator('#mp-source')).toContainText('Visa Card');
+  await expect(page.locator('#pay-src')).toBeVisible();
+  await expect(page.locator('#pay-src')).toContainText('Visa Card');
 });
 
 // ── Tests 11-12: fixed-amount dialog ─────────────────────────────────────────
@@ -463,6 +473,7 @@ test('auto-pay bill with an overdue date shows no Past Due or Due-soon badge', a
   await page.fill('#ef-amount', '10');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
+  await page.fill('#ef-date', PREV_MONTH_DATE);
   await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 

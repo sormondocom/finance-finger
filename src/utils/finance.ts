@@ -96,7 +96,6 @@ const _locale   = (typeof navigator !== 'undefined' ? navigator.language : null)
 let _fmt = new Intl.NumberFormat(_locale, {
   style: 'currency',
   currency: _currency,
-  maximumFractionDigits: 0,
 });
 
 let _fmtCents = new Intl.NumberFormat(_locale, {
@@ -111,11 +110,28 @@ export const fmtCents = { format: (n: number): string => _fmtCents.format(n) };
 
 export function setCurrency(code: string): void {
   _currency  = code;
-  _fmt       = new Intl.NumberFormat(_locale, { style: 'currency', currency: code, maximumFractionDigits: 0 });
+  _fmt       = new Intl.NumberFormat(_locale, { style: 'currency', currency: code });
   _fmtCents  = new Intl.NumberFormat(_locale, { style: 'currency', currency: code });
 }
 
 export function getCurrentCurrency(): string { return _currency; }
+
+/** Returns a display label for an expense recurring frequency threshold (e.g. "Monthly", "Weekly"). */
+export function freqThresholdLabel(freq: string | null | undefined): string {
+  switch (freq) {
+    case 'weekly':      return 'Weekly';
+    case 'biweekly':    return 'Biweekly';
+    case 'semimonthly': return 'Semi-monthly';
+    case 'quarterly':   return 'Quarterly';
+    case 'annual':      return 'Annual';
+    default:            return 'Monthly';
+  }
+}
+
+/** Rounds a raw float to 2 decimal places (cent precision). */
+export function roundAmount(raw: number): number {
+  return Math.round(raw * 100) / 100;
+}
 
 export const CATEGORY_COLORS = [
   // Reds & pinks

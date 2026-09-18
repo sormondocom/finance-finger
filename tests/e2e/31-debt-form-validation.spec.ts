@@ -125,8 +125,9 @@ test('deleting the payment reverts card to past-due', async () => {
   await expect(panel).toBeVisible();
 
   // Delete the payment
-  page.once('dialog', (d) => d.accept());
   await panel.locator('[data-testid="payment-history-delete"]').first().click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Panel closes / row reloads — past-due badge should reappear
   await expect(row.locator('.debt-badge--past-due')).toBeVisible({ timeout: 10_000 });

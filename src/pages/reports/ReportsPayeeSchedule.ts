@@ -50,7 +50,7 @@ export function buildPayeeSchedule(
       const freq = e.recurringFrequency!;
       const annual = e.amount * (ANNUAL_FACTORS[freq] ?? 0);
       const rows = byFreq.get(freq) ?? [];
-      rows.push({ name: e.description, amountPerPeriod: e.amount, annualTotal: annual, dueDay: e.dueDay, source: 'bill' });
+      rows.push({ name: e.description, amountPerPeriod: e.amount, annualTotal: annual, ...(e.dueDay != null ? { dueDay: e.dueDay } : {}), source: 'bill' });
       byFreq.set(freq, rows);
     });
 

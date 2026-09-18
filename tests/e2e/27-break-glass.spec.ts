@@ -428,8 +428,9 @@ test('Delete button with confirmation removes the record from the list', async (
   await selectStore('members');
   await clickRecord('Delete Me');
 
-  page.once('dialog', (d) => d.accept());
   await page.click('[data-testid="bg-delete-btn"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
 
   // Record gone from list
   await expect(page.locator('.bg-list-item').filter({ hasText: 'Delete Me' })).not.toBeVisible();

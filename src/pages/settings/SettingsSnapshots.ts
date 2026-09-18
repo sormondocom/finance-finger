@@ -1,4 +1,5 @@
 import { getSnapshots, deleteSnapshot } from '@/db';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { takeSnapshot, restoreSnapshot } from '@/utils/snapshot';
 import type { RawSnapshot } from '@/types';
 import { userLocale } from '@/utils/locale';
@@ -39,10 +40,19 @@ export function buildSnapshotsSection(
   `;
   wrap.appendChild(descRow);
 
+  const scrollWrap = document.createElement('div');
+  scrollWrap.className = 'settings-scroll-wrap';
+
   const list = document.createElement('div');
   list.className = 'snapshot-list';
   list.setAttribute('data-testid', 'settings-snapshot-list');
-  wrap.appendChild(list);
+  scrollWrap.appendChild(list);
+  wrap.appendChild(scrollWrap);
+
+  const updateFade = () => {
+    scrollWrap.classList.toggle('no-overflow', list.scrollHeight - list.scrollTop <= list.clientHeight + 1);
+  };
+  list.addEventListener('scroll', updateFade);
 
   const buildSnapshotRow = (snap: RawSnapshot, isImport: boolean): HTMLElement => {
     const dateLabel = new Date(snap.takenAt).toLocaleString(userLocale, {
@@ -80,9 +90,12 @@ export function buildSnapshotsSection(
     restoreBtn.textContent = 'Restore';
     restoreBtn.setAttribute('data-testid', 'settings-snapshot-restore-btn');
     restoreBtn.addEventListener('click', async () => {
-      const confirmed = confirm(
-        `Restore to: ${dateLabel}\n\nThis will replace all current data with data from this snapshot. A safety snapshot of your current state will be saved first.\n\nProceed?`,
-      );
+      const confirmed = await openConfirmDialog({
+        title: 'Restore snapshot',
+        message: `Restore to: ${dateLabel}? This will replace all current data with data from this snapshot. A safety snapshot of your current state will be saved first.`,
+        confirmLabel: 'Restore',
+        danger: false,
+      });
       if (!confirmed) return;
       restoreBtn.disabled = true;
       restoreBtn.textContent = 'Restoring…';
@@ -116,6 +129,7 @@ export function buildSnapshotsSection(
   };
 
   const renderList = () => {
+    const prevScroll = list.scrollTop;
     list.innerHTML = '';
     const regular = snapshots.filter((s) => s.snapshotType !== 'import');
     const imports  = snapshots.filter((s) => s.snapshotType === 'import');
@@ -138,6 +152,9 @@ export function buildSnapshotsSection(
       list.appendChild(importHeading);
       imports.forEach((snap) => list.appendChild(buildSnapshotRow(snap, true)));
     }
+
+    // Defer one frame so the browser has laid out the new rows before measuring
+    requestAnimationFrame(() => { list.scrollTop = prevScroll; updateFade(); });
   };
 
   const refreshList = async () => {

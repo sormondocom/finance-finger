@@ -9,6 +9,7 @@ export type HelpSection =
   | 'calendar'
   | 'budget'
   | 'debt'
+  | 'ledger'
   | 'reports'
   | 'whatif'
   | 'learn'

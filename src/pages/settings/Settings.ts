@@ -6,14 +6,17 @@ import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { invalidateConfig } from '@/mascot/Mascot';
 import { readKeyInfo } from '@/crypto/pgp';
 import { isVaultOpen, closeVault } from '@/crypto/vault';
-import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, deleteIncomeSource, getBankAccounts, saveBankAccount, getExpenses, saveExpense, getSetting, getCustomNotifications, getSnapshots } from '@/db';
+import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, getBankAccounts, saveBankAccount, getExpenses, saveExpense, getSetting, getCustomNotifications, getSnapshots } from '@/db';
+import { accounting } from '@/accounting';
 import { setCurrency, getCurrentCurrency, SUPPORTED_CURRENCIES } from '@/utils/finance';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { buildBreakGlassSection } from './BreakGlass';
 import { buildSnapshotsSection } from './SettingsSnapshots';
 import { buildDangerSection } from './SettingsDanger';
 import { buildNotificationsSection } from './SettingsNotifications';
 import { buildImportRulesSection } from './SettingsImportRules';
 import { buildDataSharingSection } from './SettingsDataSharing';
+import { buildReconciliationSection } from './SettingsReconciliation';
 import type { VaultConfig, MascotGender, HouseholdMember, AvatarType, SharingKey, CustomNotification, Expense, RawSnapshot } from '@/types';
 
 async function getConfig(): Promise<VaultConfig | null> {
@@ -38,6 +41,7 @@ export class SettingsPage {
   private notifications: CustomNotification[] = [];
   private expenses: Expense[] = [];
   private snapshots: RawSnapshot[] = [];
+  private missedPaydayPromptDays = 3;
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -49,7 +53,8 @@ export class SettingsPage {
 
   private async load(): Promise<void> {
     try {
-      [this.config, this.members, this.sharingKeys, this.notifications, this.expenses, this.snapshots] = await Promise.all([
+      const [storageResult, config, members, sharingKeys, notifications, expenses, snapshots] = await Promise.all([
+        browser.storage.local.get('missedPaydayPromptDays'),
         getConfig(),
         getMembers(),
         getSharingKeys(),
@@ -57,6 +62,14 @@ export class SettingsPage {
         getExpenses(),
         getSnapshots(),
       ]);
+      this.config       = config;
+      this.members      = members;
+      this.sharingKeys  = sharingKeys;
+      this.notifications = notifications;
+      this.expenses     = expenses;
+      this.snapshots    = snapshots;
+      this.missedPaydayPromptDays =
+        (storageResult['missedPaydayPromptDays'] as number | undefined) ?? 3;
       this.paint();
     } catch (err) {
       showPageError(this.container, err instanceof Error ? err.message : 'Failed to load settings', () => { void this.load(); });
@@ -75,10 +88,12 @@ export class SettingsPage {
     this.container.appendChild(this.sectionTheme());
     this.container.appendChild(this.sectionSecurity());
     this.container.appendChild(buildNotificationsSection(this.notifications, this.expenses, (msg) => this.showToast(msg)));
+    this.container.appendChild(this.sectionPaydays());
     this.container.appendChild(buildDataSharingSection(this.sharingKeys, this.config?.publicKeyArmored, this.config?.profileName, (msg, ms) => this.showToast(msg, ms)));
     this.container.appendChild(buildImportRulesSection((msg) => this.showToast(msg)));
     this.container.appendChild(buildSnapshotsSection(this.snapshots, (msg) => this.showToast(msg)));
-    this.container.appendChild(buildDangerSection());
+    this.container.appendChild(buildReconciliationSection((msg) => this.showToast(msg)));
+    this.container.appendChild(buildDangerSection((msg) => this.showToast(msg)));
     this.container.appendChild(buildBreakGlassSection(this.config?.mascotGender));
   }
 
@@ -252,7 +267,7 @@ export class SettingsPage {
         removeBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger);margin-left:auto';
         removeBtn.textContent = 'Remove';
         removeBtn.addEventListener('click', async () => {
-          if (!confirm(`Remove "${m.name}"? Their income sources will also be removed.`)) return;
+          if (!await openConfirmDialog({ message: `Remove "${m.name}"? Their income sources will also be removed.`, confirmLabel: 'Remove' })) return;
           const [sources, allAccounts, allExpenses] = await Promise.all([
             getIncomeSources(),
             getBankAccounts(),
@@ -260,7 +275,7 @@ export class SettingsPage {
           ]);
           const toDelete = sources.filter((s) => s.memberId === m.id);
           await Promise.all([
-            ...toDelete.map((s) => deleteIncomeSource(s.id)),
+            ...toDelete.map((s) => accounting.deleteIncomeSource(s)),
             ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
             ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
           ]);
@@ -618,8 +633,45 @@ export class SettingsPage {
     return wrap;
   }
 
-  // ── Reminders / Notifications section ────────────────────────────────
+  // ── Paydays section ───────────────────────────────────────────────────
 
+  private sectionPaydays(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'settings-group';
+    wrap.innerHTML = `<div class="settings-group-title">Paydays</div>`;
+
+    const row = document.createElement('div');
+    row.className = 'setting-row';
+    row.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Missed payday prompt window</span>
+        <span class="setting-row-desc">
+          If your app is open on payday, the deposit is recorded automatically.
+          If you miss checking in, your mascot will ask whether to record it —
+          up to this many <strong>days after the payday date</strong>. Set to 0
+          to disable the prompt entirely.
+        </span>
+      </div>
+      <div class="setting-row-control" style="display:flex;gap:var(--space-3);align-items:center">
+        <input id="missed-payday-days-input" type="number" min="0" max="60" step="1"
+          value="${this.missedPaydayPromptDays}" style="width:90px;text-align:right" />
+        <span style="font-size:var(--text-sm);color:var(--color-muted)">days</span>
+        <button id="missed-payday-days-save" class="btn btn-primary">Save</button>
+      </div>
+    `;
+
+    row.querySelector('#missed-payday-days-save')!.addEventListener('click', async () => {
+      const input = row.querySelector<HTMLInputElement>('#missed-payday-days-input')!;
+      const val = Math.max(0, Math.min(60, parseInt(input.value, 10) || 0));
+      input.value = String(val);
+      await browser.storage.local.set({ missedPaydayPromptDays: val });
+      this.missedPaydayPromptDays = val;
+      this.showToast('Payday prompt window saved.');
+    });
+
+    wrap.appendChild(row);
+    return wrap;
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────
 

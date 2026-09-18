@@ -1,12 +1,16 @@
 import {
-  getExpensePaidRecords, deleteExpensePaidRecord, findChargeByExpenseId,
-  getCardCharges, deleteCardCharge, deleteExpense,
-  saveExpense, saveExpensePaidRecord, createExpensePaidRecord, saveDebtAccount,
+  getExpensePaidRecords, findChargeByExpenseId,
+  getCardCharges, deleteExpense,
+  saveExpense,
 } from '@/db';
+import { accounting } from '@/accounting';
 import { openFormModal } from '@/components/Modal';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
+import { createPaymentSourceSelect } from '@/components/PaymentSourceSelect';
 import { openExpenseForm } from './ExpenseForm';
 import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
-import { fmt, fmtCents, FREQUENCY_LABELS } from '@/utils/finance';
+import { fmt, fmtCents, FREQUENCY_LABELS, freqThresholdLabel } from '@/utils/finance';
+import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
 import { openAddNotificationModal } from '@/utils/notificationModal';
@@ -29,17 +33,6 @@ function freqInterval(freq: string | null | undefined): number {
   if (freq === 'quarterly') return 3;
   if (freq === 'annual')    return 12;
   return 1;
-}
-
-function freqThresholdLabel(freq: string | null | undefined): string {
-  switch (freq) {
-    case 'weekly':      return 'Weekly';
-    case 'biweekly':    return 'Biweekly';
-    case 'semimonthly': return 'Semi-monthly';
-    case 'quarterly':   return 'Quarterly';
-    case 'annual':      return 'Annual';
-    default:            return 'Monthly';
-  }
 }
 
 function overageColor(actual: number, threshold: number): string {
@@ -153,31 +146,25 @@ function buildLedgerPanel(
     delBtn.title = 'Remove this payment record';
     delBtn.textContent = '🗑️';
     delBtn.addEventListener('click', async () => {
-      if (!confirm('Remove this payment record?')) return;
+      if (!await openConfirmDialog({ title: 'Remove payment', message: 'Remove this payment record?', confirmLabel: 'Remove' })) return;
 
-      const ops: Promise<unknown>[] = [deleteExpensePaidRecord(r.id)];
-
-      if (r.cardId) {
-        const charge = await findChargeByExpenseId(expense.id);
-        if (charge && charge.accountId === r.cardId) {
-          ops.push(deleteCardCharge(charge.id));
-          const card = ctx.cardAccounts.find((a) => a.id === r.cardId);
-          if (card) {
-            ops.push(saveDebtAccount({ ...card, balance: card.balance - charge.amount, updatedAt: Date.now() }));
-          }
-        }
-      }
+      await accounting.deleteExpensePayment(r);
 
       if (isBill) {
         const freshRecords = await getExpensePaidRecords(expense.id);
         const remaining = freshRecords.filter((rec) => rec.id !== r.id);
-        const newDate = remaining.length > 0
-          ? Math.max(...remaining.map((rec) => rec.date))
-          : 0;
-        ops.push(saveExpense({ ...expense, date: newDate }));
+        if (remaining.length > 0) {
+          await saveExpense({ ...expense, date: Math.max(...remaining.map((rec) => rec.date)) });
+        } else {
+          // All payments deleted — reset expense.date to 2 months ago so
+          // computeBillStatus returns past-due instead of ghost-paid.
+          const resetDate = new Date();
+          resetDate.setMonth(resetDate.getMonth() - 2);
+          resetDate.setDate(15);
+          resetDate.setHours(0, 0, 0, 0);
+          await saveExpense({ ...expense, date: resetDate.getTime() });
+        }
       }
-
-      await Promise.all(ops);
       await ctx.onLoad();
       void refreshNotifier();
     });
@@ -202,10 +189,7 @@ function openLogActualForm(
 ): void {
   const isBill = expense.recurring && !!expense.dueDay;
   const isUpdate = !!existingRecord;
-  const today = new Date().toISOString().split('T')[0]!;
-  const prefillDate = existingRecord
-    ? new Date(existingRecord.date).toISOString().split('T')[0]!
-    : today;
+  const prefillDate = existingRecord ? timestampToDateInput(existingRecord.date) : todayDateInput();
   const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
 
   const defaultSourceValue = (() => {
@@ -238,49 +222,15 @@ function openLogActualForm(
     <div id="la-overage-msg" style="display:none"></div>
   `;
 
-  const hasAnySources = ctx.bankAccounts.length > 0 || ctx.cardAccounts.length > 0;
-  const sourceGroup = document.createElement('div');
-  sourceGroup.className = 'form-group';
-  const srcLabel = document.createElement('label');
-  srcLabel.className = 'form-label';
-  srcLabel.htmlFor = 'la-source';
-  srcLabel.innerHTML = 'Charged to <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>';
-  sourceGroup.appendChild(srcLabel);
-
-  if (hasAnySources) {
-    const srcSel = document.createElement('select');
-    srcSel.id = 'la-source';
-    const noneOpt = document.createElement('option');
-    noneOpt.value = '';
-    noneOpt.textContent = '— Not specified —';
-    srcSel.appendChild(noneOpt);
-    if (ctx.bankAccounts.length > 0) {
-      const bankGroup = document.createElement('optgroup');
-      bankGroup.label = 'Accounts';
-      ctx.bankAccounts.forEach((b) => {
-        const opt = document.createElement('option');
-        opt.value = `bank:${b.id}`;
-        opt.textContent = b.name;
-        opt.selected = defaultSourceValue === `bank:${b.id}`;
-        bankGroup.appendChild(opt);
-      });
-      srcSel.appendChild(bankGroup);
-    }
-    if (ctx.cardAccounts.length > 0) {
-      const cardGroup = document.createElement('optgroup');
-      cardGroup.label = 'Credit Cards';
-      ctx.cardAccounts.forEach((a) => {
-        const opt = document.createElement('option');
-        opt.value = `card:${a.id}`;
-        opt.textContent = a.name;
-        opt.selected = defaultSourceValue === `card:${a.id}`;
-        cardGroup.appendChild(opt);
-      });
-      srcSel.appendChild(cardGroup);
-    }
-    sourceGroup.appendChild(srcSel);
-  }
-  body.insertBefore(sourceGroup, body.querySelector('#la-overage-msg'));
+  const logActualModalRef: { close?: () => void } = {};
+  const paySource = createPaymentSourceSelect({
+    bankAccounts: ctx.bankAccounts,
+    cardAccounts: ctx.cardAccounts,
+    defaultValue: defaultSourceValue,
+    label: 'Charged to',
+    closeRef: logActualModalRef,
+  });
+  body.insertBefore(paySource.element, body.querySelector('#la-overage-msg'));
 
   const amountInput = body.querySelector<HTMLInputElement>('#la-amount')!;
   const overageMsg = body.querySelector<HTMLElement>('#la-overage-msg')!;
@@ -298,7 +248,7 @@ function openLogActualForm(
   amountInput.addEventListener('input', checkOverage);
   checkOverage();
 
-  openFormModal({
+  const { close: closeLogActualModal } = openFormModal({
     title: isUpdate ? `Update Actual — ${expense.description}` : `Log Actual — ${expense.description}`,
     body,
     submitLabel: isUpdate ? 'Update' : 'Log Actual',
@@ -307,31 +257,53 @@ function openLogActualForm(
       if (isNaN(rawAmount) || rawAmount < 0) return;
       const actualAmount = Math.round(rawAmount * 100) / 100;
       const dateStr = body.querySelector<HTMLInputElement>('#la-date')!.value;
-      const paidDate = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
-      const sourceVal = body.querySelector<HTMLSelectElement>('#la-source')?.value ?? '';
-      const selectedCardId = sourceVal.startsWith('card:') ? sourceVal.slice(5) : null;
-      const selectedBankId = sourceVal.startsWith('bank:') ? sourceVal.slice(5) : null;
+      const paidDate = dateInputToTimestamp(dateStr);
+      const selectedCardId = paySource.getCardId();
+      const selectedBankId = paySource.getBankId();
 
       const ops: Promise<unknown>[] = [];
       if (isUpdate && existingRecord) {
-        const { cardId: _cid, bankAccountId: _bid, ...baseFields } = existingRecord;
-        ops.push(saveExpensePaidRecord({
-          ...baseFields,
+        ops.push(accounting.updateExpensePayment({
+          record: existingRecord,
           amount: actualAmount,
           date: paidDate,
+          description: expense.description,
           ...(selectedCardId ? { cardId: selectedCardId } : {}),
           ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
         }));
       } else {
-        ops.push(saveExpensePaidRecord({
-          ...createExpensePaidRecord(expense.id, actualAmount, paidDate),
-          ...(selectedCardId ? { cardId: selectedCardId } : {}),
+        ops.push(accounting.recordExpensePayment({
+          expenseId: expense.id,
+          description: expense.description,
+          amount: actualAmount,
+          date: paidDate,
           ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
+          ...(selectedCardId ? { cardId: selectedCardId } : {}),
         }));
       }
       if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
 
       await Promise.all(ops);
+
+      // Charge management via accounting service (writes ledger entries + syncs balance)
+      const existingCharge = await findChargeByExpenseId(expense.id);
+      if (selectedCardId) {
+        if (existingCharge && existingCharge.accountId === selectedCardId) {
+          await accounting.updateCharge({ chargeId: existingCharge.id, amount: actualAmount, date: paidDate });
+        } else {
+          if (existingCharge) await accounting.deleteCharge(existingCharge.id);
+          await accounting.recordCharge({
+            accountId: selectedCardId,
+            description: expense.description,
+            amount: actualAmount,
+            date: paidDate,
+            ...(expense.categoryId ? { categoryId: expense.categoryId } : {}),
+            sourceExpenseId: expense.id,
+          });
+        }
+      } else if (existingCharge) {
+        await accounting.deleteCharge(existingCharge.id);
+      }
       close();
       await ctx.onLoad();
       void refreshNotifier();
@@ -349,6 +321,7 @@ function openLogActualForm(
       }
     },
   });
+  logActualModalRef.close = closeLogActualModal;
 }
 
 export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLElement {
@@ -366,7 +339,6 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     return expense.date >= cycleWindowStart && expense.date < _monthEnd;
   })();
   const alreadyPaid = !!paidRecord && (!isBill || billDateThisCycle);
-  const isStaleStatus = isBill && billStatus?.status === 'paid' && !alreadyPaid;
   const showPayBtn = !isAutoPay && !alreadyPaid;
   const showLogActualBtn = isAutoPay;
   const showEditPaymentBtn = !isAutoPay && alreadyPaid;
@@ -390,7 +362,6 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
   })();
 
   const statusBadge = (() => {
-    if (isStaleStatus) return '<span class="expense-badge expense-badge--stale" data-testid="expense-bill-badge">⚠ Sync issue</span>';
     if (alreadyPaid) return '<span class="expense-badge expense-badge--paid" data-testid="expense-bill-badge">✓ Paid</span>';
     if (!billStatus || isAutoPay) return '';
     switch (billStatus.status) {
@@ -454,9 +425,6 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
       ${showEditPaymentBtn
         ? `<button class="mark-paid-btn mark-paid-btn--edit" data-action="edit-payment" data-testid="expense-edit-payment" title="Edit recorded payment">✎ Edit Payment</button>`
         : ''}
-      ${isStaleStatus
-        ? `<button class="mark-paid-btn mark-paid-btn--stale" data-action="reset-status" title="Payment status is out of sync — click to reset">↺ Reset Status</button>`
-        : ''}
       <button class="icon-btn" data-action="notif" title="Add reminder">🔔</button>
       <button class="icon-btn" data-action="edit" data-testid="expense-edit" title="Edit">✏️</button>
       <button class="icon-btn danger" data-action="delete" data-testid="expense-delete" title="Delete">🗑️</button>
@@ -509,14 +477,6 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     row.querySelector('[data-action="edit-payment"]')!.addEventListener('click', () =>
       openRecordPaymentForm(expense, paidRecord, ctx));
   }
-  if (isStaleStatus) {
-    row.querySelector('[data-action="reset-status"]')!.addEventListener('click', async () => {
-      await saveExpense({ ...expense, date: 0 });
-      await ctx.onLoad();
-      void refreshNotifier();
-    });
-  }
-
   row.querySelector('[data-action="notif"]')!.addEventListener('click', () => {
     const notifCtx = expense.dueDay
       ? { label: expense.description, defaultTrigger: 'bill-before' as const, defaultExpenseId: expense.id }
@@ -526,19 +486,14 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
   row.querySelector('[data-action="edit"]')!.addEventListener('click', () =>
     openExpenseForm(expense, ctx.categories, ctx.members, ctx.cardAccounts, ctx.bankAccounts, ctx.onLoad));
   row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
-    if (!confirm(`Delete "${expense.description}"?`)) return;
+    if (!await openConfirmDialog({ message: `Delete "${expense.description}"?` })) return;
     const allCharges = await getCardCharges();
     const linkedCharges = allCharges.filter((c) => c.sourceExpenseId === expense.id);
     const paidRecs = await getExpensePaidRecords(expense.id);
-    const balanceOps: Promise<unknown>[] = linkedCharges.flatMap((c) => {
-      const card = ctx.cardAccounts.find((a) => a.id === c.accountId);
-      return card ? [saveDebtAccount({ ...card, balance: card.balance - c.amount, updatedAt: Date.now() })] : [];
-    });
-    await Promise.all([
-      ...linkedCharges.map((c) => deleteCardCharge(c.id)),
-      ...paidRecs.map((r) => deleteExpensePaidRecord(r.id)),
-      ...balanceOps,
-    ]);
+    // Delete linked charges through the accounting service so ledger entries are written
+    await Promise.all(linkedCharges.map((c) => accounting.deleteCharge(c.id)));
+    // Route through accounting service to clean up bank-debit ledger entries and sync balances
+    await Promise.all(paidRecs.map((r) => accounting.deleteExpensePayment(r)));
     await deleteExpense(expense.id);
     await ctx.onLoad();
     void refreshNotifier();
@@ -572,8 +527,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
   } else if (!billStatus || billStatus.status === 'ok') {
     outer.appendChild(row);
   } else {
-    const wrapClass = isStaleStatus ? 'expense-bill-wrap--stale'
-      : billStatus.status === 'past-due' ? 'expense-bill-wrap--past-due'
+    const wrapClass = billStatus.status === 'past-due' ? 'expense-bill-wrap--past-due'
       : billStatus.status === 'due-soon' ? 'expense-bill-wrap--due-soon'
       : 'expense-bill-wrap--paid';
     const wrap = document.createElement('div');

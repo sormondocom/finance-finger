@@ -1,4 +1,6 @@
 import { saveDebtAccount, createDebtAccount } from '@/db';
+import { accounting } from '@/accounting';
+import { fmtCents } from '@/utils/finance';
 import { openFormModal } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { DebtAccount, DebtAccountType, PaymentCycle } from '@/types';
@@ -155,11 +157,12 @@ export function openDebtForm(
         </div>
         <div class="form-group">
           <input id="da-min-value" type="number" min="0" step="0.01"
-            value="${existing?.minimumPaymentValue ?? ''}" placeholder="e.g. 2 or 25.00"
+            value="${existing?.minimumPaymentValue ?? (minTypeChecked === 'percentage' ? '2' : '')}" placeholder="e.g. 2 or 25.00"
             title="For % of balance: enter the percentage (e.g. 2 for 2%), floored at $25. For fixed: enter the dollar amount per cycle." />
           <span class="form-hint" id="da-min-hint">
             ${minTypeChecked === 'fixed' ? 'Fixed amount paid each cycle' : 'Percentage of balance, floored at $25'}
           </span>
+          <span class="form-hint" id="da-min-calc" style="${minTypeChecked === 'percentage' ? '' : 'display:none'}"></span>
         </div>
       </fieldset>
       ` : `<p class="form-hint" style="margin:0">You can add minimum payment details later via "Complete setup →" on the account.</p>`}
@@ -175,14 +178,55 @@ export function openDebtForm(
   `;
 
   if (showMinPayment) {
+    const updateMinCalc = () => {
+      const calcEl = body.querySelector<HTMLElement>('#da-min-calc');
+      if (!calcEl) return;
+      const isPercentage =
+        (body.querySelector<HTMLInputElement>('[name="da-min-type"]:checked')?.value ?? 'percentage') === 'percentage';
+      if (!isPercentage) { calcEl.textContent = ''; return; }
+      const balance = parseFloat(body.querySelector<HTMLInputElement>('#da-balance')!.value || '');
+      const pct     = parseFloat(body.querySelector<HTMLInputElement>('#da-min-value')?.value || '');
+      if (!isNaN(balance) && balance > 0 && !isNaN(pct) && pct > 0) {
+        const raw     = balance * pct / 100;
+        const payment = Math.max(raw, 25);
+        const floor   = raw < 25 ? ` → ${fmtCents.format(25)} minimum applies` : '';
+        calcEl.textContent = `${pct}% of ${fmtCents.format(balance)} = ${fmtCents.format(payment)}/payment${floor}`;
+      } else {
+        calcEl.textContent = '';
+      }
+    };
+
+    // Per-mode memory so toggling back restores what the user had typed.
+    let lastPctValue   = minTypeChecked === 'percentage' && existing?.minimumPaymentValue != null
+      ? String(existing.minimumPaymentValue) : '2';
+    let lastFixedValue = minTypeChecked === 'fixed' && existing?.minimumPaymentValue != null
+      ? String(existing.minimumPaymentValue) : '';
+
     body.querySelectorAll<HTMLInputElement>('[name="da-min-type"]').forEach((radio) => {
       radio.addEventListener('change', () => {
-        const hint = body.querySelector<HTMLElement>('#da-min-hint')!;
-        hint.textContent = radio.value === 'fixed'
-          ? 'Fixed amount paid each cycle'
-          : 'Percentage of balance, floored at $25';
+        const hint     = body.querySelector<HTMLElement>('#da-min-hint')!;
+        const calcEl   = body.querySelector<HTMLElement>('#da-min-calc');
+        const minInput = body.querySelector<HTMLInputElement>('#da-min-value')!;
+        const isPct    = radio.value === 'percentage';
+
+        // Save the current value for the mode we're leaving before overwriting.
+        if (isPct) lastFixedValue = minInput.value;
+        else       lastPctValue   = minInput.value;
+
+        // Restore the stored value for the mode we're entering.
+        // Percentage always falls back to '2' if nothing was ever saved.
+        minInput.value = isPct ? (lastPctValue || '2') : lastFixedValue;
+
+        hint.textContent = isPct ? 'Percentage of balance, floored at $25' : 'Fixed amount paid each cycle';
+        if (calcEl) calcEl.style.display = isPct ? '' : 'none';
+        updateMinCalc();
       });
     });
+
+    body.querySelector<HTMLInputElement>('#da-balance')?.addEventListener('input', updateMinCalc);
+    body.querySelector<HTMLInputElement>('#da-min-value')?.addEventListener('input', updateMinCalc);
+
+    updateMinCalc();
   }
 
   const syncTypeUI = (type: DebtAccountType) => {
@@ -335,6 +379,22 @@ export function openDebtForm(
       const wasPaidOff = !!(existing && existing.balance > 0 && balance === 0);
 
       await saveDebtAccount(account);
+
+      // Write an opening-balance reconciliation entry so the ledger has
+      // a baseline to derive from. For edits, only reconcile when the user
+      // explicitly changed the stored balance value.
+      //
+      // Use start-of-day (local midnight) so the entry sorts before any
+      // same-day payments (which the payment modal defaults to noon).
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const startOfDay = todayMidnight.getTime();
+      if (!existing && balance > 0) {
+        await accounting.reconcileAccount({ accountId: account.id, accountType: 'debt', targetBalance: balance, note: 'Opening balance', date: startOfDay });
+      } else if (existing && existing.balance !== balance) {
+        await accounting.reconcileAccount({ accountId: account.id, accountType: 'debt', targetBalance: balance, note: 'Balance correction', date: startOfDay });
+      }
+
       await flushReminders(account.id);
 
       close();
