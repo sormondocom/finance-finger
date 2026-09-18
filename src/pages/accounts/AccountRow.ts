@@ -144,7 +144,6 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
 
   const accountPaidRecords = paidRecords.filter((r) => r.bankAccountId === account.id);
   const accountDebtPayments = debtPayments.filter((p) => p.bankAccountId === account.id);
-  const accountSources = incomeSources.filter((s) => s.bankAccountId === account.id && s.active);
   const accountTransfers = transfers.filter((t) => t.fromAccountId === account.id || t.toAccountId === account.id);
 
   const nameBottom = document.createElement('div');
@@ -155,7 +154,7 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   // Fall back to account.balance only when the ledger has no entries yet
   // (pre-ledger accounts that have had no transactions recorded through the
   // accounting service).
-  const ledgerBalance = ctx.ledgerBalances.get(account.id) ?? 0;
+  const ledgerBalance = ledgerBalances.get(account.id) ?? 0;
   const actualBalance = ledgerBalance !== 0 ? ledgerBalance : (account.balance ?? 0);
   const hasActualData = account.balance != null
     || ledgerBalance !== 0

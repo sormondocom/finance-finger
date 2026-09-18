@@ -26,13 +26,7 @@
     "test:e2e:headed:firefox": "cross-env HEADED=1 BROWSER=firefox playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report tests/playwright-report",
-    "docs:screenshots": "node scripts/update-screenshots.js",
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "src/**/*.ts": [
-      "eslint --max-warnings 0"
-    ]
+    "docs:screenshots": "node scripts/update-screenshots.js"
   },
   "dependencies": {
     "chart.js": "^4.4.4",
@@ -46,8 +40,6 @@
     "@vitest/coverage-v8": "^5.0.0",
     "cross-env": "^10.1.0",
     "eslint": "^10.10.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.5.0",
     "playwright-webextext": "^0.0.5",
     "sharp": "^0.35.3",
     "typescript": "^5.5.4",

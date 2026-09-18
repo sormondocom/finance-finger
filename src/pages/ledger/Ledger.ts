@@ -1147,7 +1147,6 @@ export class LedgerPage {
   // searching "100" highlights inside "$1,100.00", then maps positions back
   // to the original string to preserve the display characters in the mark.
   private highlightFeed(q: string): void {
-    const STRIP = /[$,]/g;
     const walker = document.createTreeWalker(
       this.feedEl,
       NodeFilter.SHOW_TEXT,
