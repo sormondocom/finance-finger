@@ -329,7 +329,7 @@ type DebtAccountType = 'card' | 'mortgage' | 'medical' | 'loan' | 'vehicle'
 ### `MascotTrigger`
 
 ```typescript
-type MascotTrigger = 'greeting' | 'minimum-payment-trap' | 'negative-cashflow' | 'debt-free-improvement' | 'budget-milestone' | 'payment-due' | 'payment-overdue' | 'briefing' | 'expense-trend' | 'custom'
+type MascotTrigger = 'greeting' | 'minimum-payment-trap' | 'negative-cashflow' | 'debt-free-improvement' | 'budget-milestone' | 'payment-due' | 'payment-overdue' | 'briefing' | 'expense-trend' | 'payday-reset-credit' | 'custom'
 ```
 
 ### `MascotMessage`
@@ -454,6 +454,36 @@ type TransactionRuleAction = { type: 'expense'; expenseId: string } | { type: 'd
 | `autoManage` | `boolean` | true = auto-apply on future imports |
 | `createdAt` | `number` |  |
 | `lastUsedAt` | `number` |  |
+
+## Ledger
+
+### `LedgerEntryType`
+
+```typescript
+type LedgerEntryType = 'charge' | 'payment' | 'bank-credit' | 'bank-debit' | 'transfer-in' | 'transfer-out' | 'reconciliation'
+```
+
+### `LedgerEntry`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` |  |
+| `type` | `LedgerEntryType` |  |
+| `accountId` | `string` | which account this affects |
+| `accountType` | `'debt' \| 'bank'` |  |
+| `signedAmount` | `number` |  |
+| `description` | `string` |  |
+| `date` | `number` | business date — day the transaction occurred (use day-start, never wall-clock time) |
+| `createdAt` | `number` | when this record was first written to the DB — never overridden after creation |
+| `updatedAt?` | `number` | when this record was last modified (e.g. after a void/refund marks the original) |
+| `voidedAt?` | `number` | set on the original entry when a void reversal is posted against it |
+| `refundedAt?` | `number` | set on the original income bank-credit when it is refunded/deleted |
+| `correlationId?` | `string` | groups ledger entries from the same operation |
+| `sourceId?` | `string` | ID of the originating domain record |
+| `sourceType?` | `'card-charge' \| 'debt-payment' \| 'bank-transaction' \| 'transfer' \| 'expense-payment'` |  |
+| `priorBalance?` | `number` | computed balance immediately before this entry |
+| `targetBalance?` | `number` | desired balance set by user |
+| `note?` | `string` |  |
 
 ## Snapshots
 
