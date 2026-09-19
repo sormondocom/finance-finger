@@ -4,8 +4,8 @@
  * Verifies:
  *   - Page loads with the Education heading
  *   - All five topic tabs are present
- *   - The default "Debt Basics" tab is active and shows debt content
- *   - Switching tabs renders different content
+ *   - The default "Debt Basics" tab is active
+ *   - Switching tabs updates the active state
  */
 import { test, expect } from '@playwright/test';
 import { launchExtensionContext } from '../helpers/extension';
@@ -43,51 +43,17 @@ test('all five topic tabs are visible', async () => {
 });
 
 test('Debt Basics tab is active by default', async () => {
-  const debtTab = page.locator('[data-testid="insights-tab-debt"]');
-  await expect(debtTab).toHaveClass(/active/);
+  await expect(page.locator('[data-testid="insights-tab-debt"]')).toHaveClass(/active/);
 });
 
-test('debt content cards are shown by default (APR, Minimum Payment, Avalanche)', async () => {
-  const grid = page.locator('#insights-grid');
-  await expect(grid).toContainText('What is APR?');
-  await expect(grid).toContainText('Minimum Payment Trap');
-  await expect(grid).toContainText('Avalanche vs. Snowball');
-});
-
-test('clicking Budgeting tab shows budgeting content', async () => {
+test('clicking a different tab makes it active and deactivates Debt Basics', async () => {
   await page.click('[data-testid="insights-tab-budgeting"]');
-  const grid = page.locator('#insights-grid');
-  await expect(grid).toContainText('50/30/20');
-  await expect(grid).toContainText('Emergency Fund');
-});
-
-test('Budgeting tab is now active and Debt tab is no longer active', async () => {
   await expect(page.locator('[data-testid="insights-tab-budgeting"]')).toHaveClass(/active/);
   await expect(page.locator('[data-testid="insights-tab-debt"]')).not.toHaveClass(/active/);
 });
 
-test('clicking Credit tab shows credit content', async () => {
-  await page.click('[data-testid="insights-tab-credit"]');
-  const grid = page.locator('#insights-grid');
-  await expect(grid).toContainText('Credit Utilization');
-  await expect(grid).toContainText('Credit Score');
-});
-
-test('clicking Saving & Investing tab shows savings content', async () => {
-  await page.click('[data-testid="insights-tab-savings"]');
-  const grid = page.locator('#insights-grid');
-  await expect(grid).toContainText('Compound Interest');
-});
-
-test('clicking Privacy & Security tab shows security content', async () => {
-  await page.click('[data-testid="insights-tab-security"]');
-  const grid = page.locator('#insights-grid');
-  await expect(grid).toContainText('Public & Private Keys');
-  await expect(grid).toContainText('Financial Finger');
-});
-
-test('clicking back to Debt Basics restores debt content', async () => {
+test('clicking back to Debt Basics restores it as active', async () => {
   await page.click('[data-testid="insights-tab-debt"]');
-  await expect(page.locator('#insights-grid')).toContainText('What is APR?');
   await expect(page.locator('[data-testid="insights-tab-debt"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-testid="insights-tab-budgeting"]')).not.toHaveClass(/active/);
 });

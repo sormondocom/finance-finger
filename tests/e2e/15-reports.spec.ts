@@ -126,7 +126,11 @@ test('set up: add a category and two one-time expenses in the current month', as
 // ── Reports page structure ────────────────────────────────────────────────────
 
 test('reports page loads with range picker and KPI cards', async () => {
-  await navigateTo(page, 'reports');
+  // freshReports waits for #lb-scrub (30s), ensuring the full async load() +
+  // paint() cycle is complete before any data-dependent tests run. Using the
+  // bare navigateTo (click-only) leaves a race window under load: the 15s
+  // expect.timeout can fire before paint() populates the KPI cards.
+  await freshReports(page);
   await expect(page.locator('.reports-presets')).toBeVisible();
   await expect(page.locator('.reports-kpis')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/reports-03-page-loaded.png' });

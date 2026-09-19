@@ -156,3 +156,69 @@ test('adding a card charge creates a charge ledger entry', async () => {
   await expect(firstRow.locator('.ledger-coin-balance')).toContainText('$3,099.99');
   await page.screenshot({ path: 'tests/screenshots/ledger-06-charge-entry.png' });
 });
+
+// ── Charge void: deletion adds a reversal entry rather than removing ──────────
+//
+// deleteCharge uses a void+reversal pattern: the original charge entry is
+// stamped voidedAt and a new reversal entry is written. Count goes UP by 1
+// (3 → 4), but the running balance is restored to the pre-charge value.
+
+test('deleting a card charge adds a void-reversal entry and restores the running balance', async () => {
+  await navigateTo(page, 'debt');
+  const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
+
+  await chaseRow.locator('[data-testid="debt-charges-btn"]').click();
+  await expect(chaseWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
+
+  const charge = chaseWrap.locator('[data-testid="debt-charge-item"]').filter({ hasText: 'Amazon' });
+  await charge.locator('.icon-btn.danger').click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+  await page.click('[data-testid="confirm-ok"]');
+  await expect(charge).not.toBeVisible({ timeout: 5_000 });
+
+  // Void+reversal: count goes 3 → 4 (original voided, reversal added)
+  await navigateTo(page, 'ledger');
+  await expect(page.locator('[data-testid="ledger-entry-count"]')).toContainText('4');
+
+  // The reversal is the newest entry — running balance is back to $3,050.00
+  const firstRow = page.locator('[data-testid="ledger-entry-row"]').first();
+  await expect(firstRow.locator('.ledger-coin-balance')).toContainText('$3,050.00');
+  await page.screenshot({ path: 'tests/screenshots/ledger-07-charge-voided.png' });
+});
+
+// ── Same-day ordering: payment recorded before charge — charge must not be absorbed ──
+//
+// Regression guard for the createdAt guard in buildBillingCycles: a payment
+// recorded BEFORE a charge on the same calendar day must NOT absorb that charge.
+// The charge must appear as its own standalone ledger entry.
+
+test('same-day ordering: charge added after a same-day payment is not absorbed by that payment', async () => {
+  await navigateTo(page, 'debt');
+  const chaseRow = page.locator('[data-testid="debt-row"]').filter({ hasText: 'Chase Freedom' });
+  const chaseWrap = page.locator('[data-testid="debt-account-wrap"]').filter({ hasText: 'Chase Freedom' });
+
+  await chaseRow.locator('[data-testid="debt-charges-btn"]').click();
+  await expect(chaseWrap.locator('[data-testid="debt-charges-panel"]')).toBeVisible();
+  await chaseWrap.locator('button', { hasText: '+ Add charge' }).click();
+  await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
+
+  const today = new Date().toISOString().split('T')[0]!;
+  await page.fill('[data-testid="debt-charge-merchant"]', 'Best Buy');
+  await page.fill('[data-testid="debt-charge-amount"]', '29.99');
+  await page.fill('[data-testid="debt-charge-date"]', today);
+  await page.click('[data-testid="modal-submit"]');
+  await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
+
+  await navigateTo(page, 'ledger');
+  // State after prior test: 4 entries (3 original + 1 void reversal for Amazon)
+  // Adding Best Buy brings it to 5
+  await expect(page.locator('[data-testid="ledger-entry-count"]')).toContainText('5');
+
+  // The charge is newest — must appear as "Best Buy", not folded into "Regular payment"
+  const firstRow = page.locator('[data-testid="ledger-entry-row"]').first();
+  await expect(firstRow.locator('.ledger-txn-desc')).toContainText('Best Buy');
+  // Balance: 3050 + 29.99 = 3079.99
+  await expect(firstRow.locator('.ledger-coin-balance')).toContainText('$3,079.99');
+  await page.screenshot({ path: 'tests/screenshots/ledger-08-same-day-charge.png' });
+});

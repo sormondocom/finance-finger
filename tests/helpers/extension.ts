@@ -143,7 +143,9 @@ export async function launchExtensionContext(): Promise<ExtensionContext> {
   const extUrl = `chrome-extension://${extensionId}/${EXTENSION_PAGE}`;
 
   const cleanup = async () => {
-    await context.close();
+    try {
+      await context.close();
+    } catch { /* best-effort: Playwright trace-file copy can race on Windows */ }
     try {
       fs.rmSync(userDataDir, { recursive: true, force: true });
     } catch { /* best-effort */ }

@@ -142,14 +142,3 @@ test('zero balance is valid and sets the account to paid-off', async () => {
   await page.screenshot({ path: 'tests/screenshots/recon-08-zero-balance.png' });
 });
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-test('section shows empty state when no accounts exist (isolated fresh context)', async () => {
-  // We can't easily get a fresh context without another full extension setup,
-  // so we verify the empty state message text is defined in the component.
-  // This is tested structurally: if accounts exist the empty element won't be present,
-  // which is confirmed by the above rows being visible when an account exists.
-  await navigateTo(page, 'settings');
-  // Account exists → no empty state
-  await expect(page.locator('[data-testid="settings-recon-empty"]')).not.toBeVisible();
-});

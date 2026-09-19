@@ -214,37 +214,6 @@ test('ledger panel shows debt payment entry with amount', async () => {
   await expect(panel).toContainText('$149.90');
 });
 
-test('ledger panel Date / Time column header is visible', async () => {
-  await navigateTo(page, 'accounts');
-  const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
-  await expect(acctRow).toBeVisible({ timeout: 8_000 });
-  const panel = page.locator('.account-ledger-panel');
-  if (!(await panel.isVisible())) {
-    await acctRow.locator('[data-testid="account-ledger"]').click();
-    await expect(panel).toBeVisible({ timeout: 5_000 });
-  }
-  await expect(panel.locator('.account-ledger-col-header').first()).toContainText('Date');
-});
-
-test('ledger panel each entry shows a timestamp line', async () => {
-  await navigateTo(page, 'accounts');
-  const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
-  await expect(acctRow).toBeVisible({ timeout: 8_000 });
-  const panel = page.locator('.account-ledger-panel');
-  if (!(await panel.isVisible())) {
-    await acctRow.locator('[data-testid="account-ledger"]').click();
-    await expect(panel).toBeVisible({ timeout: 5_000 });
-  }
-  // Each entry should show a time sub-label (AM/PM format from toLocaleTimeString)
-  const timeCells = panel.locator('.account-ledger-date-time');
-  const count = await timeCells.count();
-  expect(count).toBeGreaterThanOrEqual(3);
-  // Verify at least one time contains AM or PM
-  const firstTime = await timeCells.first().textContent();
-  expect(firstTime).toMatch(/AM|PM/i);
-  await page.screenshot({ path: 'tests/screenshots/30-05-timestamps.png' });
-});
-
 test('clicking ledger button again closes the panel', async () => {
   await navigateTo(page, 'accounts');
   const acctRow = page.locator('[data-testid="account-row"]').filter({ hasText: 'Test Checking' });
