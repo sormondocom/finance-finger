@@ -3,6 +3,7 @@ import { navigate } from '@/app/router';
 import { sourceMonthly, fmt, fmtCents } from '@/utils/finance';
 import type { DebtAccount, IncomeSource, BankAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 export function buildFinancialHealthRow(
   cards: DebtAccount[],
@@ -130,7 +131,7 @@ export function buildIncomeByAccountCard(
 
     const nameCol = document.createElement('div');
     const name = data.account ? data.account.name : 'Unassigned';
-    nameCol.innerHTML = `<span class="text-sm font-bold">${name}</span>`;
+    nameCol.innerHTML = `<span class="text-sm font-bold">${escapeHtml(name)}</span>`;
     if (data.account) {
       const badge = document.createElement('span');
       badge.className = 'text-xs text-muted';

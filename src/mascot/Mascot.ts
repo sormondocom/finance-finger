@@ -7,6 +7,7 @@ import { playCowbell } from '@/utils/bellSound';
 import type { NotifierItem } from '@/utils/notifier';
 import type { CustomNotification, MascotGender, MascotTrigger, VaultConfig } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { fmtCents } from '@/utils/finance';
 import type { MissedPayday } from '@/utils/paydayDeposits';
 
 // ── Debt Payoff Celebration ───────────────────────────────────────────────────
@@ -726,7 +727,7 @@ function showOnePaydayPrompt(
     const detailEl = document.createElement('blockquote');
     detailEl.className = 'bell-notif-toast-custom';
     const dateStr = new Date(item.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
-    const amtStr  = new Intl.NumberFormat(userLocale, { style: 'currency', currency: 'USD' }).format(item.amount);
+    const amtStr  = fmtCents.format(item.amount);
     detailEl.textContent = `${item.sourceName} — ${amtStr} on ${dateStr}`;
     bubble.appendChild(detailEl);
 

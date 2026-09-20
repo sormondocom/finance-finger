@@ -49,7 +49,7 @@ npm run build                        # verify build works before making changes
 
 ### Data layer (`src/db/`)
 
-- `schema.ts` — IndexedDB schema (currently v14) and upgrade migrations. All stores hold `EncryptedRecord` values.
+- `schema.ts` — IndexedDB schema (currently v15) and upgrade migrations. All stores hold `EncryptedRecord` values.
 - `index.ts` — typed get/save/delete functions for every store. All reads decrypt; all writes encrypt.
 - Never call IDB directly from pages — always go through `src/db/index.ts`.
 
@@ -69,7 +69,7 @@ npm run build                        # verify build works before making changes
 
 ### Background service worker (`src/background/index.ts`)
 
-- Runs auto-snapshots on a browser alarm (every N hours, configurable in Settings).
+- Runs auto-snapshots on a browser alarm every 30 minutes (hard-coded; not user-configurable).
 - Cannot access the vault session key (it lives in the popup's memory). Snapshots read raw encrypted blobs — it never sees plaintext.
 - Snapshot failures are written to `browser.storage.local` as `lastSnapshotError` and surfaced as a toast on next app open.
 
@@ -97,6 +97,15 @@ Every interactive element in E2E tests is identified by `data-testid`. Prefixes 
 | `snap-` | Snapshots settings section |
 | `bills-` | Bill tracking tests |
 | `cal-` | Calendar page |
+| `account-` | Accounts page (bank account rows, balance, edit/delete buttons) |
+| `ledger-` | Ledger page (search input, entry rows, account filter) |
+| `reports-` | Reports page (preset selectors, KPI cards, range label) |
+| `scenario-` | Afford / What-If page (scenario cards, toggle) |
+| `insights-` | Insights / Learn page (tab selectors) |
+| `help-` | Help page (grid, tab selectors) |
+| `setup-` | Setup wizard (next/back/enter-app buttons) |
+| `unlock-` | Unlock page (key textarea, passphrase input, submit button) |
+| `settings-recon-` | Settings – Reconciliation section |
 
 ### E2E test structure
 
@@ -116,9 +125,35 @@ Every interactive element in E2E tests is identified by `data-testid`. Prefixes 
 ### Schema migrations
 
 - Migrations are cumulative `if (oldVersion < N)` blocks in `schema.ts`'s `upgrade()` callback.
-- The current version is 14. Bump to 15 for your next migration.
+- The current version is 15. Bump to 16 for your next migration.
 - Within `upgrade()`, use `transaction.objectStore(name)` to access existing stores (not `database.createObjectStore()`).
 - Cast to `any` only when the TypeScript schema types don't expose what you need (e.g., deleting an index that's no longer in the type).
+
+### Payday auto-record (`src/utils/paydayDeposits.ts`)
+
+`autoRecordPaydays()` runs on every app open (triggered from `src/app/main.ts`). It:
+
+1. Looks at all active income sources that have a `bankAccountId` and a non-once frequency.
+2. For each source, collects paydays in the range `[today − promptWindowDays, today]`.
+3. **Same-day paydays** that haven't been recorded and fall on/after the account's reset timestamp are auto-recorded silently via `accounting.recordBankCredit()`. A `correlationId` of the form `payday-<sourceId>-YYYY-MM-DD` prevents double-recording.
+4. **Missed paydays** (1–N days ago) are returned as `pendingPrompts` and surfaced via the mascot so the user can confirm or dismiss.
+5. Paydays older than the prompt window are silently ignored.
+
+Related `browser.storage.local` keys: `missedPaydayPromptDays` (default 3), `accountResetTimestamps`.
+
+The background service worker fires a daily `ff-payday-check` alarm and sets a `pendingPaydayCheck` flag; the popup consumes it on open to trigger `autoRecordPaydays()`.
+
+### browser.storage.local key inventory
+
+| Key | Written by | Read by | Purpose |
+|---|---|---|---|
+| `vaultConfig` | Setup wizard | Unlock page, app boot | Vault setup state and PGP public key |
+| `theme` | Settings page | App boot | Quick-access theme color scheme (avoids IDB on startup) |
+| `currency` | Settings page | App boot | Quick-access currency code |
+| `lastSnapshotError` | Background worker | App open (main.ts) | `{ message, time }` — surfaced as a toast if set |
+| `pendingPaydayCheck` | Background alarm | App open (main.ts) | Flag to trigger `autoRecordPaydays()` on next popup open |
+| `missedPaydayPromptDays` | Settings page | `paydayDeposits.ts` | How many days back to surface missed-payday prompts (default 3) |
+| `accountResetTimestamps` | `resetAccount()` | `paydayDeposits.ts` | `Record<accountId, timestamp>` — gates same-day auto-recording after a history reset |
 
 ### Snapshot store list
 

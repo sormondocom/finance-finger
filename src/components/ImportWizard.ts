@@ -31,6 +31,7 @@ import type {
   ReviewAction,
 } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 // ── Column roles ──────────────────────────────────────────────────────────────
 
@@ -1466,7 +1467,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       const dupDate = new Date(dup.importedAt).toLocaleString(userLocale, {
         month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
       });
-      text.innerHTML = `<strong>Possible duplicate.</strong> A file with identical content was imported from <strong>${dup.targetName}</strong> on ${dupDate} (${dup.rowCount.toLocaleString()} rows). You can still proceed — this is just a heads-up.`;
+      text.innerHTML = `<strong>Possible duplicate.</strong> A file with identical content was imported from <strong>${escapeHtml(dup.targetName)}</strong> on ${dupDate} (${dup.rowCount.toLocaleString()} rows). You can still proceed — this is just a heads-up.`;
       banner.appendChild(icon);
       banner.appendChild(text);
       container.appendChild(banner);

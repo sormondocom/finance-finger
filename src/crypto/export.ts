@@ -17,6 +17,7 @@ import {
   getBankTransactions,
   getImportRecords,
   getTransactionRules,
+  getAllLedgerEntries,
   saveMember,
   saveIncomeSource,
   saveCategory,
@@ -35,6 +36,7 @@ import {
   saveBankTransaction,
   saveImportRecord,
   saveTransactionRule,
+  saveLedgerEntry,
   deleteMember,
   deleteIncomeSource,
   deleteCategory,
@@ -53,6 +55,7 @@ import {
   deleteBankTransaction,
   deleteImportRecord,
   deleteTransactionRule,
+  deleteLedgerEntry,
 } from '@/db';
 import { encryptToPublicKey, decryptWithPrivateKey } from './pgp';
 import type {
@@ -73,9 +76,10 @@ import type {
   BankTransaction,
   ImportRecord,
   TransactionRule,
+  LedgerEntry,
 } from '@/types';
 
-export const EXPORT_VERSION = 5 as const;
+export const EXPORT_VERSION = 6 as const;
 
 export interface ExportBundle {
   version: number;
@@ -99,6 +103,7 @@ export interface ExportBundle {
   bankTransactions?: BankTransaction[];
   importRecords?: ImportRecord[];
   transactionRules?: TransactionRule[];
+  ledgerEntries?: LedgerEntry[];
 }
 
 export interface ImportResult {
@@ -120,6 +125,7 @@ export interface ImportResult {
   bankTransactions: number;
   importRecords: number;
   transactionRules: number;
+  ledgerEntries: number;
 }
 
 export async function buildExportBundle(exporterName: string): Promise<ExportBundle> {
@@ -142,6 +148,7 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     bankTransactions,
     importRecords,
     transactionRules,
+    ledgerEntries,
   ] = await Promise.all([
     getMembers(),
     getIncomeSources(),
@@ -161,6 +168,7 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     getBankTransactions(),
     getImportRecords(),
     getTransactionRules(),
+    getAllLedgerEntries(),
   ]);
   return {
     version: EXPORT_VERSION,
@@ -184,6 +192,7 @@ export async function buildExportBundle(exporterName: string): Promise<ExportBun
     bankTransactions,
     importRecords,
     transactionRules,
+    ledgerEntries,
   };
 }
 
@@ -212,7 +221,7 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       existingAccounts, existingScenarios, existingPayments, existingCharges,
       existingPaidRecords, existingBankAccounts, existingTransfers, existingMarks,
       existingMemos, existingNotifs, existingSettings, existingTxns,
-      existingImportRecords, existingRules,
+      existingImportRecords, existingRules, existingLedgerEntries,
     ] = await Promise.all([
       getMembers(),
       getIncomeSources(),
@@ -232,6 +241,7 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       getBankTransactions(),
       getImportRecords(),
       getTransactionRules(),
+      getAllLedgerEntries(),
     ]);
     await Promise.all([
       ...existingMembers.map((m) => deleteMember(m.id)),
@@ -252,6 +262,7 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
       ...existingTxns.map((t) => deleteBankTransaction(t.id)),
       ...existingImportRecords.map((r) => deleteImportRecord(r.id)),
       ...existingRules.map((r) => deleteTransactionRule(r.id)),
+      ...existingLedgerEntries.map((e) => deleteLedgerEntry(e.id)),
     ]);
   }
 
@@ -274,6 +285,7 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
     ...(bundle.bankTransactions ?? []).map(saveBankTransaction),
     ...(bundle.importRecords ?? []).map(saveImportRecord),
     ...(bundle.transactionRules ?? []).map(saveTransactionRule),
+    ...(bundle.ledgerEntries ?? []).map(saveLedgerEntry),
   ]);
 
   return {
@@ -295,5 +307,6 @@ export async function applyImport(bundle: ExportBundle, mode: 'merge' | 'replace
     bankTransactions: (bundle.bankTransactions ?? []).length,
     importRecords: (bundle.importRecords ?? []).length,
     transactionRules: (bundle.transactionRules ?? []).length,
+    ledgerEntries: (bundle.ledgerEntries ?? []).length,
   };
 }

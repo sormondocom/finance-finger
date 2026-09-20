@@ -25,6 +25,7 @@ import type {
   LedgerEntry,
 } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 // ── Store registry ────────────────────────────────────────────────────────────
 
@@ -1392,7 +1393,7 @@ export class BreakGlassPage {
           if (issue.type === 'missing') {
             desc.innerHTML = `<strong>${issue.fieldLabel}</strong> is required but not set`;
           } else {
-            desc.innerHTML = `<strong>${issue.fieldLabel}</strong> → <code>${issue.missingValue.slice(0, 12)}…</code> not found in ${targetLabel}`;
+            desc.innerHTML = `<strong>${escapeHtml(issue.fieldLabel)}</strong> → <code>${escapeHtml(issue.missingValue.slice(0, 12))}…</code> not found in ${escapeHtml(targetLabel)}`;
           }
 
           const recordName = document.createElement('span');

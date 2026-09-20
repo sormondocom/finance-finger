@@ -4,6 +4,7 @@ import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
 import type { DebtAccount, CardCharge, ExpenseCategory } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 type ChargesState = { page: number; pageSize: number; sortAsc: boolean };
 
@@ -246,7 +247,7 @@ export function buildChargesPanel(
   [...merchantTotals.entries()].sort((a, b) => b[1] - a[1]).forEach(([merchant, total]) => {
     const row = document.createElement('div');
     row.className = 'charges-breakdown-row';
-    row.innerHTML = `<span class="charges-merchant">${merchant}</span><span class="charges-total">${fmtCents.format(total)}</span>`;
+    row.innerHTML = `<span class="charges-merchant">${escapeHtml(merchant)}</span><span class="charges-total">${fmtCents.format(total)}</span>`;
     breakdown.appendChild(row);
   });
   panel.appendChild(breakdown);

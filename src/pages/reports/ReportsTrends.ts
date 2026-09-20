@@ -355,7 +355,7 @@ export function buildCardBalanceTrend(
     if (last > first * 1.05) {
       const warn = document.createElement('div');
       warn.className = 'reports-creep-warn';
-      warn.innerHTML = `⚠️ <strong>${account.name}</strong> has grown ${fmtCents.format(last - first)} since the first recorded payment — balance may be creeping up.`;
+      warn.innerHTML = `⚠️ <strong>${escapeHtml(account.name)}</strong> has grown ${fmtCents.format(last - first)} since the first recorded payment — balance may be creeping up.`;
       card.appendChild(warn);
     }
   });

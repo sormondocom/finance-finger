@@ -9,6 +9,9 @@ export type {
   RecordTransferParams,
   ReconcileAccountParams,
   LedgerQueryParams,
+  ResetAccountParams,
+  RecordExpensePaymentParams,
+  UpdateExpensePaymentParams,
 } from './types';
 
 import { AccountingService } from './service';

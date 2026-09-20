@@ -1,4 +1,5 @@
 import type { IncomeFrequency } from '@/types';
+import { userLocale as _locale } from '@/utils/locale';
 
 // ── Frequency → monthly conversion factors ────────────────────────────────────
 //
@@ -91,7 +92,6 @@ export const SUPPORTED_CURRENCIES: Array<{ code: string; name: string }> = [
 // setCurrency() without touching any consumer.
 
 let _currency = 'USD';
-const _locale   = (typeof navigator !== 'undefined' ? navigator.language : null) || 'en-US';
 
 let _fmt = new Intl.NumberFormat(_locale, {
   style: 'currency',
