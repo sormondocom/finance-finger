@@ -32,6 +32,7 @@ test.afterAll(async () => {
 
 test('insights page loads with Education heading', async () => {
   await expect(page.locator('h1')).toContainText('Education');
+  await page.screenshot({ path: 'tests/screenshots/insights-01-landing.png' });
 });
 
 test('all five topic tabs are visible', async () => {

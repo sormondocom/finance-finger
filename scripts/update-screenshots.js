@@ -72,6 +72,21 @@ const SCREENSHOTS = [
 
   // Setup / Unlock
   ['03-keys.png',                       '31-setup-keys.png'],
+
+  // Custom Reminders (Settings → Reminders panel)
+  ['reminders-01-card.png',             '32-reminders.png'],
+
+  // What If? / Scenario Films (projection panel with active film)
+  ['afford-01-projection.png',          '33-afford-projection.png'],
+
+  // Learn / Financial Education (Debt Basics tab)
+  ['insights-01-landing.png',           '34-insights-landing.png'],
+
+  // Help page
+  ['help-01-landing.png',               '35-help-landing.png'],
+
+  // Data Sharing (import success)
+  ['ei-03-import-success.png',          '36-data-sharing-import.png'],
 ];
 
 async function main() {

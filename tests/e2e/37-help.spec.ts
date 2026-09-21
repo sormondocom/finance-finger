@@ -48,6 +48,7 @@ test('all section tabs are visible', async () => {
 test('Setup & Security section is active by default', async () => {
   await expect(page.locator('[data-testid="help-tab-setup"]')).toHaveClass(/active/);
   await expect(page.locator('#help-grid')).not.toBeEmpty();
+  await page.screenshot({ path: 'tests/screenshots/help-01-landing.png' });
 });
 
 // ── Context-sensitive deeplink from "?" buttons ───────────────────────────────

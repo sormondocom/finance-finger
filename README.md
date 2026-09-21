@@ -109,6 +109,10 @@ A fully offline browser extension for household budgeting, debt management, and 
 
 Most budgeting tools are cloud services. Your income, debts, and spending habits live on someone else's servers — paid for with advertising or subscription revenue and potentially exposed in breaches. Financial Finger flips that model: your data stays in your browser's local storage, encrypted to a key that only you hold. The extension is the only reader. Financial Finger is **free**.
 
+### Why is it a browser extension?
+Browsers are ubiquitous in computing in this day and age.  Everyone knows how to use one and everybody has one.  Similar to a browser, I believe that the easiest and most convenient way to get this tool in front of as many people as possible without re-inventing the wheel was to provide it as a browser extension that works amongst the most popular browsers at this current time.
+
+### Support
 If you're feeling generous you can throw a few bucks my way at [Buymeacoffee](https://buymeacoffee.com/sormondocom) — always appreciated but never required.
 
 ---
@@ -206,6 +210,10 @@ On subsequent launches the **vault unlock screen** appears. Paste your private k
 ---
 
 ### Custom Reminders
+
+<p align="center">
+  <img src="docs/screenshots/32-reminders.png" alt="Custom Reminders panel in Settings" width="800" />
+</p>
 
 Custom reminders let you schedule personal bell notifications for any item in your budget — a debt payment date, a monthly income day, a recurring expense, or an account transfer. They are separate from the built-in payment-due mascot alerts and deliver a full-screen overlay with your custom message.
 
@@ -873,22 +881,25 @@ When you record a payment that brings a **single card** to zero, a full-screen o
 
 ### Ledger
 
+<p align="center">
+  <img src="docs/screenshots/28-ledger-landing.png" alt="Ledger page showing transaction feed with running balance" width="800" />
+</p>
+
 The Ledger page shows a complete audit trail of every balance-affecting action across all your accounts. Open it from the left navigation sidebar.
 
 **Reading the Ledger**
 
-Entries are displayed newest-first. Each row shows:
+Entries are displayed newest-first, grouped by date. Each entry appears as a card with a type badge and description in the header, and one or two **account coins** below it. Each coin shows the account name, its running balance at that point in history (`bal $X.XX`), and the signed amount of the transaction on the right — positive values increased the balance, negative values decreased it.
 
-| Column | Content |
-|---|---|
-| **Date** | The transaction date |
-| **Description** | Merchant name, memo, transfer note, or reconciliation reason |
-| **Account** | The account whose balance was affected |
-| **Type** | Charge, Payment, Bank Credit, Bank Debit, Transfer, or Reconciliation |
-| **Amount** | Signed — positive values increase the balance; negative values decrease it |
-| **Balance** | Running account balance at this point in history |
+The most recent entry for any given account reflects its current balance, which matches the "actual balance" shown on the Accounts and Debt pages — all three derive from the same ledger replay.
 
-The balance at the top row matches the "actual balance" shown on the Accounts and Debt pages. All three are derived from the same ledger replay (oldest to newest), then displayed newest-first.
+**Payments and transfers: linked cards**
+
+When a debt payment is funded from a bank account, or when money moves between two bank accounts, the card shows two linked coins — one for the source account and one for the destination — connected by a vertical arrow. This lets you see both sides of the move in a single card.
+
+<p align="center">
+  <img src="docs/screenshots/29-ledger-after-payment.png" alt="Ledger flow card showing a debt payment with linked bank-debit and debt-payment coins" width="800" />
+</p>
 
 **Filtering**
 
@@ -900,10 +911,6 @@ Use the filter bar to narrow the view. All filters can be combined:
 - **Reset** — click to clear all active filters and return to the full view.
 
 When a date filter is active and no entries match, an empty-state message confirms the filter is working — there simply aren't entries in that range.
-
-**Transfer correlation**
-
-Transfers between bank accounts create a linked entry pair (transfer-out on the source, transfer-in on the destination). Each row displays a pill linking to its counterpart — click it to jump to the matched entry. This makes it easy to verify both sides of a transfer without manually searching.
 
 **Reconciliation entries**
 
@@ -946,6 +953,10 @@ This card is always all-time data regardless of the date range, because seasonal
 
 ### What If? (Scenario Films)
 
+<p align="center">
+  <img src="docs/screenshots/33-afford-projection.png" alt="What If? page with active scenario film and projection panel" width="800" />
+</p>
+
 The What If? page lets you model hypothetical changes — a new job, a car payment, a cross-country move — and see the budget impact without touching your real data.
 
 **Creating a scenario film**
@@ -984,6 +995,10 @@ Toggle several films active at once. The projection panel combines all active fi
 ---
 
 ### Learn (Financial Education)
+
+<p align="center">
+  <img src="docs/screenshots/34-insights-landing.png" alt="Learn page with Debt Basics tab and interactive calculators" width="800" />
+</p>
 
 The Learn page provides plain-language financial education with interactive calculators that pull from your real budget data where available.
 
@@ -1047,6 +1062,10 @@ The Learn page provides plain-language financial education with interactive calc
 ---
 
 ### Data Sharing
+
+<p align="center">
+  <img src="docs/screenshots/36-data-sharing-import.png" alt="Data Sharing import completed — record counts shown after decryption" width="800" />
+</p>
 
 Financial Finger is built for households — and households don't always sit at the same computer. If you and a partner, spouse, or co-parent each have the extension installed on separate machines, data sharing lets you keep both installations in sync without ever uploading anything to a server.
 
@@ -1122,6 +1141,10 @@ If both people enter data independently on their own machines, merge mode will c
 ---
 
 ### Help
+
+<p align="center">
+  <img src="docs/screenshots/35-help-landing.png" alt="Help page with Setup &amp; Security section open" width="800" />
+</p>
 
 Financial Finger includes a built-in **Help** page accessible from the navigation sidebar. It covers every section of the app with plain-language explanations and examples — no internet connection required.
 
@@ -1235,7 +1258,7 @@ You now each have the other's public key saved as a contact. You will not need t
 
 > **Merge is almost always the right choice.** Replace mode deletes everything on the receiving machine before writing the incoming data — use that only when you want a full mirror, not a sync.
 
-> **Bank accounts, payment history, card charges, and individual expense payment records are not included in an export.** Those are transactional records specific to each machine. The export covers the structural data: members, income sources, expense categories, expenses, debt accounts, and scenarios.
+> **The export is a full snapshot of everything in the app** — including bank accounts, payment history, card charges, ledger entries, and all structural data. The recipient gets a complete copy of your database.
 
 ---
 

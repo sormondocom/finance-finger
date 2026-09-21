@@ -183,6 +183,7 @@ test('projection panel shows a can-afford verdict (surplus ≥ $200)', async () 
   const verdict = page.locator('.afford-verdict');
   await expect(verdict).toBeVisible();
   await expect(verdict).toContainText('Yes');
+  await page.screenshot({ path: 'tests/screenshots/afford-01-projection.png' });
 });
 
 // ── Deactivation ──────────────────────────────────────────────────────────────
