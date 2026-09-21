@@ -152,14 +152,16 @@ export function openAccountForm(
 
       // Create a ledger entry for the opening/corrected balance so every
       // balance read goes through the accounting service consistently.
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      const startOfDay = todayMidnight.getTime();
+      // Opening balance is dated to epoch (0) so it always sorts before any
+      // real transactions; deriveBalance processes it first and later entries
+      // (debits, credits) accumulate on top of it correctly.
       if (balance != null && !isNaN(balance)) {
         if (!existing && balance > 0) {
-          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Opening balance', date: startOfDay });
+          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Opening balance', date: 0 });
         } else if (existing && balance !== (existing.balance ?? 0)) {
-          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Balance correction', date: startOfDay });
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          await accounting.reconcileAccount({ accountId: account.id, accountType: 'bank', targetBalance: balance, note: 'Balance correction', date: todayMidnight.getTime() });
         }
       }
 

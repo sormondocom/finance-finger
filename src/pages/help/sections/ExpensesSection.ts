@@ -5,6 +5,7 @@ export function render(grid: HTMLElement): void {
   grid.appendChild(cardAddExpense());
   grid.appendChild(cardBillTracking());
   grid.appendChild(cardMarkPaid());
+  grid.appendChild(cardAutoPay());
 }
 
 function cardCategories(): HTMLElement {
@@ -29,7 +30,7 @@ function cardAddExpense(): HTMLElement {
       <p>Click <strong>+ Add Expense</strong> on the Expenses page. Key fields:</p>
     </div>
     <div class="help-steps">
-      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body"><strong>Recurring</strong> checkbox — marks this as a recurring bill and reveals: <em>Frequency</em> (weekly → annual), <em>Due day</em> (1–28, turns it into a tracked bill), <em>Monthly threshold</em> (overage warning), <em>Fixed amount</em> (always the same — payment dialog pre-fills it), and <em>Auto-pay</em> (bank pays it automatically — no manual tracking needed).</div></div>
+      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body"><strong>Recurring</strong> checkbox — marks this as a recurring bill and reveals: <em>Frequency</em> (weekly → annual), <em>Due day</em> (1–28, turns it into a tracked bill), <em>Monthly threshold</em> (overage warning), <em>Fixed amount</em> (always the same — payment dialog pre-fills it, and the amount is auto-recorded when Auto-pay is also checked), and <em>Auto-pay</em> (bank pays it automatically — fixed-amount bills are recorded silently on each app open; variable-amount bills surface a reminder toast).</div></div>
       <div class="help-step"><span class="help-step-num">💳</span><div class="help-step-body"><strong>Charge to card</strong> — link a recurring expense to a debt account so payments automatically create a charge entry on that card.</div></div>
       <div class="help-step"><span class="help-step-num">🔔</span><div class="help-step-body">The <strong>Reminders</strong> section at the bottom lets you attach a custom notification — e.g. 7 days before a bill's due date.</div></div>
     </div>
@@ -51,6 +52,25 @@ function cardBillTracking(): HTMLElement {
     </div>
     <div class="help-callout">
       Click the <strong>📋</strong> icon on any bill row to open its <strong>payment ledger</strong> — a full history of every recorded payment with edit (✏️) and delete (🗑️) buttons on each entry.
+    </div>
+  `;
+  return card;
+}
+
+function cardAutoPay(): HTMLElement {
+  const card = makeCard('🔄', 'Auto-Pay Auto-Record');
+  card.innerHTML += `
+    <div class="edu-card-voice">
+      <p>When a recurring bill has both <strong>Auto-pay</strong> and <strong>Fixed amount</strong> checked, Financial Finger records the payment automatically — no action required from you. Each time you open the app, the extension checks for past-due auto-pay bills and silently posts a payment entry and a bank-debit ledger entry.</p>
+    </div>
+    <div class="help-steps">
+      <div class="help-step"><span class="help-step-num">✅</span><div class="help-step-body"><strong>Fixed-amount auto-pay</strong> — recorded silently on the next app open after the due date passes. A brief toast confirms how many bills were recorded. The bill status updates to ✓ Paid and the linked bank account balance decreases by the payment amount.</div></div>
+      <div class="help-step"><span class="help-step-num">⚠️</span><div class="help-step-body"><strong>Variable-amount auto-pay</strong> — NOT auto-recorded (the amount varies each cycle). A warning toast names the bills and prompts you to go to Expenses and use <em>Log Actual</em> to enter the real charge. This keeps your balance accurate without guessing.</div></div>
+      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body"><strong>No double-recording</strong> — once a bill is recorded for the current cycle, subsequent app opens skip it automatically. The dedup check uses the bill's last-paid date, so even reopening the app multiple times on the same day is safe.</div></div>
+      <div class="help-step"><span class="help-step-num">⏱️</span><div class="help-step-body"><strong>Prompt window</strong> — bills whose due date is older than the configured window (default 7 days) are silently skipped. Adjust the window in <strong>Settings → Auto-pay prompt window</strong>.</div></div>
+    </div>
+    <div class="help-callout">
+      To use auto-record: open an expense, check <strong>Recurring</strong>, set a <strong>Due day</strong>, check <strong>Fixed amount</strong>, check <strong>Auto-pay</strong>, and select the <strong>Bank account</strong> the charge is drawn from. That is all — the extension does the rest.
     </div>
   `;
   return card;

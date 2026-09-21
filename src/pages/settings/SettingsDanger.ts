@@ -9,7 +9,7 @@ import { paydayCorrelationId } from '@/utils/paydayDeposits';
 import { showMascot } from '@/mascot/Mascot';
 import type { DebtAccount, BankAccount } from '@/types';
 
-export function buildDangerSection(showToast: (msg: string) => void): HTMLElement {
+export function buildDangerSection(showToast: (msg: string) => void, onAccountReset?: () => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'settings-group';
   wrap.innerHTML = `<div class="settings-group-title" style="color:var(--color-danger)">Danger Zone</div>`;
@@ -46,7 +46,7 @@ export function buildDangerSection(showToast: (msg: string) => void): HTMLElemen
   scrollWrap.appendChild(accountList);
   wrap.appendChild(scrollWrap);
 
-  void loadResetAccounts(accountList, updateFade, showToast);
+  void loadResetAccounts(accountList, updateFade, showToast, onAccountReset);
 
   // Divider
   const divider = document.createElement('hr');
@@ -90,6 +90,7 @@ async function loadResetAccounts(
   list: HTMLElement,
   updateFade: () => void,
   showToast: (msg: string) => void,
+  onAccountReset?: () => void,
 ): Promise<void> {
   // Fetch all data before touching the DOM — any await after innerHTML='' lets the
   // browser paint the empty list at scroll 0, causing the visible jiggle.
@@ -136,7 +137,7 @@ async function loadResetAccounts(
 
     for (const account of group.accounts) {
       const balance = balanceMap.get(account.id) ?? 0;
-      list.appendChild(buildResetRow(account, group.type, balance, list, updateFade, showToast));
+      list.appendChild(buildResetRow(account, group.type, balance, list, updateFade, showToast, onAccountReset));
     }
   }
 
@@ -150,6 +151,7 @@ function buildResetRow(
   list: HTMLElement,
   updateFade: () => void,
   showToast: (msg: string) => void,
+  onAccountReset?: () => void,
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'setting-row settings-danger';
@@ -262,7 +264,8 @@ function buildResetRow(
         }
       }
       showToast(`History for "${account.name}" has been reset.`);
-      void loadResetAccounts(list, updateFade, showToast);
+      onAccountReset?.();
+      void loadResetAccounts(list, updateFade, showToast, onAccountReset);
     } catch {
       btn.disabled = false;
       btn.textContent = 'Reset History';

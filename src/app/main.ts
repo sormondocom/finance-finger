@@ -176,8 +176,25 @@ function launchApp(): void {
     });
   });
 
-  // Clear the background-set pending flag.
-  void browser.storage.local.remove('pendingPaydayCheck');
+  // Auto-record fixed-amount auto-pay bills that are past due; toast for variable-amount ones.
+  void import('@/utils/autoPayRecords').then(({ autoRecordAutoPay }) => {
+    void autoRecordAutoPay().then(({ recorded, pendingPrompts }) => {
+      if (recorded > 0) {
+        showToast(`${recorded} auto-pay bill${recorded > 1 ? 's' : ''} recorded automatically.`, 'info', 5000);
+      }
+      if (pendingPrompts.length > 0) {
+        const names = pendingPrompts.map((p) => p.expense.description).join(', ');
+        showToast(
+          `Auto-pay bills need amounts logged: ${names}. Go to Expenses → Log Actual.`,
+          'warning',
+          8000,
+        );
+      }
+    });
+  });
+
+  // Clear background-set pending flags.
+  void browser.storage.local.remove(['pendingPaydayCheck', 'pendingAutoPayCheck']);
 
   // Check for any due custom notifications after the dashboard has rendered, then
   // align the repeating poll to the top of each clock minute so time-triggered
@@ -197,7 +214,7 @@ function launchApp(): void {
         void checkAndFireNotifications();
         setInterval(() => {
           void checkAndFireNotifications();
-          // If the calendar date rolled over while the popup was open, re-run the payday check.
+          // If the calendar date rolled over while the popup was open, re-run both checks.
           const today = new Date().toDateString();
           if (today !== lastPaydayCheckDate) {
             lastPaydayCheckDate = today;
@@ -217,6 +234,21 @@ function launchApp(): void {
                     correlationId: m.correlationId,
                   }).then(() => undefined),
                 );
+              });
+            });
+            void import('@/utils/autoPayRecords').then(({ autoRecordAutoPay }) => {
+              void autoRecordAutoPay().then(({ recorded, pendingPrompts }) => {
+                if (recorded > 0) {
+                  showToast(`${recorded} auto-pay bill${recorded > 1 ? 's' : ''} recorded automatically.`, 'info', 5000);
+                }
+                if (pendingPrompts.length > 0) {
+                  const names = pendingPrompts.map((p) => p.expense.description).join(', ');
+                  showToast(
+                    `Auto-pay bills need amounts logged: ${names}. Go to Expenses → Log Actual.`,
+                    'warning',
+                    8000,
+                  );
+                }
               });
             });
           }

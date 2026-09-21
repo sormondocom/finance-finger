@@ -6,7 +6,7 @@ import type { DebtAccount, BankAccount } from '@/types';
 
 export function buildReconciliationSection(
   showToast: (msg: string) => void,
-): HTMLElement {
+): { element: HTMLElement; refresh: () => void } {
   const wrap = document.createElement('div');
   wrap.className = 'settings-group';
   wrap.setAttribute('data-testid', 'settings-recon-section');
@@ -41,8 +41,9 @@ export function buildReconciliationSection(
   scrollWrap.appendChild(list);
   wrap.appendChild(scrollWrap);
 
-  void loadAndRender(list, updateFade, showToast);
-  return wrap;
+  const refresh = () => void loadAndRender(list, updateFade, showToast);
+  refresh();
+  return { element: wrap, refresh };
 }
 
 async function loadAndRender(

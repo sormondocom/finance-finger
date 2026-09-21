@@ -143,6 +143,20 @@ Related `browser.storage.local` keys: `missedPaydayPromptDays` (default 3), `acc
 
 The background service worker fires a daily `ff-payday-check` alarm and sets a `pendingPaydayCheck` flag; the popup consumes it on open to trigger `autoRecordPaydays()`.
 
+### Auto-pay auto-record (`src/utils/autoPayRecords.ts`)
+
+`autoRecordAutoPay()` runs on every app open (triggered from `src/app/main.ts`). It:
+
+1. Collects all recurring expenses that have `isAutoPay === true` and a `dueDay` set.
+2. For each, calls `computeBillStatus(expense, now)` — only processes bills with status `'past-due'`.
+3. Bills whose due date is older than `autoPayPromptDays` days (default 7) are silently skipped — use Reconciliation to correct the balance manually for those.
+4. **Fixed-amount bills** (`isFixedAmount === true`): recorded silently via `accounting.recordExpensePayment()`. If `bankAccountId` is set a bank-debit ledger entry is created; if `linkedCardId` is set a card charge is also posted. The expense's `date` is then advanced to `dueDateTs` so `computeBillStatus` returns `'paid'` on subsequent runs (the dedup mechanism).
+5. **Variable-amount bills** (`isFixedAmount` falsy): pushed to `pendingPrompts`; the foreground surfaces a toast so the user can go to Expenses → Log Actual.
+
+Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
+
+The background service worker fires a daily `ff-autopay-check` alarm and sets a `pendingAutoPayCheck` flag; the popup consumes it on open to trigger `autoRecordAutoPay()`.
+
 ### browser.storage.local key inventory
 
 | Key | Written by | Read by | Purpose |
@@ -154,6 +168,8 @@ The background service worker fires a daily `ff-payday-check` alarm and sets a `
 | `pendingPaydayCheck` | Background alarm | App open (main.ts) | Flag to trigger `autoRecordPaydays()` on next popup open |
 | `missedPaydayPromptDays` | Settings page | `paydayDeposits.ts` | How many days back to surface missed-payday prompts (default 3) |
 | `accountResetTimestamps` | `resetAccount()` | `paydayDeposits.ts` | `Record<accountId, timestamp>` — gates same-day auto-recording after a history reset |
+| `pendingAutoPayCheck` | Background alarm | App open (main.ts) | Flag to trigger `autoRecordAutoPay()` on next popup open |
+| `autoPayPromptDays` | Settings page | `autoPayRecords.ts` | How many days past-due a variable-amount auto-pay bill surfaces a prompt (default 7) |
 
 ### Snapshot store list
 

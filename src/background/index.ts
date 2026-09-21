@@ -7,9 +7,10 @@ browser.action.onClicked.addListener(() => {
 
 // Register repeating alarms on first install (alarms persist across SW restarts).
 browser.runtime.onInstalled.addListener(async () => {
-  const [existingSnapshot, existingPayday] = await Promise.all([
+  const [existingSnapshot, existingPayday, existingAutoPay] = await Promise.all([
     browser.alarms.get('ff-auto-snapshot'),
     browser.alarms.get('ff-payday-check'),
+    browser.alarms.get('ff-autopay-check'),
   ]);
   if (!existingSnapshot) {
     await browser.alarms.create('ff-auto-snapshot', { periodInMinutes: 30 });
@@ -19,6 +20,10 @@ browser.runtime.onInstalled.addListener(async () => {
     // the alarm sets a flag so the next popup open knows to run autoRecordPaydays().
     await browser.alarms.create('ff-payday-check', { periodInMinutes: 1440 });
   }
+  if (!existingAutoPay) {
+    // Same pattern as ff-payday-check — sets a flag the foreground consumes on next open.
+    await browser.alarms.create('ff-autopay-check', { periodInMinutes: 1440 });
+  }
 });
 
 browser.alarms.onAlarm.addListener(async (alarm) => {
@@ -27,6 +32,11 @@ browser.alarms.onAlarm.addListener(async (alarm) => {
     // decrypt IndexedDB data (vault key lives only in the popup's memory), so the
     // actual bank-credit entries are written by autoRecordPaydays() on next popup open.
     await browser.storage.local.set({ pendingPaydayCheck: true });
+    return;
+  }
+
+  if (alarm.name === 'ff-autopay-check') {
+    await browser.storage.local.set({ pendingAutoPayCheck: true });
     return;
   }
 

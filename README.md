@@ -682,7 +682,7 @@ Click any category pill in the management row to open the Edit Category modal. Y
    - **Due day** (1–31) — turns the expense into a tracked bill monitored each month.
    - **Monthly threshold** — the maximum you expect the bill to cost. If an actual payment exceeds this, the app warns you.
    - **Fixed amount** — check this when the bill is always exactly the same (e.g. a streaming subscription). The payment dialog pre-fills the amount and makes it read-only.
-   - **Auto-pay** — check this for bills paid automatically by your bank. Auto-pay bills show an Auto-pay badge instead of a Record Payment button and do not appear in payment reminders.
+   - **Auto-pay** — check this for bills paid automatically by your bank. When combined with **Fixed amount**, Financial Finger silently records the payment and debits the linked bank account on the next app open after the due date passes — no action required. Variable-amount auto-pay bills are not recorded automatically; the app shows a warning toast naming the bills and prompting you to log the actual charge via **Log Actual**. Auto-pay bills never show a Record Payment button and do not appear in payment reminders.
    - **Charge to card** — link the expense to a debt account so payments automatically create a charge entry on that card.
 5. Click **Save**.
 
@@ -1047,6 +1047,8 @@ The Learn page provides plain-language financial education with interactive calc
 | **Theme** | Choose Light, Dark, or Auto (follows your OS preference). Applies immediately without a reload. |
 | **Currency** | Choose your display currency from 20 options. The currency symbol, decimal precision, and formatting apply everywhere money is shown in the app. |
 | **Reminders** | View, add, edit, and delete all custom bell notifications. Each card shows the label, when the reminder fires, and active/inactive status. Reminders can also be created and deleted from within the Add/Edit forms on the Income, Expenses, Debt, and Accounts pages — they all appear here for centralized management. |
+| **Missed payday prompt window** | How many days back the app looks for missed income auto-deposits before silently skipping them (default 3 days). |
+| **Auto-pay prompt window** | How many days past a bill's due date the app will auto-record fixed-amount auto-pay bills or surface a prompt for variable-amount ones (default 7 days). Bills older than this window are skipped — use Reconciliation to correct balances manually. |
 | **Security & Keys** | View your PGP key fingerprint. Click **Export public key** to copy the armored public key to clipboard or save it as a `.asc` file. Click **Lock vault** to end the current session without closing the browser — useful when stepping away from a shared computer. |
 | **Sharing keys** | Store a household member's or spouse's public key here so you can quickly encrypt exports to them without pasting their key every time. |
 | **Export** | Encrypts your database and downloads a `.ffx` file. You choose a recipient: a saved sharing key, a one-time paste, or your own key (for a personal backup). Only the holder of the matching private key can open the file. |
@@ -1269,7 +1271,7 @@ Help pages are context-sensitive — some pages in the app include a **?** icon 
 3. When a bill is due, click **Record Payment** on the expense row. A dialog opens where you can enter the actual amount paid, the date, and confirm (or change) which card was charged.
 4. Submitting the dialog marks the bill paid for the month and posts a charge to the card's ledger in **Debt**. No manual double-entry needed.
 5. For expenses that are always the same amount (streaming subscriptions, cable), check **Fixed amount** in the expense form — the actual payment will pre-fill automatically and the amount field will be read-only in the payment dialog.
-6. For bills charged by your bank automatically, check **Auto-pay** — Finance Finger will show an Auto-pay badge instead of a Record Payment button, and the bill won't appear in payment reminders.
+6. For bills charged by your bank automatically, check **Auto-pay** — Financial Finger will show an Auto-pay badge instead of a Record Payment button, and the bill won't appear in payment reminders. If you also check **Fixed amount**, Financial Finger silently records the payment and bank debit on the next app open after the due date passes — no action required from you.
 
 > **Tip:** If you open Record Payment and there's no card dropdown, you haven't set up any credit cards yet. Click **Add one in the Debt section →** in the dialog to navigate there directly.
 

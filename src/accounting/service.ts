@@ -112,7 +112,7 @@ export class AccountingService implements IAccountingService {
       accountType,
       0,
       'Opening balance',
-      Date.now(),
+      0,
       { priorBalance: 0, targetBalance: storedBalance },
     );
     await saveLedgerEntry(seedEntry);

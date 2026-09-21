@@ -28,7 +28,7 @@ function cardSettingsBasic(): HTMLElement {
 }
 
 function cardReminders(): HTMLElement {
-  const card = makeCard('🔔', 'Custom Reminders');
+  const card = makeCard('🔔', 'Custom Reminders & Auto-Record Windows');
   card.innerHTML += `
     <div class="edu-card-voice">
       <p>Custom reminders fire as full-screen overlay notifications when you open the app on the trigger day. They are completely local — no email, no SMS, no server.</p>
@@ -41,6 +41,13 @@ function cardReminders(): HTMLElement {
     </div>
     <div class="edu-card-voice">
       <p>Add reminders from the <strong>Reminders section</strong> at the bottom of any income source, expense, debt account, or bank account form — they're linked to that item and also appear in <strong>Settings → Reminders</strong> for centralized management.</p>
+    </div>
+    <div class="edu-card-voice">
+      <p><strong>Prompt windows</strong> — two settings control how far back the app looks when surfacing past-due events:</p>
+    </div>
+    <div class="help-steps">
+      <div class="help-step"><span class="help-step-num">💸</span><div class="help-step-body"><strong>Missed payday prompt window</strong> — how many days back to surface income sources that weren't auto-deposited (default 3 days). Paydays older than this are silently skipped.</div></div>
+      <div class="help-step"><span class="help-step-num">🔄</span><div class="help-step-body"><strong>Auto-pay prompt window</strong> — how many days past the due date to silently auto-record fixed-amount auto-pay bills or prompt for variable-amount ones (default 7 days). Bills older than this window are skipped — use Settings → Reconciliation to correct the balance manually if needed.</div></div>
     </div>
   `;
   return card;

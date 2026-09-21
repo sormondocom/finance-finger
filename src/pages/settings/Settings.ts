@@ -42,6 +42,7 @@ export class SettingsPage {
   private expenses: Expense[] = [];
   private snapshots: RawSnapshot[] = [];
   private missedPaydayPromptDays = 3;
+  private autoPayPromptDays = 7;
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -54,7 +55,7 @@ export class SettingsPage {
   private async load(): Promise<void> {
     try {
       const [storageResult, config, members, sharingKeys, notifications, expenses, snapshots] = await Promise.all([
-        browser.storage.local.get('missedPaydayPromptDays'),
+        browser.storage.local.get(['missedPaydayPromptDays', 'autoPayPromptDays']),
         getConfig(),
         getMembers(),
         getSharingKeys(),
@@ -70,6 +71,8 @@ export class SettingsPage {
       this.snapshots    = snapshots;
       this.missedPaydayPromptDays =
         (storageResult['missedPaydayPromptDays'] as number | undefined) ?? 3;
+      this.autoPayPromptDays =
+        (storageResult['autoPayPromptDays'] as number | undefined) ?? 7;
       this.paint();
     } catch (err) {
       showPageError(this.container, err instanceof Error ? err.message : 'Failed to load settings', () => { void this.load(); });
@@ -92,8 +95,9 @@ export class SettingsPage {
     this.container.appendChild(buildDataSharingSection(this.sharingKeys, this.config?.publicKeyArmored, this.config?.profileName, (msg, ms) => this.showToast(msg, ms)));
     this.container.appendChild(buildImportRulesSection((msg) => this.showToast(msg)));
     this.container.appendChild(buildSnapshotsSection(this.snapshots, (msg) => this.showToast(msg)));
-    this.container.appendChild(buildReconciliationSection((msg) => this.showToast(msg)));
-    this.container.appendChild(buildDangerSection((msg) => this.showToast(msg)));
+    const recon = buildReconciliationSection((msg) => this.showToast(msg));
+    this.container.appendChild(recon.element);
+    this.container.appendChild(buildDangerSection((msg) => this.showToast(msg), recon.refresh));
     this.container.appendChild(buildBreakGlassSection(this.config?.mascotGender));
   }
 
@@ -659,6 +663,41 @@ export class SettingsPage {
     });
 
     wrap.appendChild(row);
+
+    const autoPayRow = document.createElement('div');
+    autoPayRow.className = 'setting-row';
+    autoPayRow.setAttribute('data-testid', 'settings-autopay-prompt-row');
+    autoPayRow.innerHTML = `
+      <div class="setting-row-info">
+        <span class="setting-row-label">Auto-pay prompt window</span>
+        <span class="setting-row-desc">
+          Fixed-amount auto-pay bills are recorded silently when their due date
+          passes. If the amount varies (e.g. utilities), a notification will
+          remind you to log the actual charge — up to this many
+          <strong>days after the due date</strong>. Set to 0 to disable these
+          prompts.
+        </span>
+      </div>
+      <div class="setting-row-control" style="display:flex;gap:var(--space-3);align-items:center">
+        <input id="autopay-prompt-days-input" type="number" min="0" max="60" step="1"
+          value="${this.autoPayPromptDays}" style="width:90px;text-align:right"
+          data-testid="settings-autopay-prompt-input" />
+        <span style="font-size:var(--text-sm);color:var(--color-muted)">days</span>
+        <button id="autopay-prompt-days-save" class="btn btn-primary"
+          data-testid="settings-autopay-prompt-save">Save</button>
+      </div>
+    `;
+
+    autoPayRow.querySelector('#autopay-prompt-days-save')!.addEventListener('click', async () => {
+      const input = autoPayRow.querySelector<HTMLInputElement>('#autopay-prompt-days-input')!;
+      const val = Math.max(0, Math.min(60, parseInt(input.value, 10) || 0));
+      input.value = String(val);
+      await browser.storage.local.set({ autoPayPromptDays: val });
+      this.autoPayPromptDays = val;
+      this.showToast('Auto-pay prompt window saved.');
+    });
+
+    wrap.appendChild(autoPayRow);
     return wrap;
   }
 
