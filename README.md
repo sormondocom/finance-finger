@@ -1126,6 +1126,45 @@ When you receive a `.ffx` file:
 
 The app reloads after a successful import and shows a count of records written.
 
+#### How to transfer files — and what must never travel together
+
+The `.ffx` export file and your public key (`.asc`) can go over any channel you like — email, cloud storage, USB drive, shared network folder, chat, or any file transfer service. Both are safe in transit by design.
+
+**Public key (`.asc`)** — Share it anywhere. It is *meant* to be distributed. Email it, drop it in a shared folder, paste it into a message. There is no security risk in anyone seeing your public key. It can only lock things; it cannot unlock anything.
+
+**The `.ffx` export file** — Also safe to send over any channel. Even if intercepted, the file is AES-256-GCM encrypted and PGP-wrapped. Without the recipient's private key *and* their passphrase, the file is computationally indistinguishable from random noise. Practical options include:
+
+- Email it as an attachment
+- Drop it in Google Drive, Dropbox, or iCloud and share the link
+- Copy it to a USB drive and hand it over physically
+- Put it on a network share or NAS that both households can reach
+- Send it through Signal, iMessage, Slack, or any chat app
+
+---
+
+> **The rule that protects everything: your private key and passphrase must never travel the same channel as your `.ffx` file.**
+
+---
+
+Think of the system as a safe with two separate locks:
+
+- The **`.ffx` file** is the locked safe. It can sit on a kitchen table, in a shared folder, or in an email inbox. Alone it reveals nothing.
+- The **private key** is one lock's key. It lives in your password manager — not on the same USB drive as the file, not in the same cloud service, and certainly not in the same email thread.
+- The **passphrase** is the second lock's key. Keep it memorized or in a dedicated password manager entry — never written in a chat message, note, or email.
+
+An attacker who gets the `.ffx` file has nothing. An attacker who also gets the private key still has nothing without the passphrase. All three must be compromised independently — and you control where each one lives.
+
+**Channel-by-channel guide:**
+
+| What | Email | USB drive | Cloud folder | Network share |
+|---|---|---|---|---|
+| `.ffx` export | ✅ Safe | ✅ Safe | ✅ Safe | ✅ Safe |
+| Public key (`.asc`) | ✅ Safe | ✅ Safe | ✅ Safe | ✅ Safe |
+| **Private key** | **❌ Never** | **❌ Not with the .ffx** | **❌ Not where the .ffx lives** | **❌ Not on a shared drive** |
+| **Passphrase** | **❌ Never** | **❌ Never** | **❌ Never** | **❌ Never** |
+
+If you must physically move a private key (for example, to set up a second machine), use a separate USB drive from the one carrying the `.ffx`, and wipe the drive afterward. Your private key should live in exactly one place: your password manager.
+
 #### Recommended workflow for a shared household
 
 Designate one installation as the **primary** and use it for day-to-day data entry — adding expenses, recording payments, logging income changes. The other installation stays current by periodically importing from the primary.
