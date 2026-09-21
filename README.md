@@ -301,8 +301,6 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–31). 
 - **✏️ Edit** — reopens the payment dialog pre-filled with the original amount, date, and source so you can correct any of them. The billing cycle selector appears in edit mode too, letting you move a payment to a different cycle if needed.
 - **🗑️ Delete** — removes the payment record. The bill's paid status and `expense.date` roll back automatically to reflect only remaining records. If a card charge was created alongside the payment, it is also deleted.
 
-**Stale payment status** — If a payment record is deleted but the bill's internal date was not rolled back (a data inconsistency that can arise from interrupted saves), the bill will show a gold **⚠ Sync issue** badge instead of the normal paid/due badge. A **↺ Reset Status** button appears on the row. Clicking it clears the stale date so the bill reflects its true payment state.
-
 ---
 
 ### Bill cost thresholds
@@ -1163,7 +1161,7 @@ An attacker who gets the `.ffx` file has nothing. An attacker who also gets the 
 | **Private key** | **❌ Never** | **❌ Not with the .ffx** | **❌ Not where the .ffx lives** | **❌ Not on a shared drive** |
 | **Passphrase** | **❌ Never** | **❌ Never** | **❌ Never** | **❌ Never** |
 
-If you must physically move a private key (for example, to set up a second machine), use a separate USB drive from the one carrying the `.ffx`, and wipe the drive afterward. Your private key should live in exactly one place: your password manager.
+If you must physically move a private key (for example, to set up a second machine), use a separate USB drive from the one carrying the `.ffx`, and wipe the drive afterward. Your private key should live in exactly one place and backed up to cold storage (where even a piece of paper is better than nothing).
 
 #### Recommended workflow for a shared household
 
@@ -1334,18 +1332,23 @@ A complete walkthrough using every feature of Financial Finger across a typical 
 Go to **Income** and add each household member. For each person, add their income sources at the frequency they actually get paid — biweekly if that's reality, not monthly. Toggle off any source that is currently inactive (seasonal job, parental leave).
 
 **Accounts**
+
 Go to **Accounts** and add your checking and savings accounts. Enter a starting balance if you know it. Then link each income source to the account it deposits into (edit the source on the Income page and select the account). The Accounts page will then project your running balance month by month.
 
 **Expenses**
+
 Go to **Expenses** and create your expense categories. Add every recurring bill with its due day. Set a monthly threshold on any bill that varies (electricity, water, gas) so the extension can warn you when an actual payment runs high.
 
 **Debt**
+
 Go to **Debt** and add every credit card, vehicle loan, personal loan, and mortgage. Enter the current balance, APR, minimum payment, and due day. Add your credit limit for cards so the utilization chip on the Dashboard works correctly.
 
 **Budget check**
+
 Open the **Budget** page. Review the summary bar surplus. If it's negative, identify the category or expense driving it in the donut chart. Decide whether to cut something or accept the shortfall this month.
 
 **Settings**
+
 Go to **Settings** and set your preferred theme. Confirm the mascot name. Export an initial encrypted vault backup and save it somewhere safe.
 
 ### Every day: quick check
@@ -1363,8 +1366,6 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 3. Select the billing cycle the payment covers using the pill buttons. If you're catching up on a missed previous month, check **Covers additional billing cycle** to record both in one go.
 4. If the amount is over your threshold, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern and suggest adjusting the threshold.
 5. The chip on the Calendar updates to ✓ Paid. The notifier refreshes. If that was the last open alert, the mascot dismisses itself automatically.
-
-If a bill shows a gold **⚠ Sync issue** badge instead of a normal status, click **↺ Reset Status** on the row to clear the stale paid date. For a full audit, open **Break Glass → Orphan Scanner** — the scan runs automatically when you switch to the tab and will surface any orphaned card charges alongside the stale date.
 
 ### When you make a debt payment
 
@@ -1572,8 +1573,6 @@ The **Break Glass** tool is an emergency access panel that gives you direct read
 - A record contains a bad value that the app UI will not let you correct
 - You need to verify a specific field (e.g. a linked ID) while debugging unexpected behavior
 - You want to manually inspect what is actually stored vs. what the UI is showing
-- You see a **⚠ Sync issue** badge on a bill (stale paid-date) and want to scan for related orphaned charges in the same operation
-
 **Opening Break Glass**
 
 1. Go to **Settings** and scroll to the bottom.

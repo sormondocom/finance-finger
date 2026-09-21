@@ -48,7 +48,6 @@ function cardBillTracking(): HTMLElement {
       <div class="help-status-row"><span class="help-status-dot" style="background:#f59e0b"></span><div><strong>⏰ Due Soon</strong> — due within 7 days (amber left border)</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>⚠ Past Due</strong> — due day passed without payment — pulsing red border</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-gold)"></span><div><strong>⚡ Threshold</strong> — bill has a monthly cost target set</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-gold-dark)"></span><div><strong>⚠ Sync issue</strong> — stale paid date without a payment record. Click <em>↺ Reset Status</em> to fix.</div></div>
     </div>
     <div class="help-callout">
       Click the <strong>📋</strong> icon on any bill row to open its <strong>payment ledger</strong> — a full history of every recorded payment with edit (✏️) and delete (🗑️) buttons on each entry.
