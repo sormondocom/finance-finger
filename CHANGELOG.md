@@ -46,6 +46,41 @@ Versions correspond to `manifest.json` / `package.json` version fields.
 
 ---
 
+## [0.6.0] — 2026-09
+
+### Added
+- **Double-entry accounting ledger** — every financial mutation (debt payment, card charge, bank debit/credit, transfer, reconciliation) now writes a signed `LedgerEntry` in a dedicated `ledger` IDB store; balances are derived by replaying entries rather than stored directly
+- **Ledger page** — money-flow feed grouped by day; shows running balance per account; accessible from the nav
+- **Reconciliation** — Settings section with per-account reconciliation; writes a hard-reset `reconciliation` entry that anchors `deriveBalance` to a known figure
+- **Payday auto-record** — on each app open, `autoRecordPaydays` auto-records same-day paydays as `bank-credit` ledger entries using a stable `payday-<sourceId>-YYYY-MM-DD` correlation ID (prevents double-posting); missed paydays surface as a pending-prompt list in the dashboard
+- **`IAccountingService`** — service interface consolidating all financial mutation methods; pages must route mutations through `accounting.*` rather than calling DB functions directly
+- **`deleteDebtAccount`** service method — moves the full cascade (charges, payments, ledger entries, FK unlinks) out of the page layer and into the service
+- **`deleteMemberWithCleanup`** utility — consolidates the household-member removal cascade (income sources, bank account unlinks, expense unlinks) used in Income page and Settings
+- **`freqInterval`** exported from `src/utils/finance.ts` — eliminates the previously copy-pasted helper in three expense files
+- **`ResetAccountParams`**, **`RecordExpensePaymentParams`**, **`UpdateExpensePaymentParams`** added to `src/accounting/index.ts` re-exports
+- Unit tests for `paydayDeposits` (14 tests), `pruneSnapshots` (5 tests), and `getOverageTrend` notifier (6 tests)
+- Ledger entries included in PGP export/import bundle (`EXPORT_VERSION` bumped to 6)
+
+### Changed
+- Bank account deletion now includes `deleteLedgerEntriesForAccount` — ledger history is cleaned up alongside transaction records
+- `updateDebtPayment` now writes a matching `bank-debit` delta entry when a payment's bank account side changes — prevents bank balance divergence on edits
+- Mascot missed-payday notification uses `fmtCents.format()` (respects user locale/currency) instead of hard-coded `en-US` / `USD`
+- `_locale` in `finance.ts` now imports from `locale.ts` instead of re-deriving the same value
+- `AffordPage.load()` and `InsightsPage.load()` now catch errors and show `showPageError` rather than silently failing
+- README data-sharing export section corrected — exports include the full database (all 20 stores), not just structural records
+- SECURITY.md `browser.storage.local` table updated with all current keys: `theme`, `currency`, `pendingPaydayCheck`, `missedPaydayPromptDays`, `accountResetTimestamps`, `breakGlassLog`
+
+### Fixed
+- `escapeHtml` applied to user-supplied strings in `DebtCharges.ts`, `DashboardPanels.ts`, `ReportsTrends.ts`, `ImportWizard.ts`, and `BreakGlassPage.ts`
+- Ledger entry `createdAt` guard in `Ledger.ts` prevented charge absorptions from appearing until the next page load (sorted by `createdAt`, fallback to `date`)
+- Projected balance on Accounts page double-counted income when ledger balance was used instead of `account.balance`
+- Past-month projected balance was absent due to an `isPastMonth` gate that should not have applied to the projection calculation
+- Zero-balance clean-break entries for debt accounts now correctly clear the displayed balance
+- Void event grouping in Ledger feed now handles all reversal entry types
+- `deleteExpensePayment` now calls `deleteCharge` (soft-delete) for card-funded expenses, consistent with the debt page
+
+---
+
 ## [0.5.0] — 2026-08
 
 ### Added
@@ -91,7 +126,8 @@ Versions correspond to `manifest.json` / `package.json` version fields.
 - Settings: mascot/theme, data sharing (public key exchange), snapshots, vault reset
 - GitHub Actions CI pipeline: unit tests, Chrome and Firefox builds, E2E tests, SLSA attestation
 
-[Unreleased]: https://github.com/sormond/finance-finger/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/sormond/finance-finger/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/sormond/finance-finger/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/sormond/finance-finger/releases/tag/v0.5.0
 [0.2.0]: https://github.com/sormond/finance-finger/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sormond/finance-finger/releases/tag/v0.1.0

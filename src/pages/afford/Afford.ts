@@ -11,6 +11,7 @@ import {
 import { toMonthly, sourceMonthly, fmt, fmtCents, FREQUENCY_OPTIONS, FREQUENCY_LABELS } from '@/utils/finance';
 import { openFormModal } from '@/components/Modal';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
+import { showPageError } from '@/utils/errorUI';
 import type { Scenario, ScenarioItem, IncomeFrequency } from '@/types';
 
 const SCENARIO_COLORS = [
@@ -38,17 +39,21 @@ export class AffordPage {
   }
 
   private async load(): Promise<void> {
-    const [sources, expenses, scenarios] = await Promise.all([
-      getIncomeSources(),
-      getExpenses(),
-      getScenarios(),
-    ]);
-    this.realIncome   = sources.filter(s => s.active)
-      .reduce((sum, s) => sum + sourceMonthly(s), 0);
-    this.realExpenses = expenses.filter(e => e.recurring)
-      .reduce((sum, e) => sum + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
-    this.scenarios = scenarios;
-    this.paint();
+    try {
+      const [sources, expenses, scenarios] = await Promise.all([
+        getIncomeSources(),
+        getExpenses(),
+        getScenarios(),
+      ]);
+      this.realIncome   = sources.filter(s => s.active)
+        .reduce((sum, s) => sum + sourceMonthly(s), 0);
+      this.realExpenses = expenses.filter(e => e.recurring)
+        .reduce((sum, e) => sum + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
+      this.scenarios = scenarios;
+      this.paint();
+    } catch (_err) {
+      showPageError(this.container, 'Failed to load scenarios.', () => { void this.load(); });
+    }
   }
 
   private async refresh(): Promise<void> {

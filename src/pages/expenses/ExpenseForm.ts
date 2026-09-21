@@ -5,18 +5,13 @@ import {
 import { accounting } from '@/accounting';
 import { openFormModal } from '@/components/Modal';
 import { navigate } from '@/app/router';
-import { FREQUENCY_OPTIONS, freqThresholdLabel } from '@/utils/finance';
+import { FREQUENCY_OPTIONS, freqThresholdLabel, freqInterval } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier } from '@/utils/notifier';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember, DebtAccount, BankAccount } from '@/types';
 
-function freqInterval(freq: string | null | undefined): number {
-  if (freq === 'quarterly') return 3;
-  if (freq === 'annual')    return 12;
-  return 1;
-}
 
 export async function syncLinkedCharge(expense: Expense, _prevLinkedCardId?: string): Promise<void> {
   const newCardId = expense.linkedCardId ?? null;

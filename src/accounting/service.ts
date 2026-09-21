@@ -8,6 +8,7 @@ import {
   getDebtPayments,
   getDebtAccounts,
   saveDebtAccount,
+  deleteDebtAccount as dbDeleteDebtAccount,
   getBankAccounts,
   saveBankAccount,
   deleteDebtPayment as dbDeleteDebtPayment,
@@ -31,6 +32,8 @@ import {
   deleteExpensePaidRecord,
   getExpenses,
   saveExpense,
+  getCategories,
+  saveCategory,
   getIncomeSources,
   deleteIncomeSource as deleteIncomeSourceRecord,
 } from '@/db';
@@ -311,14 +314,40 @@ export class AccountingService implements IAccountingService {
       'payment',
       payment.accountId,
       'debt',
-      -delta,  // -delta because: paying more means balance goes down more → more negative signed amount
+      -delta,  // -delta: paying more → balance drops further → more negative signed amount
       `Update payment`,
       params.date,
       { sourceId: payment.id, sourceType: 'debt-payment' },
     );
 
-    await Promise.all([saveDebtPayment(updated), saveLedgerEntry(entry)]);
+    const saveOps: Promise<unknown>[] = [saveDebtPayment(updated), saveLedgerEntry(entry)];
+
+    // When a bank account funds this payment, write a corresponding bank-debit delta so
+    // both sides stay in sync. Use params.bankAccountId if explicitly provided (account may
+    // have changed), otherwise fall back to the payment's existing account.
+    const effectiveBankId = params.bankAccountId ?? payment.bankAccountId;
+    if (effectiveBankId && delta !== 0) {
+      await this._ensureLedgerSeed(effectiveBankId, 'bank');
+      const bankDeltaEntry = createLedgerEntry(
+        'bank-debit',
+        effectiveBankId,
+        'bank',
+        -delta,  // mirrors debt side: more payment → more bank outflow (negative)
+        'Update payment',
+        params.date,
+        { sourceId: payment.id, sourceType: 'debt-payment' },
+      );
+      saveOps.push(saveLedgerEntry(bankDeltaEntry));
+    }
+
+    await Promise.all(saveOps);
     await this._syncDebtBalance(payment.accountId);
+    if (effectiveBankId) await this._syncBankBalance(effectiveBankId);
+    // If the bank account was changed, also re-sync the old one.
+    if (payment.bankAccountId && payment.bankAccountId !== effectiveBankId) {
+      await this._syncBankBalance(payment.bankAccountId);
+    }
+
     return { payment: updated, entry };
   }
 
@@ -803,6 +832,29 @@ export class AccountingService implements IAccountingService {
         date: todayMidnight.getTime(),
       });
     }
+  }
+
+  // ── Debt account deletion ─────────────────────────────────────────────────
+
+  async deleteDebtAccount(accountId: string): Promise<void> {
+    const [charges, allPayments, allExpenses, allCategories, allPaidRecords] = await Promise.all([
+      getCardCharges(accountId),
+      getDebtPayments(),
+      getExpenses(),
+      getCategories(),
+      getExpensePaidRecords(),
+    ]);
+    const accountPayments = allPayments.filter((p) => p.accountId === accountId);
+
+    await Promise.all([
+      ...accountPayments.map((p) => dbDeleteDebtPayment(p.id)),
+      ...charges.map((c) => deleteCardCharge(c.id)),
+      deleteLedgerEntriesForAccount(accountId),
+      ...allExpenses.filter((e) => e.linkedCardId === accountId).map(({ linkedCardId: _, ...e }) => saveExpense(e)),
+      ...allCategories.filter((c) => c.defaultCardId === accountId).map(({ defaultCardId: _, ...c }) => saveCategory(c)),
+      ...allPaidRecords.filter((r) => r.cardId === accountId).map(({ cardId: _, ...r }) => saveExpensePaidRecord(r)),
+    ]);
+    await dbDeleteDebtAccount(accountId);
   }
 
   // ── Income source deletion ─────────────────────────────────────────────────

@@ -116,6 +116,13 @@ export function setCurrency(code: string): void {
 
 export function getCurrentCurrency(): string { return _currency; }
 
+/** Returns the billing-cycle length in months for a recurring expense frequency. */
+export function freqInterval(freq: string | null | undefined): number {
+  if (freq === 'quarterly') return 3;
+  if (freq === 'annual')    return 12;
+  return 1;
+}
+
 /** Returns a display label for an expense recurring frequency threshold (e.g. "Monthly", "Weekly"). */
 export function freqThresholdLabel(freq: string | null | undefined): string {
   switch (freq) {

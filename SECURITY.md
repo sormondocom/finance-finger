@@ -61,8 +61,14 @@ A forensic examination of your browser's storage will find:
 | IndexedDB — all stores except `snapshots` outer envelope | Every field of every financial record | ✅ Yes — AES-256-GCM per record |
 | IndexedDB — `snapshots` outer envelope | Snapshot `id`, `takenAt`, `label`, `snapshotType` | ❌ No — metadata only |
 | IndexedDB — `snapshots` inner entries | The encrypted record blobs (same ciphertext as main stores) | ✅ Yes — unchanged ciphertext |
-| `chrome.storage.local` — `vaultConfig` | PGP public key, encrypted vault key ciphertext, mascot + theme settings | Public key is public; vault key is ciphertext (passphrase required to use); settings are non-financial |
+| `chrome.storage.local` — `vaultConfig` | PGP public key, encrypted vault key ciphertext | Public key is public; vault key is ciphertext (passphrase required to use) |
+| `chrome.storage.local` — `theme` | Light/dark preference (`"light"` \| `"dark"`) | ❌ No — non-financial UI preference |
+| `chrome.storage.local` — `currency` | Selected currency code (e.g. `"USD"`) | ❌ No — display setting only |
 | `chrome.storage.local` — `lastSnapshotError` | Error message from last failed auto-snapshot, if any | ❌ No — error text only, no financial data |
+| `chrome.storage.local` — `pendingPaydayCheck` | Flag set by background service worker; cleared on next app open | ❌ No — boolean flag, no financial data |
+| `chrome.storage.local` — `missedPaydayPromptDays` | ISO date strings of missed paydays already shown to the user | ❌ No — dates only, no amounts or account names |
+| `chrome.storage.local` — `accountResetTimestamps` | Map of account ID → last reset timestamp | ❌ No — timestamps only; account IDs are random UUIDs |
+| `chrome.storage.local` — `breakGlassLog` | Audit log entries from the Break Glass admin tool | ❌ No — contains store names and record counts, not financial figures |
 
 **In practice:** someone with physical access to your browser profile can see *when* you took snapshots and what you named them. They cannot see your income, balances, debts, or any financial figures.
 

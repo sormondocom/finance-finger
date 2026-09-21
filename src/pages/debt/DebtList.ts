@@ -1,11 +1,7 @@
 import {
-  saveDebtAccount, deleteDebtAccount,
-  deleteDebtPayment, deleteCardCharge,
-  getCategories, saveCategory,
-  getExpenses, saveExpense,
-  getExpensePaidRecords, saveExpensePaidRecord,
-  deleteLedgerEntriesForAccount,
+  saveDebtAccount,
 } from '@/db';
+import { accounting } from '@/accounting';
 import { openImportWizard } from '@/components/ImportWizard';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
@@ -305,20 +301,7 @@ function buildDebtRow(
     openDebtForm(a, false, callbacks.onDebtFormSaved));
   row.querySelector('[data-action="delete"]')!.addEventListener('click', async () => {
     if (!await openConfirmDialog({ message: `Delete "${a.name}"?` })) return;
-    const [allExpenses, allCategories, allPaidRecords] = await Promise.all([
-      getExpenses(),
-      getCategories(),
-      getExpensePaidRecords(),
-    ]);
-    await Promise.all([
-      ...payments.map((p) => deleteDebtPayment(p.id)),
-      ...charges.map((c) => deleteCardCharge(c.id)),
-      deleteLedgerEntriesForAccount(a.id),
-      ...allExpenses.filter((e) => e.linkedCardId === a.id).map(({ linkedCardId: _, ...e }) => saveExpense(e)),
-      ...allCategories.filter((c) => c.defaultCardId === a.id).map(({ defaultCardId: _, ...c }) => saveCategory(c)),
-      ...allPaidRecords.filter((r) => r.cardId === a.id).map(({ cardId: _, ...r }) => saveExpensePaidRecord(r)),
-    ]);
-    await deleteDebtAccount(a.id);
+    await accounting.deleteDebtAccount(a.id);
     await callbacks.onLoad();
   });
 

@@ -12,18 +12,13 @@ import {
 import { openExpenseForm } from './ExpenseForm';
 import { buildCategoriesCard, openCategoryForm } from './ExpenseCategory';
 import { buildExpenseRow, type ExpenseRowContext } from './ExpenseRow';
-import { toMonthly, fmt } from '@/utils/finance';
+import { toMonthly, fmt, freqInterval } from '@/utils/finance';
 import { computeNextDue } from '@/utils/billStatus';
 import type { ExpenseCategory, Expense, ExpensePaidRecord, HouseholdMember, DebtAccount, BankAccount } from '@/types';
 
 type FilterType = 'all' | 'recurring' | 'one-time';
 type SortBy = string;
 
-function freqInterval(freq: string | null | undefined): number {
-  if (freq === 'quarterly') return 3;
-  if (freq === 'annual')    return 12;
-  return 1;
-}
 
 export class ExpensesPage {
   private categories: ExpenseCategory[] = [];

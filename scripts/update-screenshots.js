@@ -64,6 +64,14 @@ const SCREENSHOTS = [
   ['bg-04-page-loaded.png',             '25-break-glass-browser.png'],
   ['bg-07-field-editor.png',            '26-break-glass-editor.png'],
   ['bg-15-orphan-detected.png',         '27-break-glass-orphan.png'],
+
+  // Ledger
+  ['ledger-01-landing.png',             '28-ledger-landing.png'],
+  ['ledger-03-after-payment.png',       '29-ledger-after-payment.png'],
+  ['ledger-06-charge-entry.png',        '30-ledger-charge.png'],
+
+  // Setup / Unlock
+  ['03-keys.png',                       '31-setup-keys.png'],
 ];
 
 async function main() {

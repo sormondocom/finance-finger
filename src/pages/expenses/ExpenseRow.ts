@@ -9,7 +9,7 @@ import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { createPaymentSourceSelect } from '@/components/PaymentSourceSelect';
 import { openExpenseForm } from './ExpenseForm';
 import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
-import { fmt, fmtCents, FREQUENCY_LABELS, freqThresholdLabel } from '@/utils/finance';
+import { fmt, fmtCents, FREQUENCY_LABELS, freqThresholdLabel, freqInterval } from '@/utils/finance';
 import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
@@ -29,11 +29,6 @@ export type ExpenseRowContext = {
   onLoad: () => Promise<void>;
 };
 
-function freqInterval(freq: string | null | undefined): number {
-  if (freq === 'quarterly') return 3;
-  if (freq === 'annual')    return 12;
-  return 1;
-}
 
 function overageColor(actual: number, threshold: number): string {
   if (actual <= threshold) return 'var(--ff-green)';

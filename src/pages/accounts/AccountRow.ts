@@ -8,6 +8,7 @@ import {
   getIncomeSources, getExpenses, getExpensePaidRecords, getDebtPayments,
   saveIncomeSource, saveExpense, saveExpensePaidRecord, saveDebtPayment,
   deleteBankAccount, deleteBankTransactionsByAccount,
+  deleteLedgerEntriesForAccount,
 } from '@/db';
 import { buildAccountLedgerPanel } from './AccountLedger';
 import { openAccountForm, openTransferModal } from './AccountForm';
@@ -348,6 +349,7 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
       ...paid.filter((r) => r.bankAccountId === account.id).map(({ bankAccountId: _, ...r }) => saveExpensePaidRecord(r)),
       ...debtPmts.filter((p) => p.bankAccountId === account.id).map(({ bankAccountId: _, ...p }) => saveDebtPayment(p)),
       deleteBankTransactionsByAccount(account.id),
+      deleteLedgerEntriesForAccount(account.id),
     ]);
     await deleteBankAccount(account.id);
     await onLoad();

@@ -152,6 +152,9 @@ export interface IAccountingService {
   // History reset
   resetAccount(params: ResetAccountParams): Promise<void>;
 
+  // Debt account deletion (hard delete cascade — charges, payments, ledger, FK unlinks)
+  deleteDebtAccount(accountId: string): Promise<void>;
+
   // Income source deletion (void + delete — keeps audit trail)
   deleteIncomeSource(source: IncomeSource): Promise<void>;
 }

@@ -6,8 +6,8 @@ import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
 import { invalidateConfig } from '@/mascot/Mascot';
 import { readKeyInfo } from '@/crypto/pgp';
 import { isVaultOpen, closeVault } from '@/crypto/vault';
-import { getMembers, saveMember, deleteMember, createMember, getIncomeSources, getBankAccounts, saveBankAccount, getExpenses, saveExpense, getSetting, getCustomNotifications, getSnapshots } from '@/db';
-import { accounting } from '@/accounting';
+import { getMembers, saveMember, createMember, getExpenses, getSetting, getCustomNotifications, getSnapshots } from '@/db';
+import { deleteMemberWithCleanup } from '@/utils/memberUtils';
 import { setCurrency, getCurrentCurrency, SUPPORTED_CURRENCIES } from '@/utils/finance';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { buildBreakGlassSection } from './BreakGlass';
@@ -268,18 +268,7 @@ export class SettingsPage {
         removeBtn.textContent = 'Remove';
         removeBtn.addEventListener('click', async () => {
           if (!await openConfirmDialog({ message: `Remove "${m.name}"? Their income sources will also be removed.`, confirmLabel: 'Remove' })) return;
-          const [sources, allAccounts, allExpenses] = await Promise.all([
-            getIncomeSources(),
-            getBankAccounts(),
-            getExpenses(),
-          ]);
-          const toDelete = sources.filter((s) => s.memberId === m.id);
-          await Promise.all([
-            ...toDelete.map((s) => accounting.deleteIncomeSource(s)),
-            ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
-            ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
-          ]);
-          await deleteMember(m.id);
+          await deleteMemberWithCleanup(m.id);
           this.members = this.members.filter((x) => x.id !== m.id);
           renderRoster();
         });

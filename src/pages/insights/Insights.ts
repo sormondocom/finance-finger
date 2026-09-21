@@ -12,6 +12,7 @@ import {
   Filler,
 } from 'chart.js';
 import { getIncomeSources, getExpenses } from '@/db';
+import { showPageError } from '@/utils/errorUI';
 import { amortizeSingleCard } from '@/engine/amortize';
 import { toMonthly, sourceMonthly, fmt, fmtCents } from '@/utils/finance';
 import type { DebtAccount, PaymentCycle } from '@/types';
@@ -42,12 +43,16 @@ export class InsightsPage {
   }
 
   private async load(): Promise<void> {
-    const [sources, expenses] = await Promise.all([getIncomeSources(), getExpenses()]);
-    this.monthlyIncome = sources.filter((s) => s.active)
-      .reduce((sum, s) => sum + sourceMonthly(s), 0);
-    this.monthlyExpenses = expenses.filter((e) => e.recurring)
-      .reduce((sum, e) => sum + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
-    this.paint();
+    try {
+      const [sources, expenses] = await Promise.all([getIncomeSources(), getExpenses()]);
+      this.monthlyIncome = sources.filter((s) => s.active)
+        .reduce((sum, s) => sum + sourceMonthly(s), 0);
+      this.monthlyExpenses = expenses.filter((e) => e.recurring)
+        .reduce((sum, e) => sum + toMonthly(e.amount, e.recurringFrequency ?? 'monthly'), 0);
+      this.paint();
+    } catch (_err) {
+      showPageError(this.container, 'Failed to load insights.', () => { void this.load(); });
+    }
   }
 
   private paint(): void {

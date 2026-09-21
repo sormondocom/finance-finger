@@ -1,9 +1,9 @@
 import {
-  getMembers as _getMembers, getBankAccounts, getExpenses,
-  saveExpense, saveBankAccount,
-  deleteMember, createMember, saveMember, saveIncomeSource,
+  getMembers as _getMembers,
+  createMember, saveMember, saveIncomeSource,
 } from '@/db';
 import { accounting } from '@/accounting';
+import { deleteMemberWithCleanup } from '@/utils/memberUtils';
 import { sourceMonthly, fmt, fmtCents, FREQUENCY_LABELS } from '@/utils/finance';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { escapeHtml } from '@/utils/escapeHtml';
@@ -105,14 +105,7 @@ export function buildMembersCard(ctx: IncomePanelContext): HTMLElement {
     chip.appendChild(removeBtn);
     removeBtn.addEventListener('click', async () => {
       if (!await openConfirmDialog({ message: `Remove "${m.name}"? Their income sources will also be removed.`, confirmLabel: 'Remove' })) return;
-      const toDelete = ctx.sources.filter((s) => s.memberId === m.id);
-      const [allAccounts, allExpenses] = await Promise.all([getBankAccounts(), getExpenses()]);
-      await Promise.all([
-        ...toDelete.map((s) => accounting.deleteIncomeSource(s)),
-        ...allAccounts.filter((a) => a.memberId === m.id).map(({ memberId: _, ...a }) => saveBankAccount(a)),
-        ...allExpenses.filter((e) => e.memberId === m.id).map((e) => saveExpense({ ...e, memberId: null })),
-      ]);
-      await deleteMember(m.id);
+      await deleteMemberWithCleanup(m.id);
       await ctx.onLoad();
     });
     list.appendChild(chip);

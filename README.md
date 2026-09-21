@@ -1087,9 +1087,9 @@ Repeat in the opposite direction so each person has the other's public key saved
 4. Click **Export & Download**. A `.ffx` file is saved to your Downloads folder.
 5. Send the file to the other person — email, shared cloud folder, USB drive, whatever you use. The file is fully encrypted; it does not need to travel over a secure channel.
 
-The exported file includes: **members, income sources, expense categories, expenses, debt accounts, and scenarios**.
+The exported file includes the complete database: members, income sources, expense categories, expenses, debt accounts, debt payments, card charges, bank accounts, bank transactions, account transfers, expense payment records, ledger entries, scenarios, calendar marks, notifications, import records, transaction rules, and app settings.
 
-> Bank accounts, payment history, card charges, and individual expense payment records are **not included** in an export. These are transactional records tied to a specific installation. The export carries the structural and budget data — the things you set up once and want both people to agree on.
+> The export is a full snapshot of everything in the app — not just setup data. This means the recipient gets your entire transaction history, balances, and recorded payments in addition to your budget structure.
 
 #### Importing a file from a household member
 
