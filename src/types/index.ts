@@ -99,7 +99,7 @@ export interface Expense {
   dueDay?: number;         // day of month this bill is due (1–28); recurring bills only
   threshold?: number;      // optional alert cap — when set, overage warnings fire against this rather than amount
   linkedCardId?: string;   // card-type DebtAccount that auto-receives a charge when this expense is saved
-  isFixedAmount?: boolean;  // actual payment always equals estimated; fixed-amount auto-pay bills are silently auto-recorded by autoRecordAutoPay(); pre-fills amount in Record Payment dialog
+  isFixedAmount?: boolean;  // actual payment always equals estimated; fixed-amount auto-pay bills are silently auto-recorded by `autoRecordAutoPay()`; pre-fills amount in Record Payment dialog
   isAutoPay?: boolean;      // automatically charged; fixed-amount bills are silently recorded on each app open; variable-amount bills surface a toast prompt to log the actual charge
   url?: string;             // optional billing portal / website link
   bankAccountId?: string;   // optional bank account this expense is paid from (direct debit)
