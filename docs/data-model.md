@@ -120,7 +120,9 @@ type AvatarType = 'male' | 'female' | 'child' | 'baby-male' | 'baby-female' | 'c
 | `memberId` | `string \| null` |  |
 | `description` | `string` |  |
 | `amount` | `number` | monthly threshold / expected amount — the primary budget figure for this expense |
-| `date` | `number` | for recurring bills with dueDay: the date the bill was last marked paid |
+| `date` | `number` | billing cycle anchor — last recorded payment date; used by computeBillStatus to determine cycle status |
+| `startDate?` | `number` | informational: when this expense/service started; NOT used for billing; shown as "Start Date" in the form |
+| `firstDueDate?` | `number` | full timestamp of the first billing due date; while today < firstDueDate, computeBillStatus returns 'ok' (not yet billing) |
 | `recurring` | `boolean` |  |
 | `recurringFrequency` | `IncomeFrequency \| null` |  |
 | `dueDay?` | `number` | day of month this bill is due (1–28); recurring bills only |

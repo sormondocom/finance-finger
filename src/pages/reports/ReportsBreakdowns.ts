@@ -1,5 +1,6 @@
 import { Chart } from 'chart.js';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { C, SERIES, USD2, makeReportCard, makeReportEmpty } from './ReportsUtils';
 import type { Expense, CardCharge, ExpenseCategory } from '@/types';
 import { userLocale } from '@/utils/locale';
@@ -76,7 +77,7 @@ export function buildCategoryBreakdown(
     row.className = 'reports-table-row';
     row.innerHTML = `
       <span class="reports-color-dot" style="background:${cat.color}"></span>
-      <span class="reports-table-name">${cat.name}</span>
+      <span class="reports-table-name">${escapeHtml(cat.name)}</span>
       <span class="reports-table-pct">${pct}%</span>
       <span class="reports-table-value">${fmtCents.format(total)}</span>
     `;
@@ -214,7 +215,7 @@ export function buildBiggestTransactions(
     const dateStr = new Date(date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric' });
     row.innerHTML = `
       <span class="reports-type-badge reports-type-badge--${kind}">${kind === 'charge' ? 'Card' : 'Exp.'}</span>
-      <span class="reports-table-name">${name}</span>
+      <span class="reports-table-name">${escapeHtml(name)}</span>
       <span class="text-xs text-muted" style="white-space:nowrap">${dateStr}</span>
       <span class="reports-table-value">${fmtCents.format(amount)}</span>
     `;

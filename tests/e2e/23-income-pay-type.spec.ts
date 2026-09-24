@@ -149,7 +149,7 @@ test('editing an hourly source pre-fills rate and hours fields', async () => {
   await row.locator('[data-testid="income-source-edit"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  await expect(page.locator('#sf-hourly-rate')).toHaveValue('25');
+  await expect(page.locator('#sf-hourly-rate')).toHaveValue('25.00');
   await expect(page.locator('#sf-hours-week')).toHaveValue('32');
 
   await closeModal();

@@ -1,4 +1,5 @@
 import { USD2, makeReportCard } from './ReportsUtils';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { Expense, ExpensePaidRecord } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -71,7 +72,7 @@ export function buildOverageOffenders(
     const header = document.createElement('div');
     header.className = 'overage-offender-header';
     header.innerHTML = `
-      <span class="overage-offender-name">${expense.description}</span>
+      <span class="overage-offender-name">${escapeHtml(expense.description)}</span>
       <span class="overage-offender-meta">
         Monthly Threshold: ${USD2.format(threshold)}
         · <span class="${overCount > 0 ? 'overage-count-badge' : 'text-muted'}">${overCount} of ${total} over budget</span>

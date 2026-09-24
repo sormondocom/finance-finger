@@ -6,6 +6,7 @@ import {
   Legend,
 } from 'chart.js';
 import { fmt, fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { ExpenseCategory } from '@/types';
 
 Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
@@ -102,7 +103,7 @@ export function renderDonut(totals: CategoryTotals[], total: number): HTMLElemen
     row.style.cssText = 'display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-xs)';
     row.innerHTML = `
       <span style="width:10px;height:10px;border-radius:50%;background:${t.cat?.color ?? '#999'};flex-shrink:0"></span>
-      <span style="flex:1;color:var(--color-text-muted)">${t.cat?.name ?? 'Uncategorized'}</span>
+      <span style="flex:1;color:var(--color-text-muted)">${escapeHtml(t.cat?.name ?? 'Uncategorized')}</span>
       <span style="font-weight:600">${pct}%</span>
     `;
     legend.appendChild(row);
@@ -140,7 +141,7 @@ export function renderBreakdown(totals: CategoryTotals[], monthlyIncome: number)
     row.innerHTML = `
       <div class="breakdown-label">
         <span class="breakdown-dot" style="background:${t.cat?.color ?? '#999'}"></span>
-        <span>${t.cat?.name ?? 'Uncategorized'}</span>
+        <span>${escapeHtml(t.cat?.name ?? 'Uncategorized')}</span>
       </div>
       <div class="breakdown-bar-wrap">
         <div class="breakdown-bar-fill" style="width:${pct}%;background:${t.cat?.color ?? '#999'}"></div>

@@ -104,7 +104,12 @@ export class AccountingService implements IAccountingService {
       ? (await getDebtAccounts()).find((a) => a.id === accountId)?.balance ?? 0
       : (await getBankAccounts()).find((a) => a.id === accountId)?.balance ?? 0;
 
-    if (storedBalance <= 0) return;
+    // Debt accounts with zero balance need no seed — they're paid off.
+    // Bank accounts CAN have a negative opening balance (overdraft), so only
+    // skip seeding when the balance is exactly zero (no seed needed) and the
+    // account type is debt, OR the balance is undefined/null (unset).
+    const skipSeed = accountType === 'debt' ? storedBalance <= 0 : storedBalance === 0;
+    if (skipSeed) return;
 
     const seedEntry = createLedgerEntry(
       'reconciliation',
@@ -510,7 +515,10 @@ export class AccountingService implements IAccountingService {
     const { record, amount, date, description, bankAccountId, cardId } = params;
     const allEntries = await getAllLedgerEntries();
 
-    // Replace the bank-debit entry: remove old, write new
+    // Replace the bank-debit entry: remove old, write new.
+    // Edits are data corrections (user entered the wrong amount), not financial events —
+    // a clean replacement keeps the ledger readable. Deletes use void+reversal instead
+    // because a deletion IS a financial event (money goes back), so the audit trail matters.
     if (record.bankAccountId) {
       const oldDebit = allEntries.find(
         (e) => e.sourceId === record.id && e.type === 'bank-debit' && e.sourceType === 'expense-payment',

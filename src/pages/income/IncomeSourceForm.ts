@@ -41,7 +41,7 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
     </div>
     <div class="form-group">
       <label class="form-label" for="sf-name">Source name <span class="req">*</span></label>
-      <input id="sf-name" type="text" value="${existing?.name ?? ''}"
+      <input id="sf-name" type="text" value="${escapeHtml(existing?.name ?? '')}"
         placeholder="e.g. Day job, Freelance, Rental income" maxlength="64" />
     </div>
     <div class="form-group">
@@ -64,14 +64,14 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
     <div id="sf-salary-row" class="form-group" style="display:none">
       <label class="form-label" id="sf-amount-label" for="sf-amount">Amount <span class="req">*</span></label>
       <input id="sf-amount" type="number" min="0" step="0.01"
-        value="${existing?.payType !== 'hourly' ? (existing?.amount ?? '') : ''}" placeholder="0.00" />
+        value="${existing?.payType !== 'hourly' ? (existing?.amount != null ? existing.amount.toFixed(2) : '') : ''}" placeholder="0.00" />
     </div>
     <div id="sf-hourly-row" class="form-group" style="display:none">
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="sf-hourly-rate">Hourly rate <span class="req">*</span></label>
           <input id="sf-hourly-rate" type="number" min="0" step="0.01" placeholder="25.00"
-            value="${existing?.hourlyRate ?? ''}" />
+            value="${existing?.hourlyRate != null ? existing.hourlyRate.toFixed(2) : ''}" />
         </div>
         <div class="form-group">
           <label class="form-label" for="sf-hours-week">Hrs / week <span class="req">*</span></label>
@@ -139,7 +139,7 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
   amount2Input.step = '0.01';
   amount2Input.placeholder = '0.00';
   amount2Input.title = 'Your second monthly paycheck amount — added to the first paycheck for your total monthly income';
-  if (existing?.amount2 != null) amount2Input.value = String(existing.amount2);
+  if (existing?.amount2 != null) amount2Input.value = existing.amount2.toFixed(2);
   amount2Row.appendChild(amount2Label);
   amount2Row.appendChild(amount2Input);
 

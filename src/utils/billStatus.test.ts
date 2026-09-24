@@ -55,6 +55,33 @@ describe('computeNextDue', () => {
     expect(result.getMonth()).toBe(0); // January
     expect(result.getDate()).toBe(1);
   });
+
+  it('clamps dueDay=31 to Feb 28 instead of overflowing to March', () => {
+    // Quarterly bill with dueDay=31; lastPaid=Oct 31 → next due is Jan 31
+    const lastPaid = new Date(2025, 9, 31); // Oct 31
+    const result = computeNextDue(lastPaid, 31, 3);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(0); // January
+    expect(result.getDate()).toBe(31);
+  });
+
+  it('clamps dueDay=31 when target month has 28 days', () => {
+    // Annual bill due on 31st; lastPaid=Feb 28, 2025 → next due is Feb 28, 2026
+    const lastPaid = new Date(2025, 1, 28); // Feb 28
+    const result = computeNextDue(lastPaid, 31, 12);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(1); // February
+    expect(result.getDate()).toBe(28);
+  });
+
+  it('does not overflow month when setMonth causes a carry', () => {
+    // Monthly bill dueDay=31; Jan 31 → Feb should land on Feb 28, not March 3
+    const lastPaid = new Date(2026, 0, 31); // Jan 31
+    const result = computeNextDue(lastPaid, 31, 1);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(1); // February
+    expect(result.getDate()).toBe(28);
+  });
 });
 
 // ── computeBillStatus ─────────────────────────────────────────────────────────

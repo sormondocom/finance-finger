@@ -65,6 +65,60 @@ describe('computeMinPayment', () => {
   });
 });
 
+// ── advanceByCycle month-end overflow ─────────────────────────────────────────
+//
+// These tests verify that advancing a month-end due date by one monthly cycle
+// lands on the last day of the next month, not the overflow-into-the-following-month
+// that JavaScript's setMonth() produces (e.g. Jan 31 + 1 month = March 3, not Feb 28).
+
+describe('computePaymentStatus — month-end due date advancement', () => {
+  it('advances Jan 31 to Feb 28, not March 3', () => {
+    const acct = makeAccount({
+      balance: 1000,
+      paymentCycle: 'monthly',
+      minimumPaymentType: 'fixed',
+      minimumPaymentValue: 50,
+      nextDueDateMs: new Date(2026, 0, 31).getTime(),
+    });
+    // Feb 25 is 3 days before Feb 28 — should be due-soon, not ok (which would mean March)
+    const result = computePaymentStatus(acct, [], new Date(2026, 1, 25));
+    expect(result.currentMonth).toBe('due-soon');
+    expect(result.dueDayThisMonth?.getDate()).toBe(28);
+    expect(result.dueDayThisMonth?.getMonth()).toBe(1);
+  });
+
+  it('advances Oct 31 to Nov 30 without overflow into December', () => {
+    const acct = makeAccount({
+      balance: 500,
+      paymentCycle: 'monthly',
+      minimumPaymentType: 'fixed',
+      minimumPaymentValue: 25,
+      nextDueDateMs: new Date(2026, 9, 31).getTime(),
+    });
+    // Nov 28 is 2 days before Nov 30 — should be due-soon
+    const result = computePaymentStatus(acct, [], new Date(2026, 10, 28));
+    expect(result.currentMonth).toBe('due-soon');
+    expect(result.dueDayThisMonth?.getDate()).toBe(30);
+    expect(result.dueDayThisMonth?.getMonth()).toBe(10);
+  });
+
+  it('advances Dec 31 to Jan 31 of the next year', () => {
+    const acct = makeAccount({
+      balance: 500,
+      paymentCycle: 'monthly',
+      minimumPaymentType: 'fixed',
+      minimumPaymentValue: 25,
+      nextDueDateMs: new Date(2025, 11, 31).getTime(),
+    });
+    // Jan 28: 3 days before Jan 31 — due-soon
+    const result = computePaymentStatus(acct, [], new Date(2026, 0, 28));
+    expect(result.currentMonth).toBe('due-soon');
+    expect(result.dueDayThisMonth?.getDate()).toBe(31);
+    expect(result.dueDayThisMonth?.getMonth()).toBe(0);
+    expect(result.dueDayThisMonth?.getFullYear()).toBe(2026);
+  });
+});
+
 // ── computePaymentStatus ──────────────────────────────────────────────────────
 
 describe('computePaymentStatus', () => {

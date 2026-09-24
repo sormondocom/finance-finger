@@ -511,7 +511,11 @@ function buildBubble(
 
   const textEl = document.createElement('div');
   textEl.className = 'mascot-bubble-text';
-  textEl.innerHTML = lines.map((l) => `<p>${l}</p>`).join('');
+  lines.forEach((l) => {
+    const p = document.createElement('p');
+    p.textContent = l;
+    textEl.appendChild(p);
+  });
 
   bubble.appendChild(nameEl);
   bubble.appendChild(textEl);

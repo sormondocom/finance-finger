@@ -1,4 +1,5 @@
 import './afford.css';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { makeHelpBtn } from '@/utils/helpNav';
 import {
   getIncomeSources,
@@ -129,7 +130,7 @@ export class AffordPage {
       : `❌ This would put you ${fmt.format(Math.abs(adjSurplus))}/mo in the red`;
 
     const nameList = active
-      .map(s => `<span style="color:${s.color};font-weight:700">${s.name}</span>`)
+      .map(s => `<span style="color:${s.color};font-weight:700">${escapeHtml(s.name)}</span>`)
       .join(', ');
 
     const el = document.createElement('div');
@@ -246,8 +247,8 @@ export class AffordPage {
     const info = document.createElement('div');
     info.className = 'scenario-card-info';
     info.innerHTML = `
-      <span class="scenario-card-name">${s.name}</span>
-      <span class="scenario-card-meta">${metaNet}${s.description ? ' · ' + s.description : ''}</span>
+      <span class="scenario-card-name">${escapeHtml(s.name)}</span>
+      <span class="scenario-card-meta">${metaNet}${s.description ? ' · ' + escapeHtml(s.description) : ''}</span>
     `;
 
     // Toggle switch
@@ -313,7 +314,7 @@ export class AffordPage {
         row.setAttribute('data-testid', 'scenario-item-row');
         row.innerHTML = `
           <span class="item-type-tag ${tagKey}">${tagLabel}</span>
-          <span class="scenario-item-desc">${item.description}</span>
+          <span class="scenario-item-desc">${escapeHtml(item.description)}</span>
           <span class="scenario-item-freq">${freqLabel}</span>
           <span class="scenario-item-amount" style="color:${color}">${sign}${fmtCents.format(item.amount)}</span>
         `;
@@ -560,7 +561,7 @@ export class AffordPage {
     body.innerHTML = `
       <div>
         <label style="display:block;font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);margin-bottom:var(--space-1)">Film name</label>
-        <input id="rn-name" type="text" value="${s.name}" style="width:100%" />
+        <input id="rn-name" type="text" value="${escapeHtml(s.name)}" style="width:100%" />
       </div>
     `;
 

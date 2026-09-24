@@ -19,7 +19,10 @@ export function getPaydaysInMonth(source: IncomeSource, year: number, month: num
       days.push(Math.min(ref.getDate(), daysInMonth));
       break;
     case 'semimonthly': {
-      // Legacy: no semimonthlySchedule set; fall back to paydayRef-based calculation
+      // Legacy path: sources created before semimonthlySchedule was introduced
+      // (added 2026-09) have no schedule field and fall back to paydayRef.
+      // New sources always take the semimonthlySchedule branch above.
+      // This path can be removed once all existing sources have been migrated.
       const d1 = Math.min(ref.getDate(), daysInMonth);
       const d2 = Math.min(d1 + 15, daysInMonth);
       days.push(d1);

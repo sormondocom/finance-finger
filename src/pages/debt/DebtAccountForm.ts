@@ -1,6 +1,7 @@
 import { saveDebtAccount, createDebtAccount } from '@/db';
 import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { openFormModal } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { DebtAccount, DebtAccountType, PaymentCycle } from '@/types';
@@ -65,7 +66,7 @@ export function openDebtForm(
     </div>
     <div class="form-group">
       <label class="form-label" for="da-name">Name / Lender <span class="req">*</span></label>
-      <input id="da-name" type="text" value="${existing?.name ?? ''}"
+      <input id="da-name" type="text" value="${escapeHtml(existing?.name ?? '')}"
         placeholder="e.g. Chase Sapphire, Wells Fargo Mortgage" maxlength="48" />
     </div>
     <div class="form-group">
@@ -77,13 +78,13 @@ export function openDebtForm(
       <div class="form-group">
         <label class="form-label" for="da-balance">Current balance <span class="req">*</span></label>
         <input id="da-balance" type="number" min="0" step="0.01"
-          value="${existing?.balance ?? ''}" placeholder="0.00"
+          value="${existing?.balance != null ? existing.balance.toFixed(2) : ''}" placeholder="0.00"
           title="Your current outstanding balance on this account" />
       </div>
       <div class="form-group">
         <label class="form-label" for="da-apr">APR (%) <span class="req" id="da-apr-req">*</span></label>
         <input id="da-apr" type="number" min="0" max="100" step="0.01"
-          value="${existing?.apr ?? ''}" placeholder="e.g. 22.99"
+          value="${existing?.apr != null ? existing.apr.toFixed(2) : ''}" placeholder="e.g. 22.99"
           title="Annual Percentage Rate — your yearly interest rate, used to calculate monthly interest charges" />
         <span class="form-hint" id="da-apr-hint">Annual percentage rate</span>
       </div>
@@ -157,7 +158,7 @@ export function openDebtForm(
         </div>
         <div class="form-group">
           <input id="da-min-value" type="number" min="0" step="0.01"
-            value="${existing?.minimumPaymentValue ?? (minTypeChecked === 'percentage' ? '2' : '')}" placeholder="e.g. 2 or 25.00"
+            value="${existing?.minimumPaymentValue != null ? existing.minimumPaymentValue.toFixed(2) : (minTypeChecked === 'percentage' ? '2' : '')}" placeholder="e.g. 2 or 25.00"
             title="For % of balance: enter the percentage (e.g. 2 for 2%), floored at $25. For fixed: enter the dollar amount per cycle." />
           <span class="form-hint" id="da-min-hint">
             ${minTypeChecked === 'fixed' ? 'Fixed amount paid each cycle' : 'Percentage of balance, floored at $25'}
@@ -170,7 +171,7 @@ export function openDebtForm(
     <div id="da-section-fixed-payment" style="display:none" class="form-group">
       <label class="form-label" for="da-payment-fixed">Monthly payment</label>
       <input id="da-payment-fixed" type="number" min="0" step="0.01"
-        value="${existing?.minimumPaymentValue ?? ''}" placeholder="0.00"
+        value="${existing?.minimumPaymentValue != null ? existing.minimumPaymentValue.toFixed(2) : ''}" placeholder="0.00"
         title="Your regular monthly payment — used to track whether you've met your payment obligation each cycle" />
       <span class="form-hint">Your regular monthly payment amount</span>
     </div>

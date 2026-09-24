@@ -625,6 +625,22 @@
   white-space: nowrap;
 }
 
+/* ── Fixed-rate badge ────────────────────────────────────────────────────── */
+
+.expense-fixed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  white-space: nowrap;
+}
+
 /* ── Mark Paid button ────────────────────────────────────────────────────── */
 
 .mark-paid-btn {

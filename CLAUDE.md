@@ -141,8 +141,6 @@ Every interactive element in E2E tests is identified by `data-testid`. Prefixes 
 
 Related `browser.storage.local` keys: `missedPaydayPromptDays` (default 3), `accountResetTimestamps`.
 
-The background service worker fires a daily `ff-payday-check` alarm and sets a `pendingPaydayCheck` flag; the popup consumes it on open to trigger `autoRecordPaydays()`.
-
 ### Auto-pay auto-record (`src/utils/autoPayRecords.ts`)
 
 `autoRecordAutoPay()` runs on every app open (triggered from `src/app/main.ts`). It:
@@ -155,8 +153,6 @@ The background service worker fires a daily `ff-payday-check` alarm and sets a `
 
 Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
 
-The background service worker fires a daily `ff-autopay-check` alarm and sets a `pendingAutoPayCheck` flag; the popup consumes it on open to trigger `autoRecordAutoPay()`.
-
 ### browser.storage.local key inventory
 
 | Key | Written by | Read by | Purpose |
@@ -165,10 +161,8 @@ The background service worker fires a daily `ff-autopay-check` alarm and sets a 
 | `theme` | Settings page | App boot | Quick-access theme color scheme (avoids IDB on startup) |
 | `currency` | Settings page | App boot | Quick-access currency code |
 | `lastSnapshotError` | Background worker | App open (main.ts) | `{ message, time }` — surfaced as a toast if set |
-| `pendingPaydayCheck` | Background alarm | App open (main.ts) | Flag to trigger `autoRecordPaydays()` on next popup open |
 | `missedPaydayPromptDays` | Settings page | `paydayDeposits.ts` | How many days back to surface missed-payday prompts (default 3) |
 | `accountResetTimestamps` | `resetAccount()` | `paydayDeposits.ts` | `Record<accountId, timestamp>` — gates same-day auto-recording after a history reset |
-| `pendingAutoPayCheck` | Background alarm | App open (main.ts) | Flag to trigger `autoRecordAutoPay()` on next popup open |
 | `autoPayPromptDays` | Settings page | `autoPayRecords.ts` | How many days past-due a variable-amount auto-pay bill surfaces a prompt (default 7) |
 
 ### Snapshot store list
@@ -177,7 +171,7 @@ The background service worker fires a daily `ff-autopay-check` alarm and sets a 
 
 ## Build system
 
-- `vite.config.ts` — two build modes: `chrome` (MV3 manifest) and `firefox` (MV2 manifest). Source maps only in development.
+- `vite.config.ts` — two build modes: `chrome` (MV3 manifest) and `firefox` (MV3 manifest). Source maps only in development.
 - `scripts/setup.js` — the canonical full-build script. Runs: icons → lint → unit tests → Chrome build + E2E → Firefox build + E2E → screenshot refresh.
 - TypeScript strict mode is on, including `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 

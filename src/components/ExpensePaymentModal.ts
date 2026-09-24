@@ -1,5 +1,6 @@
 import { openFormModal } from '@/components/Modal';
 import { createPaymentSourceSelect } from '@/components/PaymentSourceSelect';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { fmt, fmtCents, freqThresholdLabel } from '@/utils/finance';
 import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import {
@@ -27,6 +28,8 @@ export function openExpensePaymentModal({
   onSave,
 }: ExpensePaymentModalOptions): void {
   const isBill = expense.recurring && !!expense.dueDay;
+  // Once a bill is paid, firstDueDate is no longer needed — billing has started.
+  const { firstDueDate: _fd, ...baseExpense } = expense;
   const isFixed = !!expense.isFixedAmount;
   const isUpdate = !!existingRecord;
   const today = todayDateInput();
@@ -40,8 +43,8 @@ export function openExpensePaymentModal({
   body.innerHTML = `
     <p class="text-sm text-muted">
       ${isUpdate
-        ? `Update the recorded payment for <strong>${expense.description}</strong>.`
-        : `How much was the actual ${isBill ? 'bill' : 'expense'} for <strong>${expense.description}</strong>?`}
+        ? `Update the recorded payment for <strong>${escapeHtml(expense.description)}</strong>.`
+        : `How much was the actual ${isBill ? 'bill' : 'expense'} for <strong>${escapeHtml(expense.description)}</strong>?`}
     </p>
     <div class="form-group">
       <label class="form-label" for="mp-amount">Actual amount</label>
@@ -121,7 +124,7 @@ export function openExpensePaymentModal({
           ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
           ...(selectedCardId ? { cardId: selectedCardId } : {}),
         }));
-        if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
+        if (isBill) ops.push(saveExpense({ ...baseExpense, date: paidDate }));
       } else {
         ops.push(accounting.recordExpensePayment({
           expenseId: expense.id,
@@ -131,7 +134,7 @@ export function openExpensePaymentModal({
           ...(selectedBankId ? { bankAccountId: selectedBankId } : {}),
           ...(selectedCardId ? { cardId: selectedCardId } : {}),
         }));
-        if (isBill) ops.push(saveExpense({ ...expense, date: paidDate }));
+        if (isBill) ops.push(saveExpense({ ...baseExpense, date: paidDate }));
       }
 
       await Promise.all(ops);

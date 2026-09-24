@@ -266,6 +266,11 @@ export class ExpensesPage {
 
   private nextDueMs(expense: Expense): number {
     if (!expense.dueDay) return expense.date;
+    if (expense.firstDueDate) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      if (todayStart.getTime() < expense.firstDueDate) return expense.firstDueDate;
+    }
     const interval = freqInterval(expense.recurringFrequency);
     return computeNextDue(new Date(expense.date), expense.dueDay, interval).getTime();
   }

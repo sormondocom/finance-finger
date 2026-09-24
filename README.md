@@ -286,6 +286,8 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–31). 
 | **Due Soon** | Due day is within 7 days | Amber left border, ⏰ badge |
 | **Past Due** | Due day has passed without payment | Red left border, ⚠ badge, pulsing animation |
 | **Paid** | Marked paid this calendar month | Green left border, ✓ badge |
+| **📌 Fixed rate** | Bill's amount never varies (non-auto-pay bills only) | Indigo badge on the row |
+| **Auto-pay** | Bill is paid automatically by the bank | Blue badge; no Mark Paid button |
 
 **Mark Paid** — The Mark Paid button on a due or overdue bill opens a dialog asking for the **actual amount paid** (pre-filled with the bill's usual amount). This lets variable bills — electricity, water, gas — record what the bill actually was, not just what you expected. Submitting saves a payment record and resets the bill's paid status for the month.
 
@@ -305,7 +307,12 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–31). 
 
 ### Bill cost thresholds
 
-Any recurring expense can have a **monthly threshold** — the maximum you expect the bill to cost. Set one when you add or edit a recurring expense (the Threshold field appears after checking "recurring").
+Financial Finger treats recurring bills as either **fixed-rate** (the amount never varies — insurance, subscriptions) or **variable-rate** (the amount changes month to month — electricity, water, gas). The expense form has a **Fixed rate** checkbox:
+
+- **Fixed rate checked** — the amount field is the exact charge; the threshold field is hidden. The payment dialog pre-fills and locks the amount.
+- **Fixed rate unchecked** — the amount field becomes a **monthly threshold** (your spending target), and you enter the actual charge each month when marking the bill paid.
+
+Any variable-rate recurring bill can have a **monthly threshold** set — the maximum you expect the bill to cost. Set one when you add or edit a recurring expense (the Threshold field is shown after checking "recurring" with Fixed rate unchecked).
 
 **When thresholds kick in:**
 
@@ -680,9 +687,9 @@ Click any category pill in the management row to open the Edit Category modal. Y
 4. Check **Recurring** to make it a recurring bill. This reveals:
    - **Frequency** — weekly through annual (including quarterly).
    - **Due day** (1–31) — turns the expense into a tracked bill monitored each month.
-   - **Monthly threshold** — the maximum you expect the bill to cost. If an actual payment exceeds this, the app warns you.
-   - **Fixed amount** — check this when the bill is always exactly the same (e.g. a streaming subscription). The payment dialog pre-fills the amount and makes it read-only.
-   - **Auto-pay** — check this for bills paid automatically by your bank. When combined with **Fixed amount**, Financial Finger silently records the payment and debits the linked bank account on the next app open after the due date passes — no action required. Variable-amount auto-pay bills are not recorded automatically; the app shows a warning toast naming the bills and prompting you to log the actual charge via **Log Actual**. Auto-pay bills never show a Record Payment button and do not appear in payment reminders.
+   - **Fixed rate** — check this when the bill amount **never varies** (e.g. insurance, a streaming subscription). The payment dialog pre-fills the exact amount as read-only, and the separate threshold field is hidden — the amount is the budget. Leave it unchecked for variable bills (electricity, water) where you set a budget target and enter the actual charge each month.
+   - **Monthly threshold** — for variable-rate recurring bills, the maximum you expect the bill to cost each period. If an actual payment exceeds this, the app warns you in the payment dialog and tracks overages in Reports. Hidden when **Fixed rate** is checked.
+   - **Auto-pay** — check this for bills paid automatically by your bank. When combined with **Fixed rate**, Financial Finger silently records the payment and debits the linked bank account on the next app open after the due date passes — no action required. Variable-rate auto-pay bills are not recorded automatically; the app shows a warning toast naming the bills and prompting you to log the actual charge via **Log Actual**. Auto-pay bills never show a Record Payment button and do not appear in payment reminders.
    - **Charge to card** — link the expense to a debt account so payments automatically create a charge entry on that card.
 5. Click **Save**.
 
@@ -1270,8 +1277,8 @@ Help pages are context-sensitive — some pages in the app include a **?** icon 
 2. Head to **Expenses**. When adding or editing a recurring bill, choose the card from the **Charge to card** dropdown. The expense is now linked — future payments will automatically create a charge entry on that card.
 3. When a bill is due, click **Record Payment** on the expense row. A dialog opens where you can enter the actual amount paid, the date, and confirm (or change) which card was charged.
 4. Submitting the dialog marks the bill paid for the month and posts a charge to the card's ledger in **Debt**. No manual double-entry needed.
-5. For expenses that are always the same amount (streaming subscriptions, cable), check **Fixed amount** in the expense form — the actual payment will pre-fill automatically and the amount field will be read-only in the payment dialog.
-6. For bills charged by your bank automatically, check **Auto-pay** — Financial Finger will show an Auto-pay badge instead of a Record Payment button, and the bill won't appear in payment reminders. If you also check **Fixed amount**, Financial Finger silently records the payment and bank debit on the next app open after the due date passes — no action required from you.
+5. For expenses that are always the same amount (streaming subscriptions, cable), check **Fixed rate** in the expense form — the actual payment will pre-fill automatically and the amount field will be read-only in the payment dialog.
+6. For bills charged by your bank automatically, check **Auto-pay** — Financial Finger will show an Auto-pay badge instead of a Record Payment button, and the bill won't appear in payment reminders. If you also check **Fixed rate**, Financial Finger silently records the payment and bank debit on the next app open after the due date passes — no action required from you.
 
 > **Tip:** If you open Record Payment and there's no card dropdown, you haven't set up any credit cards yet. Click **Add one in the Debt section →** in the dialog to navigate there directly.
 

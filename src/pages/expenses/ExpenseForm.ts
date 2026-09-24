@@ -56,12 +56,17 @@ export function openExpenseForm(
   body.className = 'expense-form';
 
   const today = new Date().toISOString().split('T')[0];
+  // Show the stored start date when editing; fall back to expense.date for old records.
   const existingDate = existing
-    ? new Date(existing.date).toISOString().split('T')[0]
+    ? new Date(existing.startDate ?? existing.date).toISOString().split('T')[0]
     : today;
 
   const defaultDueDate = (() => {
     if (!existing?.dueDay) return '';
+    // If billing hasn't started yet, show the stored first due date directly.
+    if (existing.firstDueDate && existing.firstDueDate > Date.now()) {
+      return new Date(existing.firstDueDate).toISOString().split('T')[0];
+    }
     const lastPaid = new Date(existing.date);
     const interval = freqInterval(existing.recurringFrequency);
     const next = computeNextDue(lastPaid, existing.dueDay, interval);
@@ -71,7 +76,7 @@ export function openExpenseForm(
   const catOptions = [
     `<option value="" ${!existing?.categoryId ? 'selected' : ''}>— No category —</option>`,
     ...categories.map(
-      (c) => `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`,
+      (c) => `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`,
     ),
   ].join('');
 
@@ -89,7 +94,7 @@ export function openExpenseForm(
   body.innerHTML = `
     <div class="form-group">
       <label class="form-label" for="ef-desc">Description <span class="req">*</span></label>
-      <input id="ef-desc" type="text" value="${existing?.description ?? ''}"
+      <input id="ef-desc" type="text" value="${escapeHtml(existing?.description ?? '')}"
         placeholder="e.g. Rent, Groceries, Netflix" maxlength="64" />
     </div>
     <div class="form-group">
@@ -101,12 +106,12 @@ export function openExpenseForm(
       <div class="form-group">
         <label class="form-label" id="ef-amount-label" for="ef-amount">Estimated Amount <span class="req">*</span></label>
         <input id="ef-amount" type="number" min="0" step="0.01"
-          value="${existing?.amount ?? ''}" placeholder="0.00" />
+          value="${existing?.amount != null ? existing.amount.toFixed(2) : ''}" placeholder="0.00" />
       </div>
       <div class="form-group">
-        <label class="form-label" for="ef-date">Effective Date <span class="req">*</span></label>
+        <label class="form-label" for="ef-date">Start Date <span class="req">*</span></label>
         <input id="ef-date" type="date" value="${existingDate}" />
-        <span class="form-hint">When this expense or service takes effect — the start date, not the due date. For a brand-new bill, today is fine.</span>
+        <span class="form-hint">When you started (or will start) this expense. This is <strong>not</strong> a billing date — it will not affect when payments are tracked or debited. Use the First Due Date below to anchor your billing cycle.</span>
       </div>
     </div>
     <div class="form-row">
@@ -132,10 +137,10 @@ export function openExpenseForm(
           <select id="ef-freq">${freqOptions}</select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="ef-duedate">First due date <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+          <label class="form-label" for="ef-duedate">First Due Date <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
           <input id="ef-duedate" type="date" value="${defaultDueDate}"
-            title="Your next billing due date — sets the recurring day and payment reminders on the calendar" />
-          <span class="form-hint">Pick the date this bill is first (or next) due — sets the recurring billing day automatically</span>
+            title="The first (or next) date this bill is due — anchors the recurring billing cycle and can be in any month, including months after the Start Date" />
+          <span class="form-hint">The first (or next) date this bill is due. Sets the recurring billing day and anchors the payment cycle — can be in any month.</span>
         </div>
       </div>
       <div class="form-group">
@@ -144,14 +149,14 @@ export function openExpenseForm(
           <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>
         </label>
         <input id="ef-threshold" type="number" min="0" step="0.01"
-          value="${existing?.threshold ?? ''}" placeholder="e.g. 120.00"
+          value="${existing?.threshold != null ? existing.threshold.toFixed(2) : ''}" placeholder="e.g. 120.00"
           title="Alert threshold — warns you when the actual payment recorded exceeds this amount. Leave blank to alert based on the estimated amount instead." />
         <span class="form-hint">Warn when actual payment exceeds this amount. Leave blank to use the estimated amount.</span>
       </div>
       <div class="form-group" style="flex-direction:row;align-items:center;gap:var(--space-3)">
         <input id="ef-fixed-amount" type="checkbox" style="width:auto" ${existing?.isFixedAmount ? 'checked' : ''} />
         <label for="ef-fixed-amount" style="text-transform:none;letter-spacing:0;font-size:var(--text-sm)">
-          Fixed amount — actual always equals estimated (e.g. cable, subscriptions)
+          Fixed rate — amount never varies (e.g. insurance, subscriptions)
         </label>
       </div>
       <div class="form-group" style="flex-direction:row;align-items:center;gap:var(--space-3)">
@@ -171,7 +176,15 @@ export function openExpenseForm(
   const amountLabel = body.querySelector<HTMLElement>('#ef-amount-label')!;
   const updateAmountLabel = () => {
     const freq = body.querySelector<HTMLSelectElement>('#ef-freq')?.value;
-    const labelText = recurChk.checked ? `${freqThresholdLabel(freq)} Threshold` : 'Estimated Amount';
+    const isFixed = body.querySelector<HTMLInputElement>('#ef-fixed-amount')?.checked ?? false;
+    let labelText: string;
+    if (!recurChk.checked) {
+      labelText = 'Estimated Amount';
+    } else if (isFixed) {
+      labelText = `${freqThresholdLabel(freq)} Amount`;
+    } else {
+      labelText = `${freqThresholdLabel(freq)} Threshold`;
+    }
     amountLabel.childNodes[0]!.nodeValue = labelText + ' ';
   };
   recurChk.addEventListener('change', () => {
@@ -181,6 +194,15 @@ export function openExpenseForm(
   body.querySelector<HTMLSelectElement>('#ef-freq')?.addEventListener('change', updateAmountLabel);
   updateAmountLabel();
 
+  const fixedChk = body.querySelector<HTMLInputElement>('#ef-fixed-amount')!;
+  const thresholdGroup = body.querySelector<HTMLInputElement>('#ef-threshold')!.closest('.form-group') as HTMLElement;
+  const updateFixedState = () => {
+    thresholdGroup.style.display = fixedChk.checked ? 'none' : '';
+    updateAmountLabel();
+  };
+  fixedChk.addEventListener('change', updateFixedState);
+  updateFixedState();
+
   const dueDateInput = body.querySelector<HTMLInputElement>('#ef-duedate')!;
   const mainDateInput = body.querySelector<HTMLInputElement>('#ef-date')!;
   const validateDueDateOrder = () => {
@@ -188,7 +210,7 @@ export function openExpenseForm(
     const due = new Date(dueDateInput.value + 'T00:00:00');
     const main = new Date(mainDateInput.value + 'T00:00:00');
     if (due < main) {
-      dueDateInput.setCustomValidity('First due date cannot be before the Effective Date.');
+      dueDateInput.setCustomValidity('First Due Date cannot be before the Start Date.');
     } else {
       dueDateInput.setCustomValidity('');
     }
@@ -373,7 +395,7 @@ export function openExpenseForm(
       const missing: string[] = [];
       if (!description)                missing.push('Description');
       if (isNaN(amount) || amount < 0) missing.push('Amount');
-      if (!dateStr)                    missing.push('Effective Date');
+      if (!dateStr)                    missing.push('Start Date');
       if (missing.length > 0) {
         errEl.textContent = missing.length === 1
           ? `${missing[0]} is required.`
@@ -386,27 +408,34 @@ export function openExpenseForm(
         const firstDue = new Date(dueDateStr + 'T00:00:00');
         const startDate = new Date(dateStr + 'T00:00:00');
         if (firstDue < startDate) {
-          errEl.textContent = 'First due date cannot be before the Effective Date.';
+          errEl.textContent = 'First Due Date cannot be before the Start Date.';
           errEl.style.display = 'block';
           return;
         }
       }
 
       let dueDay: number | undefined = undefined;
+      let firstDueTimestamp: number | undefined;
       let date = new Date(dateStr + 'T00:00:00').getTime();
       if (recurring && dueDateStr) {
         const firstDue = new Date(dueDateStr + 'T00:00:00');
         dueDay = firstDue.getDate();
-        // If the user explicitly set a future First Due Date, anchor expense.date
-        // to one billing interval before it. Without this, only dueDay (day-of-month)
-        // is stored and the year/month intent is lost — a past-due bill stays past-due
-        // even though the user indicated the next due cycle is in the future.
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
         if (firstDue > todayMidnight) {
-          const anchor = new Date(firstDue);
-          anchor.setMonth(anchor.getMonth() - freqInterval(recurringFrequency ?? null));
-          date = anchor.getTime();
+          // Future first due: store it as the billing anchor guard.
+          // expense.date stays as the start date; computeBillStatus returns 'ok'
+          // until firstDueDate arrives, then uses expense.date as lastPaid normally.
+          firstDueTimestamp = firstDue.getTime();
+        } else {
+          // Past/today first due: position expense.date one interval before so the
+          // bill correctly appears as due-soon or past-due right away.
+          const interval = freqInterval(recurringFrequency ?? null);
+          let anchorYear  = firstDue.getFullYear();
+          let anchorMonth = firstDue.getMonth() - interval;
+          while (anchorMonth < 0) { anchorYear -= 1; anchorMonth += 12; }
+          const anchorMaxDay = new Date(anchorYear, anchorMonth + 1, 0).getDate();
+          date = new Date(anchorYear, anchorMonth, Math.min(dueDay, anchorMaxDay)).getTime();
         }
       }
 
@@ -418,6 +447,12 @@ export function openExpenseForm(
 
       if (dueDay != null) expense.dueDay = dueDay;
       else delete expense.dueDay;
+
+      // Persist the informational start date independently of the billing anchor.
+      expense.startDate = new Date(dateStr + 'T00:00:00').getTime();
+
+      if (firstDueTimestamp != null) expense.firstDueDate = firstDueTimestamp;
+      else delete expense.firstDueDate;
 
       if (linkedCardId) expense.linkedCardId = linkedCardId;
       else delete expense.linkedCardId;

@@ -346,9 +346,18 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     : null;
   const nextDueStr = (() => {
     if (!expense.dueDay) return '';
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (expense.firstDueDate && todayStart < expense.firstDueDate) {
+      const firstDue = new Date(expense.firstDueDate);
+      const opts: Intl.DateTimeFormatOptions = {
+        month: 'short', day: 'numeric',
+        ...(firstDue.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+      };
+      return ` · First due ${firstDue.toLocaleDateString(userLocale, opts)}`;
+    }
     const interval = freqInterval(expense.recurringFrequency);
     const nextDue = computeNextDue(new Date(expense.date), expense.dueDay, interval);
-    const now = new Date();
     const opts: Intl.DateTimeFormatOptions = {
       month: 'short', day: 'numeric',
       ...(nextDue.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
@@ -398,6 +407,10 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     ? `<span class="expense-threshold-badge" data-testid="expense-threshold-badge">⚡ ${fmtCents.format(expense.threshold)}</span>`
     : '';
 
+  const fixedBadge = !isAutoPay && !!expense.isFixedAmount && expense.recurring
+    ? '<span class="expense-fixed-badge" data-testid="expense-fixed-badge">📌 Fixed rate</span>'
+    : '';
+
   row.innerHTML = `
     <div class="expense-row-desc">
       <div class="expense-row-desc-main">${statusBadge}${expense.description}${thresholdBadge}</div>
@@ -411,6 +424,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     <div class="expense-row-amount">${amountDisplay}</div>
     <div class="expense-row-actions">
       ${isAutoPay ? '<span class="expense-autopay-badge" data-testid="expense-autopay-badge">🔄 Auto-pay</span>' : ''}
+      ${fixedBadge}
       ${showPayBtn
         ? `<button class="mark-paid-btn" data-action="record-payment" data-testid="expense-record-payment" title="Record actual payment">$ Record Payment</button>`
         : ''}
@@ -513,7 +527,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
   const outer = document.createElement('div');
   outer.className = 'expense-item-outer';
 
-  if (!isBill && alreadyPaid) {
+  if (alreadyPaid) {
     const wrap = document.createElement('div');
     wrap.className = 'expense-bill-wrap expense-bill-wrap--paid';
     wrap.setAttribute('data-testid', 'expense-bill-wrap');

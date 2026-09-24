@@ -97,11 +97,11 @@ export function buildBillChip(expense: Expense, paidRecord: ExpensePaidRecord | 
   chip.innerHTML = `
     <div class="cal-chip-title">
       ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
-      <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
+      <span class="cal-chip-name" title="${escapeHtml(expense.description)}">${escapeHtml(expense.description)}</span>
     </div>
     ${isAutoPay
       ? '<span class="cal-chip-autopay">Auto-pay</span>'
-      : `<span class="cal-chip-type">${categoryName}</span>`}
+      : `<span class="cal-chip-type">${escapeHtml(categoryName)}</span>`}
     <span class="cal-chip-amount">${fmtCents.format(displayAmount)}</span>
     ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
   `;
@@ -147,9 +147,9 @@ export function buildOneTimeExpenseChip(expense: Expense, ctx: CalendarChipConte
   chip.innerHTML = `
     <div class="cal-chip-title">
       <span class="cal-chip-dot-color" style="background:${categoryColor}"></span>
-      <span class="cal-chip-name" title="${expense.description}">${expense.description}</span>
+      <span class="cal-chip-name" title="${escapeHtml(expense.description)}">${escapeHtml(expense.description)}</span>
     </div>
-    <span class="cal-chip-type">${categoryName}</span>
+    <span class="cal-chip-type">${escapeHtml(categoryName)}</span>
     <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
   `;
 
@@ -200,7 +200,7 @@ export function buildDebtChip(account: DebtAccount, status: AccountPaymentStatus
   chip.innerHTML = `
     <div class="cal-chip-title">
       ${statusIcon ? `<span class="cal-chip-icon">${statusIcon}</span>` : ''}
-      <span class="cal-chip-name" title="${account.name}">${account.name}</span>
+      <span class="cal-chip-name" title="${escapeHtml(account.name)}">${escapeHtml(account.name)}</span>
     </div>
     <span class="cal-chip-type">${DEBT_TYPE_LABEL[account.type]}</span>
     <span class="cal-chip-amount">${amountLabel}</span>
@@ -244,7 +244,7 @@ export function buildDebtPaymentChip(payment: { id: string; type: string; amount
   chip.innerHTML = `
     <div class="cal-chip-title">
       <span class="cal-chip-icon">💸</span>
-      <span class="cal-chip-name" title="${account.name}">${account.name}</span>
+      <span class="cal-chip-name" title="${escapeHtml(account.name)}">${escapeHtml(account.name)}</span>
     </div>
     <span class="cal-chip-type">${payment.type === 'extra' ? 'Extra payment' : 'Payment made'}</span>
     <span class="cal-chip-amount">${fmtCents.format(payment.amount)}</span>

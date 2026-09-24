@@ -38,9 +38,11 @@ function advanceByCycle(date: Date, cycle: PaymentCycle): Date {
   switch (cycle) {
     case 'monthly': {
       const targetDay = d.getDate();
-      d.setMonth(d.getMonth() + 1);
-      const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-      d.setDate(Math.min(targetDay, maxDay));
+      let year  = d.getFullYear();
+      let month = d.getMonth() + 1;
+      if (month > 11) { year += 1; month = 0; }
+      const maxDay = new Date(year, month + 1, 0).getDate();
+      d.setFullYear(year, month, Math.min(targetDay, maxDay));
       break;
     }
     case 'biweekly':    d.setDate(d.getDate() + 14); break;

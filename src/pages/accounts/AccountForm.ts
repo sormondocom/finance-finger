@@ -33,7 +33,7 @@ export function openAccountForm(
   body.innerHTML = `
     <div class="form-group">
       <label class="form-label" for="ba-name">Account name <span class="req">*</span></label>
-      <input id="ba-name" type="text" value="${existing?.name ?? ''}"
+      <input id="ba-name" type="text" value="${escapeHtml(existing?.name ?? '')}"
         placeholder="e.g. Chase Checking, Emergency Fund" maxlength="64" />
     </div>
     <div class="form-row">
@@ -62,7 +62,7 @@ export function openAccountForm(
       <div class="form-group">
         <label class="form-label" for="ba-balance">Starting balance <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
         <input id="ba-balance" type="number" step="0.01"
-          value="${existing?.balance ?? ''}" placeholder="0.00"
+          value="${existing?.balance != null ? existing.balance.toFixed(2) : ''}" placeholder="0.00"
           title="Your current account balance. If left blank, Finance Finger calculates it from linked income and expense transactions." />
         <span class="form-hint">Your balance today. If blank, it will be derived from linked income and expenses.</span>
       </div>
@@ -184,11 +184,11 @@ export function openTransferModal(
   const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
 
   const otherAccounts = accounts.filter((a) => a.id !== fromAccount.id);
-  const toOptions = otherAccounts.map((a) => `<option value="${a.id}">${a.name}</option>`).join('');
+  const toOptions = otherAccounts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
 
   body.innerHTML = `
     <p class="text-muted text-sm" style="margin-bottom:var(--space-4)">
-      Withdrawing from <strong>${fromAccount.name}</strong> and depositing into another account.
+      Withdrawing from <strong>${escapeHtml(fromAccount.name)}</strong> and depositing into another account.
     </p>
     <div class="form-group">
       <label class="form-label" for="tr-to-account">Destination account <span class="req">*</span></label>

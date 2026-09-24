@@ -1,6 +1,7 @@
 import { navigate } from '@/app/router';
 import { openFormModal } from '@/components/Modal';
 import { saveCategory } from '@/db';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { fmtCents, toMonthly } from '@/utils/finance';
 import type { ExpenseCategory, Expense, CardCharge, BankAccount, DebtAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
@@ -151,7 +152,7 @@ export function renderBuckets(
       item.innerHTML = `
         ${buildBucketSVG(cat.color, pct, isOver)}
         <div class="bucket-info">
-          <div class="bucket-name">${cat.name}</div>
+          <div class="bucket-name">${escapeHtml(cat.name)}</div>
           <div class="bucket-amounts">${fmtCents.format(spent)} / ${fmtCents.format(budget)}</div>
           <div class="bucket-pct ${pctClass}">${Math.round(pct * 100)}%</div>
         </div>
@@ -185,7 +186,7 @@ export function renderBuckets(
       pill.setAttribute('data-category-id', cat.id);
       pill.innerHTML = `
         <span class="unbudgeted-pill-dot" style="background:${cat.color}"></span>
-        <span>${cat.name}</span>
+        <span>${escapeHtml(cat.name)}</span>
         <span class="unbudgeted-pill-add">+ Set budget</span>
       `;
       const catExpenses = recurringExpenses.filter((e) => e.categoryId === cat.id);

@@ -30,7 +30,7 @@ function cardAddExpense(): HTMLElement {
       <p>Click <strong>+ Add Expense</strong> on the Expenses page. Key fields:</p>
     </div>
     <div class="help-steps">
-      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body"><strong>Recurring</strong> checkbox — marks this as a recurring bill and reveals: <em>Frequency</em> (weekly → annual), <em>Due day</em> (1–28, turns it into a tracked bill), <em>Monthly threshold</em> (overage warning), <em>Fixed amount</em> (always the same — payment dialog pre-fills it, and the amount is auto-recorded when Auto-pay is also checked), and <em>Auto-pay</em> (bank pays it automatically — fixed-amount bills are recorded silently on each app open; variable-amount bills surface a reminder toast).</div></div>
+      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body"><strong>Recurring</strong> checkbox — marks this as a recurring bill and reveals: <em>Frequency</em> (weekly → annual), <em>Due day</em> (1–28, turns it into a tracked bill), <em>Monthly threshold</em> (overage budget for variable bills; hidden when <em>Fixed rate</em> is checked), <em>Fixed rate</em> — check this when the bill <strong>never</strong> varies (insurance, subscriptions) — the payment dialog pre-fills the exact amount as read-only and the threshold field is hidden; leave unchecked for variable bills (electricity, water) where you set a budget target and enter the actual each month. When <em>Auto-pay</em> is also checked, fixed-rate bills are recorded silently on each app open; variable-rate auto-pay bills surface a reminder toast prompting you to log the actual charge.</div></div>
       <div class="help-step"><span class="help-step-num">💳</span><div class="help-step-body"><strong>Charge to card</strong> — link a recurring expense to a debt account so payments automatically create a charge entry on that card.</div></div>
       <div class="help-step"><span class="help-step-num">🔔</span><div class="help-step-body">The <strong>Reminders</strong> section at the bottom lets you attach a custom notification — e.g. 7 days before a bill's due date.</div></div>
     </div>
@@ -48,7 +48,8 @@ function cardBillTracking(): HTMLElement {
       <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-green)"></span><div><strong>✓ Paid</strong> — marked paid this calendar month (green left border)</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:#f59e0b"></span><div><strong>⏰ Due Soon</strong> — due within 7 days (amber left border)</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>⚠ Past Due</strong> — due day passed without payment — pulsing red border</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-gold)"></span><div><strong>⚡ Threshold</strong> — bill has a monthly cost target set</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-gold)"></span><div><strong>⚡ Threshold</strong> — bill has a monthly cost target set (variable-rate bills only)</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:rgba(99,102,241,0.5)"></span><div><strong>📌 Fixed rate</strong> — amount never varies; payment pre-fills automatically (shown on non-auto-pay fixed bills)</div></div>
     </div>
     <div class="help-callout">
       Click the <strong>📋</strong> icon on any bill row to open its <strong>payment ledger</strong> — a full history of every recorded payment with edit (✏️) and delete (🗑️) buttons on each entry.
@@ -70,7 +71,7 @@ function cardAutoPay(): HTMLElement {
       <div class="help-step"><span class="help-step-num">⏱️</span><div class="help-step-body"><strong>Prompt window</strong> — bills whose due date is older than the configured window (default 7 days) are silently skipped. Adjust the window in <strong>Settings → Auto-pay prompt window</strong>.</div></div>
     </div>
     <div class="help-callout">
-      To use auto-record: open an expense, check <strong>Recurring</strong>, set a <strong>Due day</strong>, check <strong>Fixed amount</strong>, check <strong>Auto-pay</strong>, and select the <strong>Bank account</strong> the charge is drawn from. That is all — the extension does the rest.
+      To use auto-record: open an expense, check <strong>Recurring</strong>, set a <strong>Due day</strong>, check <strong>Fixed rate</strong>, check <strong>Auto-pay</strong>, and select the <strong>Bank account</strong> the charge is drawn from. That is all — the extension does the rest.
     </div>
   `;
   return card;

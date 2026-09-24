@@ -1,45 +1,32 @@
 import browser from 'webextension-polyfill';
 import { takeSnapshot } from '@/utils/snapshot';
 
-browser.action.onClicked.addListener(() => {
-  void browser.tabs.create({ url: browser.runtime.getURL('src/app/index.html') });
+browser.action.onClicked.addListener(async () => {
+  const appUrl = browser.runtime.getURL('src/app/index.html');
+  const existing = await browser.tabs.query({ url: appUrl });
+  if (existing.length > 0 && existing[0]!.id != null) {
+    await browser.tabs.update(existing[0]!.id, { active: true });
+    if (existing[0]!.windowId != null) {
+      await browser.windows.update(existing[0]!.windowId, { focused: true });
+    }
+  } else {
+    await browser.tabs.create({ url: appUrl });
+  }
 });
 
 // Register repeating alarms on first install (alarms persist across SW restarts).
 browser.runtime.onInstalled.addListener(async () => {
-  const [existingSnapshot, existingPayday, existingAutoPay] = await Promise.all([
-    browser.alarms.get('ff-auto-snapshot'),
-    browser.alarms.get('ff-payday-check'),
-    browser.alarms.get('ff-autopay-check'),
-  ]);
+  const existingSnapshot = await browser.alarms.get('ff-auto-snapshot');
   if (!existingSnapshot) {
     await browser.alarms.create('ff-auto-snapshot', { periodInMinutes: 30 });
   }
-  if (!existingPayday) {
-    // Fire once a day. The foreground does the actual recording (requires vault key);
-    // the alarm sets a flag so the next popup open knows to run autoRecordPaydays().
-    await browser.alarms.create('ff-payday-check', { periodInMinutes: 1440 });
-  }
-  if (!existingAutoPay) {
-    // Same pattern as ff-payday-check — sets a flag the foreground consumes on next open.
-    await browser.alarms.create('ff-autopay-check', { periodInMinutes: 1440 });
-  }
+  // Clear legacy daily-check alarms — autoRecordPaydays/autoRecordAutoPay now run
+  // unconditionally on every popup open, so the flag-based alarm pattern is unused.
+  await browser.alarms.clear('ff-payday-check');
+  await browser.alarms.clear('ff-autopay-check');
 });
 
 browser.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'ff-payday-check') {
-    // Signal the foreground app that a payday check is due. The background cannot
-    // decrypt IndexedDB data (vault key lives only in the popup's memory), so the
-    // actual bank-credit entries are written by autoRecordPaydays() on next popup open.
-    await browser.storage.local.set({ pendingPaydayCheck: true });
-    return;
-  }
-
-  if (alarm.name === 'ff-autopay-check') {
-    await browser.storage.local.set({ pendingAutoPayCheck: true });
-    return;
-  }
-
   if (alarm.name !== 'ff-auto-snapshot') return;
   const result = await browser.storage.local.get('vaultConfig');
   const config = result['vaultConfig'] as { setupComplete?: boolean } | undefined;

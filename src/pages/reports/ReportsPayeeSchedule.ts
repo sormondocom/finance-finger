@@ -1,4 +1,5 @@
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { makeReportCard } from './ReportsUtils';
 import type { Expense, DebtAccount, IncomeFrequency } from '@/types';
 
@@ -128,7 +129,7 @@ export function buildPayeeSchedule(
       const rowEl = document.createElement('div');
       rowEl.className = `payee-schedule-row${row.source === 'debt' ? ' payee-schedule-row--debt' : ''}`;
       rowEl.innerHTML = `
-        <span class="payee-schedule-name">${row.name}${row.dueDay ? ` <span class="payee-schedule-due">due ${row.dueDay}${ordinal(row.dueDay)}</span>` : ''}</span>
+        <span class="payee-schedule-name">${escapeHtml(row.name)}${row.dueDay ? ` <span class="payee-schedule-due">due ${row.dueDay}${ordinal(row.dueDay)}</span>` : ''}</span>
         <span class="payee-schedule-amount">${fmtCents.format(row.amountPerPeriod)}${periodLabel}</span>
         <span class="payee-schedule-annual">${fmtCents.format(row.annualTotal)}/yr</span>
       `;

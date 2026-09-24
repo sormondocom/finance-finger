@@ -296,7 +296,7 @@ IndexedDB: "financial-finger" (v14)
 
 Non-sensitive configuration (vault key ciphertext, public key, mascot/theme settings) lives in `chrome.storage.local`.
 
-**Schema migrations** live in `src/db/schema.ts` as cumulative `if (oldVersion < N)` blocks. Current version: **14**. Bump to 15 for the next migration. When adding a new store, also add it to `SNAPSHOT_STORES` in `src/utils/snapshot.ts`.
+**Schema migrations** live in `src/db/schema.ts` as cumulative `if (oldVersion < N)` blocks. Current version: **15**. Bump to 16 for the next migration. When adding a new store, also add it to `SNAPSHOT_STORES` in `src/utils/snapshot.ts`.
 
 ### Notifier module
 
@@ -419,7 +419,7 @@ src/
 │   ├─ pgp.ts              generateKeyPair, encrypt, decrypt, readKeyInfo
 │   └─ vault.ts            AES-GCM session key, encryptRecord, decryptRecord
 ├─ db/
-│   ├─ schema.ts           idb typed schema + migrations (v14)
+│   ├─ schema.ts           idb typed schema + migrations (v15)
 │   └─ index.ts            CRUD functions for all entities
 ├─ engine/
 │   └─ amortize.ts         Pure amortization and trap-detection functions

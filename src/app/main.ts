@@ -193,9 +193,6 @@ function launchApp(): void {
     });
   });
 
-  // Clear background-set pending flags.
-  void browser.storage.local.remove(['pendingPaydayCheck', 'pendingAutoPayCheck']);
-
   // Check for any due custom notifications after the dashboard has rendered, then
   // align the repeating poll to the top of each clock minute so time-triggered
   // notifications fire as close to HH:MM:00 as possible rather than at whatever

@@ -197,8 +197,11 @@ export function amortizeMultiCard(
   while (month < maxMonths) {
     month++;
 
-    const periodDate = new Date(startDate);
-    periodDate.setMonth(periodDate.getMonth() + month);
+    let pdYear  = startDate.getFullYear();
+    let pdMonth = startDate.getMonth() + month;
+    pdYear  += Math.floor(pdMonth / 12);
+    pdMonth  = pdMonth % 12;
+    const periodDate = new Date(pdYear, pdMonth, Math.min(startDate.getDate(), new Date(pdYear, pdMonth + 1, 0).getDate()));
 
     const active = order.filter((c) => (balances.get(c.id) ?? 0) > ZERO_THRESHOLD);
     if (active.length === 0) break;

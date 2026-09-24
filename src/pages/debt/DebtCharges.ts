@@ -28,7 +28,7 @@ function openEditChargeModal(
   const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const catOptions = expenseCategories
     .filter((c) => c.parentId === null)
-    .map((c) => `<option value="${c.id}"${c.id === ch.categoryId ? ' selected' : ''}>${c.name}</option>`)
+    .map((c) => `<option value="${c.id}"${c.id === ch.categoryId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`)
     .join('');
 
   const body = document.createElement('div');
@@ -37,11 +37,11 @@ function openEditChargeModal(
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
       <div class="form-group" style="grid-column:1/-1">
         <label class="form-label" for="ch-merchant">Merchant / Vendor <span class="req">*</span></label>
-        <input id="ch-merchant" type="text" value="${ch.merchant}" placeholder="e.g. Amazon, Whole Foods, Netflix" maxlength="60" data-testid="debt-charge-merchant" />
+        <input id="ch-merchant" type="text" value="${escapeHtml(ch.merchant)}" placeholder="e.g. Amazon, Whole Foods, Netflix" maxlength="60" data-testid="debt-charge-merchant" />
       </div>
       <div class="form-group">
         <label class="form-label" for="ch-amount">Amount <span class="req">*</span></label>
-        <input id="ch-amount" type="number" min="0.01" step="0.01" value="${ch.amount}" data-testid="debt-charge-amount" />
+        <input id="ch-amount" type="number" min="0.01" step="0.01" value="${ch.amount.toFixed(2)}" data-testid="debt-charge-amount" />
       </div>
       <div class="form-group">
         <label class="form-label" for="ch-date">Date <span class="req">*</span></label>
@@ -57,7 +57,7 @@ function openEditChargeModal(
     </div>
     <div class="form-group">
       <label class="form-label" for="ch-note">Note <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-      <input id="ch-note" type="text" value="${ch.note ?? ''}" placeholder="e.g. Annual Prime membership" maxlength="80" data-testid="debt-charge-note" />
+      <input id="ch-note" type="text" value="${escapeHtml(ch.note ?? '')}" placeholder="e.g. Annual Prime membership" maxlength="80" data-testid="debt-charge-note" />
     </div>
     <div id="ch-error" class="form-error" style="display:none" data-testid="debt-charge-error"></div>
   `;
