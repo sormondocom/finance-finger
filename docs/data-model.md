@@ -125,7 +125,7 @@ type AvatarType = 'male' | 'female' | 'child' | 'baby-male' | 'baby-female' | 'c
 | `firstDueDate?` | `number` | full timestamp of the first billing due date; while today < firstDueDate, computeBillStatus returns 'ok' (not yet billing) |
 | `recurring` | `boolean` |  |
 | `recurringFrequency` | `IncomeFrequency \| null` |  |
-| `dueDay?` | `number` | day of month this bill is due (1–28); recurring bills only |
+| `dueDay?` | `number` | day of month this bill is due (1–31); recurring bills only; clamped to month length at display/compute time |
 | `threshold?` | `number` | optional alert cap — when set, overage warnings fire against this rather than amount |
 | `linkedCardId?` | `string` | card-type DebtAccount that auto-receives a charge when this expense is saved |
 | `isFixedAmount?` | `boolean` | actual payment always equals estimated; fixed-amount auto-pay bills are silently auto-recorded by `autoRecordAutoPay()`; pre-fills amount in Record Payment dialog |
