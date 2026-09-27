@@ -8,6 +8,7 @@ import { navigate } from '@/app/router';
 import { FREQUENCY_OPTIONS, freqThresholdLabel, freqInterval } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { computeNextDue } from '@/utils/billStatus';
+import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
 import { refreshNotifier } from '@/utils/notifier';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember, DebtAccount, BankAccount } from '@/types';
@@ -55,22 +56,22 @@ export function openExpenseForm(
   const body = document.createElement('div');
   body.className = 'expense-form';
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayDateInput();
   // Show the stored start date when editing; fall back to expense.date for old records.
   const existingDate = existing
-    ? new Date(existing.startDate ?? existing.date).toISOString().split('T')[0]
+    ? timestampToDateInput(existing.startDate ?? existing.date)
     : today;
 
   const defaultDueDate = (() => {
     if (!existing?.dueDay) return '';
     // If billing hasn't started yet, show the stored first due date directly.
     if (existing.firstDueDate && existing.firstDueDate > Date.now()) {
-      return new Date(existing.firstDueDate).toISOString().split('T')[0];
+      return timestampToDateInput(existing.firstDueDate);
     }
     const lastPaid = new Date(existing.date);
     const interval = freqInterval(existing.recurringFrequency);
     const next = computeNextDue(lastPaid, existing.dueDay, interval);
-    return next.toISOString().split('T')[0];
+    return timestampToDateInput(next.getTime());
   })();
 
   const catOptions = [

@@ -13,6 +13,7 @@
     "build:firefox": "vite build --mode firefox",
     "build": "npm run build:chrome && npm run build:firefox",
     "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
     "changelog": "node scripts/draft-changelog.js",
     "test": "vitest run",
     "coverage": "vitest run --coverage",

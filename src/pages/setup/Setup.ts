@@ -3,6 +3,7 @@ import browser from 'webextension-polyfill';
 import { generateKeyPair, readKeyInfo, validatePrivateKey } from '@/crypto/pgp';
 import { createVault } from '@/crypto/vault';
 import { createMember, saveMember, deleteMember } from '@/db';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { AvatarType, MascotGender, VaultConfig } from '@/types';
 import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG } from '@/mascot/svgs';
 
@@ -163,7 +164,7 @@ export class SetupWizard {
         <label class="form-label" for="mascot-name">
           Give 'em a name (or keep the one they came with)
         </label>
-        <input id="mascot-name" type="text" value="${this.state.mascotName}" maxlength="24" />
+        <input id="mascot-name" type="text" value="${escapeHtml(this.state.mascotName)}" maxlength="24" />
       </div>
     `;
 
@@ -479,7 +480,7 @@ export class SetupWizard {
       </div>
       <div class="form-group">
         <label class="form-label" for="profile-name">Household name</label>
-        <input id="profile-name" type="text" value="${this.state.profileName}"
+        <input id="profile-name" type="text" value="${escapeHtml(this.state.profileName)}"
           placeholder="e.g. The Swinton Family" maxlength="64" />
         <span class="form-hint">You can add family members on the next screen.</span>
       </div>

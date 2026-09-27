@@ -36,9 +36,10 @@ export default tseslint.config(
       // TypeScript strict mode already enforces discipline; keep this as a warning.
       '@typescript-eslint/no-non-null-assertion': 'off',
 
-      // `innerHTML +=` is the rendering pattern used throughout. Disabling
-      // innerHTML assignment rules that would require a full rewrite.
-      // XSS is not a threat here — content is developer-controlled static strings.
+      // `innerHTML +=` is the rendering pattern used throughout. There is no lint
+      // rule enforcing this today — user-controlled strings (names, descriptions,
+      // notes) MUST be wrapped in escapeHtml() from src/utils/escapeHtml.ts before
+      // being interpolated into an innerHTML template. See CLAUDE.md.
 
       // Ensure async functions are not silently dropped (floating promises).
       '@typescript-eslint/no-floating-promises': 'error',

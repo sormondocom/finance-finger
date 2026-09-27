@@ -212,7 +212,7 @@ export function openBudgetEditor(
   body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
   body.innerHTML = `
     <p class="text-sm text-muted">
-      Set how many dollars you want to pour into the <strong>${cat.name}</strong> bucket each month.
+      Set how many dollars you want to pour into the <strong>${escapeHtml(cat.name)}</strong> bucket each month.
     </p>
     <div class="form-group">
       <label class="form-label" for="be-budget">Monthly budget</label>

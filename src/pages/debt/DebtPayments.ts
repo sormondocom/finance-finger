@@ -8,6 +8,8 @@ import { refreshNotifier } from '@/utils/notifier';
 import { showAllDebtFreeCelebration, showDebtPayoffCelebration } from '@/mascot/Mascot';
 import type { DebtAccount, DebtPayment, BankAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
+import { timestampToDateInput } from '@/utils/dateInput';
 
 function openEditPaymentModal(
   a: DebtAccount,
@@ -18,9 +20,9 @@ function openEditPaymentModal(
   const body = document.createElement('div');
   body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
 
-  const existingDate = new Date(p.date).toISOString().split('T')[0]!;
+  const existingDate = timestampToDateInput(p.date);
   const bankOptions = bankAccounts
-    .map((b) => `<option value="${b.id}" ${p.bankAccountId === b.id ? 'selected' : ''}>${b.name}</option>`)
+    .map((b) => `<option value="${b.id}" ${p.bankAccountId === b.id ? 'selected' : ''}>${escapeHtml(b.name)}</option>`)
     .join('');
 
   body.innerHTML = `
@@ -53,7 +55,7 @@ function openEditPaymentModal(
     </div>
     <div class="form-group">
       <label class="form-label" for="ep-note">Note <span class="text-muted" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-      <input id="ep-note" type="text" value="${p.note ?? ''}" maxlength="80" />
+      <input id="ep-note" type="text" value="${escapeHtml(p.note ?? '')}" maxlength="80" />
     </div>
     <div id="ep-error" class="form-error" style="display:none"></div>
   `;
@@ -197,8 +199,8 @@ export function buildPaymentHistoryPanel(
       <span class="payment-history-date">${dateStr}</span>
       <span class="payment-history-amount">${fmtCents.format(p.amount)}</span>
       <span class="payment-history-type payment-history-type--${p.type}">${p.type}</span>
-      ${linkedBank ? `<span class="payment-history-bank">🏦 ${linkedBank.name}</span>` : ''}
-      <span class="payment-history-note">${p.note ?? ''}</span>
+      ${linkedBank ? `<span class="payment-history-bank">🏦 ${escapeHtml(linkedBank.name)}</span>` : ''}
+      <span class="payment-history-note">${escapeHtml(p.note ?? '')}</span>
     `;
 
     const editBtn = document.createElement('button');

@@ -5,6 +5,7 @@ import { accounting } from '@/accounting';
 import { openImportWizard } from '@/components/ImportWizard';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml, isSafeHttpUrl } from '@/utils/escapeHtml';
 import { computePaymentStatus } from '@/utils/paymentStatus';
 import { openAddNotificationModal } from '@/utils/notificationModal';
 import { openDebtForm } from './DebtAccountForm';
@@ -147,7 +148,7 @@ function buildDebtRow(
   row.innerHTML = `
     <div class="card-row-info">
       <div class="card-row-name">
-        <span class="card-row-name-text">${icon} ${a.name}</span>
+        <span class="card-row-name-text">${icon} ${escapeHtml(a.name)}</span>
         ${needsSetup ? '<span class="setup-badge">⚠ Needs payment info</span>' : ''}
         ${badges}
       </div>
@@ -282,7 +283,7 @@ function buildDebtRow(
     });
   }
 
-  if (a.url) {
+  if (a.url && isSafeHttpUrl(a.url)) {
     const link = document.createElement('a');
     link.className = 'icon-btn';
     link.setAttribute('data-testid', 'debt-url-link');

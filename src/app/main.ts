@@ -173,7 +173,7 @@ function launchApp(): void {
           correlationId: m.correlationId,
         }).then(() => undefined),
       );
-    });
+    }).catch((err) => console.error('autoRecordPaydays failed:', err));
   });
 
   // Auto-record fixed-amount auto-pay bills that are past due; toast for variable-amount ones.
@@ -190,7 +190,7 @@ function launchApp(): void {
           8000,
         );
       }
-    });
+    }).catch((err) => console.error('autoRecordAutoPay failed:', err));
   });
 
   // Check for any due custom notifications after the dashboard has rendered, then
@@ -231,7 +231,7 @@ function launchApp(): void {
                     correlationId: m.correlationId,
                   }).then(() => undefined),
                 );
-              });
+              }).catch((err) => console.error('autoRecordPaydays failed:', err));
             });
             void import('@/utils/autoPayRecords').then(({ autoRecordAutoPay }) => {
               void autoRecordAutoPay().then(({ recorded, pendingPrompts }) => {
@@ -246,7 +246,7 @@ function launchApp(): void {
                     8000,
                   );
                 }
-              });
+              }).catch((err) => console.error('autoRecordAutoPay failed:', err));
             });
           }
         }, 60_000);
@@ -306,4 +306,10 @@ window.addEventListener('unhandledrejection', (e) => {
   }
 });
 
-void boot();
+boot().catch((err) => {
+  console.error('App boot failed:', err);
+  const content = document.getElementById('app-content');
+  if (content) {
+    content.textContent = 'Financial Finger failed to start. Try reloading this page; if the problem persists, check the browser console for details.';
+  }
+});

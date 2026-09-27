@@ -11,6 +11,7 @@ import { openExpenseForm } from './ExpenseForm';
 import { openExpensePaymentModal } from '@/components/ExpensePaymentModal';
 import { fmt, fmtCents, FREQUENCY_LABELS, freqThresholdLabel, freqInterval } from '@/utils/finance';
 import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
+import { escapeHtml, isSafeHttpUrl } from '@/utils/escapeHtml';
 import { computeBillStatus, computeNextDue } from '@/utils/billStatus';
 import { refreshNotifier, getOverageTrend } from '@/utils/notifier';
 import { openAddNotificationModal } from '@/utils/notificationModal';
@@ -200,8 +201,8 @@ function openLogActualForm(
   body.innerHTML = `
     <p class="text-sm text-muted">
       ${isUpdate
-        ? `Update the actual amount auto-charged for <strong>${expense.description}</strong>.`
-        : `Log the actual amount auto-charged for <strong>${expense.description}</strong>.`}
+        ? `Update the actual amount auto-charged for <strong>${escapeHtml(expense.description)}</strong>.`
+        : `Log the actual amount auto-charged for <strong>${escapeHtml(expense.description)}</strong>.`}
     </p>
     <div class="form-group">
       <label class="form-label" for="la-amount">Actual amount charged <span class="req">*</span></label>
@@ -413,7 +414,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
 
   row.innerHTML = `
     <div class="expense-row-desc">
-      <div class="expense-row-desc-main">${statusBadge}${expense.description}${thresholdBadge}</div>
+      <div class="expense-row-desc-main">${statusBadge}${escapeHtml(expense.description)}${thresholdBadge}</div>
       <div class="expense-row-desc-sub">
         <span class="expense-row-date">${dateLabel}</span>
         ${expense.recurring && freqLabel
@@ -462,7 +463,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     row.querySelector('.expense-row-desc-main')!.appendChild(badge);
   }
 
-  if (expense.url) {
+  if (expense.url && isSafeHttpUrl(expense.url)) {
     const link = document.createElement('a');
     link.className = 'icon-btn';
     link.setAttribute('data-testid', 'expense-url-link');

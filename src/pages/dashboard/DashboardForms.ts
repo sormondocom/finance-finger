@@ -119,7 +119,7 @@ export function openOneTimeExpenseForm(
 
   const catOptions = [
     `<option value="">— No category —</option>`,
-    ...categories.map((c) => `<option value="${c.id}">${c.name}</option>`),
+    ...categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`),
   ].join('');
 
   body.innerHTML = `

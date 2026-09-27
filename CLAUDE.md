@@ -9,13 +9,14 @@ Stack: Vanilla TypeScript · Vite/esbuild · IndexedDB via `idb` · OpenPGP.js v
 ## Commands
 
 ```bash
-npm run setup          # full pipeline: lint → unit tests → Chrome build + E2E → Firefox build + E2E → refresh docs/screenshots
+npm run setup          # full pipeline: lint → typecheck → unit tests → Chrome build + E2E → Firefox build + E2E → refresh docs/screenshots
 npm run build          # Chrome + Firefox builds (no tests)
 npm run test           # unit tests only (Vitest)
 npm run coverage       # unit tests with coverage report → coverage/index.html
 npm run test:e2e       # Chrome E2E (Playwright)
 npm run test:e2e:firefox   # Firefox E2E
 npm run lint           # ESLint
+npm run typecheck      # tsc --noEmit (strict mode enforcement — CI-gated separately from build, since Vite/esbuild don't type-check)
 npm run docs           # regenerate docs/data-model.md from src/types/index.ts
 npm run docs:screenshots   # copy curated E2E screenshots → docs/screenshots/
 npm run changelog      # draft CHANGELOG entry from git log
@@ -172,7 +173,7 @@ Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
 ## Build system
 
 - `vite.config.ts` — two build modes: `chrome` (MV3 manifest) and `firefox` (MV3 manifest). Source maps only in development.
-- `scripts/setup.js` — the canonical full-build script. Runs: icons → lint → unit tests → Chrome build + E2E → Firefox build + E2E → screenshot refresh.
+- `scripts/setup.js` — the canonical full-build script. Runs: icons → lint → typecheck → unit tests → Chrome build + E2E → Firefox build + E2E → screenshot refresh.
 - TypeScript strict mode is on, including `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 
 ## What NOT to do
@@ -180,5 +181,7 @@ Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
 - Don't store the vault session key anywhere persistent. It must die when all extension tabs close.
 - Don't write unencrypted financial data to IndexedDB. Every record goes through `encryptRecord()`.
 - Don't use `innerHTML` with user-supplied strings. Use `escapeHtml()` or DOM methods.
+- Don't assign a user-supplied URL (e.g. `account.url`, `expense.url`) to an anchor's `href` without checking `isSafeHttpUrl()` from `src/utils/escapeHtml.ts` first — otherwise a `javascript:` scheme can execute in the extension's context.
 - Don't add stores to the DB without also adding them to `SNAPSHOT_STORES`.
 - Don't hardcode rounded frequency multipliers — use the exact fractions in `MONTHLY_FACTORS`.
+- Don't build a "today"/date-input string with `new Date().toISOString().split('T')[0]` — it converts to UTC and is wrong in the evening for anyone west of UTC. Use `todayDateInput()` / `timestampToDateInput()` from `src/utils/dateInput.ts`.

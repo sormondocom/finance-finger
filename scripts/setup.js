@@ -25,6 +25,7 @@ const skipTests =
   process.argv.includes('--skip-tests') || process.env['SKIP_TESTS'] === '1';
 
 const eslint = resolve(ROOT, 'node_modules', 'eslint', 'bin', 'eslint.js');
+const tsc = resolve(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
 const updateScreenshots = resolve(__dirname, 'update-screenshots.js');
 
 function run(bin, args, env = {}) {
@@ -48,6 +49,10 @@ async function main() {
   console.log('\nLinting source files…');
   await run(node, [eslint, 'src', '--max-warnings', '0']);
   console.log('✓ Lint passed.');
+
+  console.log('\nType checking…');
+  await run(node, [tsc, '--noEmit']);
+  console.log('✓ Type check passed.');
 
   console.log('\nGenerating data model documentation…');
   await run(node, [resolve(__dirname, 'generate-data-model.js')]);

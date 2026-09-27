@@ -1,5 +1,6 @@
 import { amortizeSingleCard } from '@/engine/amortize';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { DebtAccount, DebtAccountType, PaymentCycle, CardCharge } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -53,7 +54,7 @@ function buildScheduleTable(
   tfoot.style.cssText = 'background:var(--color-bg-sunken);font-weight:600;position:sticky;bottom:0';
   tfoot.innerHTML = `
     <tr>
-      <td colspan="2">${schedule.length} payments · ${account.name}</td>
+      <td colspan="2">${schedule.length} payments · ${escapeHtml(account.name)}</td>
       <td>${fmtCents.format(totalPayment)}</td>
       <td class="interest-cell">${fmtCents.format(totalInterest)}</td>
       <td>${fmtCents.format(totalPayment - totalInterest)}</td>

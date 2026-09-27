@@ -5,6 +5,7 @@ import { fmtCents } from '@/utils/finance';
 import type { DebtAccount, CardCharge, ExpenseCategory } from '@/types';
 import { userLocale } from '@/utils/locale';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { todayDateInput } from '@/utils/dateInput';
 
 type ChargesState = { page: number; pageSize: number; sortAsc: boolean };
 
@@ -100,10 +101,10 @@ function openAddChargeModal(
   expenseCategories: ExpenseCategory[],
   onSaved: (accountId: string) => Promise<void>,
 ): void {
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayDateInput();
   const catOptions = expenseCategories
     .filter((c) => c.parentId === null)
-    .map((c) => `<option value="${c.id}">${c.name}</option>`)
+    .map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
     .join('');
 
   const body = document.createElement('div');

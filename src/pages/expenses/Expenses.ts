@@ -13,6 +13,7 @@ import { openExpenseForm } from './ExpenseForm';
 import { buildCategoriesCard, openCategoryForm } from './ExpenseCategory';
 import { buildExpenseRow, type ExpenseRowContext } from './ExpenseRow';
 import { toMonthly, fmt, freqInterval } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { computeNextDue } from '@/utils/billStatus';
 import type { ExpenseCategory, Expense, ExpensePaidRecord, HouseholdMember, DebtAccount, BankAccount } from '@/types';
 
@@ -378,7 +379,7 @@ export class ExpensesPage {
       groupHeader.className = 'expense-group-header';
       groupHeader.innerHTML = `
         <span class="expense-group-dot" style="background:${cat?.color ?? '#999'}"></span>
-        <span class="expense-group-name">${cat?.name ?? 'Uncategorized'}</span>
+        <span class="expense-group-name">${escapeHtml(cat?.name ?? 'Uncategorized')}</span>
         ${monthlyTotal > 0 ? `<span class="expense-group-total">${fmt.format(monthlyTotal)}/mo</span>` : ''}
       `;
       group.appendChild(groupHeader);

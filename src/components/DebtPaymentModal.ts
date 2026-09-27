@@ -4,6 +4,8 @@ import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { computeMinPayment } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
+import { escapeHtml } from '@/utils/escapeHtml';
+import { todayDateInput } from '@/utils/dateInput';
 import type { DebtAccount, BankAccount } from '@/types';
 
 export interface DebtPaymentModalOptions {
@@ -15,13 +17,13 @@ export interface DebtPaymentModalOptions {
 
 export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayoff }: DebtPaymentModalOptions): void {
   const minPay = computeMinPayment(a);
-  const today = new Date().toISOString().split('T')[0]!;
+  const today = todayDateInput();
 
   const body = document.createElement('div');
   body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
 
   const bankOptions = bankAccounts
-    .map((b) => `<option value="${b.id}">${b.name}</option>`)
+    .map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`)
     .join('');
 
   body.innerHTML = `

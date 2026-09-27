@@ -2,7 +2,7 @@ import { computeBillStatus } from '@/utils/billStatus';
 import { computeMinPayment } from '@/utils/paymentStatus';
 import type { AccountPaymentStatus } from '@/utils/paymentStatus';
 import { fmtCents } from '@/utils/finance';
-import { escapeHtml } from '@/utils/escapeHtml';
+import { escapeHtml, isSafeHttpUrl } from '@/utils/escapeHtml';
 import type { Expense, DebtAccount, ExpenseCategory, ExpensePaidRecord, IncomeSource, HouseholdMember, DebtAccountType } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -106,7 +106,7 @@ export function buildBillChip(expense: Expense, paidRecord: ExpensePaidRecord | 
     ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
   `;
 
-  if (expense.url) {
+  if (expense.url && isSafeHttpUrl(expense.url)) {
     const link = document.createElement('a');
     link.className = 'cal-chip-portal-link';
     link.setAttribute('data-testid', 'cal-chip-url-link');
@@ -153,7 +153,7 @@ export function buildOneTimeExpenseChip(expense: Expense, ctx: CalendarChipConte
     <span class="cal-chip-amount">${fmtCents.format(expense.amount)}</span>
   `;
 
-  if (expense.url) {
+  if (expense.url && isSafeHttpUrl(expense.url)) {
     const link = document.createElement('a');
     link.className = 'cal-chip-portal-link';
     link.setAttribute('data-testid', 'cal-chip-url-link');
@@ -207,7 +207,7 @@ export function buildDebtChip(account: DebtAccount, status: AccountPaymentStatus
     ${paidOnStr ? `<span class="cal-chip-paid-on">Paid ${paidOnStr}</span>` : ''}
   `;
 
-  if (account.url) {
+  if (account.url && isSafeHttpUrl(account.url)) {
     const link = document.createElement('a');
     link.className = 'cal-chip-portal-link';
     link.setAttribute('data-testid', 'cal-chip-url-link');

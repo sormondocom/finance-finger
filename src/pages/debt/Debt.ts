@@ -20,6 +20,7 @@ import {
   getBankAccounts,
 } from '@/db';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { detectMinimumPaymentTrap } from '@/engine/amortize';
 import { showMascot, showDebtPayoffCelebration, showAllDebtFreeCelebration } from '@/mascot/Mascot';
 import type { BankAccount, CardCharge, DebtAccount, DebtPayment, DebtStrategy, ExpenseCategory } from '@/types';
@@ -235,7 +236,7 @@ export class DebtPage {
       <div>
         <h4>The Minimum Payment Trap</h4>
         <p>
-          At minimum payments only, <strong>${worst.name}</strong> would take
+          At minimum payments only, <strong>${escapeHtml(worst.name)}</strong> would take
           <strong>${years} years</strong> to pay off and cost you
           <strong>${fmtCents.format(worst.balance * info.totalInterestRatio)}</strong> in interest —
           ${interestMultiple}× the balance you're carrying today.

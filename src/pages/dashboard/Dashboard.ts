@@ -14,6 +14,7 @@ import { greet, showMascot, showTip, updateMascotItems } from '@/mascot/Mascot';
 import { getDailyTip } from '@/mascot/messages';
 import { navigate } from '@/app/router';
 import { toMonthly, sourceMonthly } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { buildSummarySection, buildActivitySection, type MonthBucket } from './DashboardActivity';
 import { buildPaymentRemindersCard } from './DashboardReminders';
 import { buildFinancialHealthRow, buildIncomeByAccountCard, renderIncomePanel, renderDebtPanel } from './DashboardPanels';
@@ -78,7 +79,7 @@ export class Dashboard {
 
     const titleWrap = document.createElement('div');
     titleWrap.innerHTML = `
-      <h1 class="dashboard-title font-serif">${profileName}</h1>
+      <h1 class="dashboard-title font-serif">${escapeHtml(profileName)}</h1>
       <p class="dashboard-subtitle">${members.length} member${members.length !== 1 ? 's' : ''}</p>
     `;
     titleWrap.querySelector('h1')?.appendChild(makeHelpBtn('dashboard'));
@@ -182,7 +183,7 @@ export class Dashboard {
       <span style="font-size:1.75rem;line-height:1;flex-shrink:0">${gender === 'buck' ? '🤠' : '🌻'}</span>
       <div>
         <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ff-gold-dark);margin-bottom:var(--space-1)">
-          ${mascotName}'s tip of the day
+          ${escapeHtml(mascotName)}'s tip of the day
         </div>
         <div style="font-size:var(--text-sm);color:var(--color-text-muted)">
           <strong style="color:var(--color-text)">${tipLabel ?? ''}</strong>

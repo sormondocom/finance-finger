@@ -192,7 +192,7 @@ export function renderIncomePanel(
   if (hasBoth) html += `<div style="${subLabelStyle}">Recurring</div>`;
   html += recurring.slice(0, 5).map((s) => `
     <div style="${rowStyle}">
-      <span class="text-sm">${s.name}</span>
+      <span class="text-sm">${escapeHtml(s.name)}</span>
       <span class="text-sm font-bold">${fmt.format(s.amount)} / ${s.frequency}</span>
     </div>
   `).join('');
@@ -206,7 +206,7 @@ export function renderIncomePanel(
       return `
         <div style="${rowStyle}">
           <div>
-            <span class="text-sm">${s.name}</span>
+            <span class="text-sm">${escapeHtml(s.name)}</span>
             ${dateStr ? `<span class="text-xs text-muted" style="display:block">${dateStr}</span>` : ''}
           </div>
           <span class="text-sm font-bold" style="color:var(--ff-green)">+${fmt.format(s.amount)}</span>
@@ -235,7 +235,7 @@ export function renderDebtPanel(cards: DebtAccount[]): string {
       (c) => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border)">
         <div>
-          <span class="text-sm font-bold">${c.name}</span>
+          <span class="text-sm font-bold">${escapeHtml(c.name)}</span>
           <span class="text-xs text-muted" style="display:block">${c.apr}% APR</span>
         </div>
         <span class="text-sm" style="color:${c.balance <= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${fmtCents.format(c.balance)}</span>

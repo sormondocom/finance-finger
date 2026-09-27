@@ -5,6 +5,7 @@ import { fmtCents, FREQUENCY_OPTIONS, MONTHLY_FACTORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
 import { accounting } from '@/accounting';
 import type { HouseholdMember, IncomeSource, IncomeFrequency, BankAccount } from '@/types';
 
@@ -28,11 +29,8 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
   ).join('');
 
   const initFreq = existing?.frequency ?? 'monthly';
-  const _now = new Date();
-  const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
-  const existingDate = existing?.date
-    ? (() => { const d = new Date(existing.date); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })()
-    : today;
+  const today = todayDateInput();
+  const existingDate = existing?.date ? timestampToDateInput(existing.date) : today;
 
   body.innerHTML = `
     <div class="form-group">
@@ -91,7 +89,7 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
     </div>
     <div id="sf-payday-row" class="form-group" style="display:none">
       <label class="form-label" for="sf-payday">Payday reference date</label>
-      <input id="sf-payday" type="date" value="${existing?.paydayRef ? new Date(existing.paydayRef).toISOString().split('T')[0] : today}"
+      <input id="sf-payday" type="date" value="${existing?.paydayRef ? timestampToDateInput(existing.paydayRef) : today}"
         title="Your next (or most recent) payday — Finance Finger uses this date to project future paydays and show chips on the calendar" />
       <span class="form-hint">Your next (or most recent) payday — used to show payday chips on the calendar.</span>
     </div>

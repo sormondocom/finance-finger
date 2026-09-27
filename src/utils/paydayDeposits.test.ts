@@ -114,7 +114,8 @@ describe('autoRecordPaydays — no sources', () => {
   });
 
   it('ignores sources without a bankAccountId', async () => {
-    (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([makeSource({ bankAccountId: undefined })]);
+    const { bankAccountId: _omit, ...source } = makeSource();
+    (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([source]);
     const result = await autoRecordPaydays();
     expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
   });

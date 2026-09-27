@@ -1,6 +1,7 @@
 import { comparePayoffScenarios } from '@/engine/amortize';
 import { showMascot } from '@/mascot/Mascot';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { DebtAccount, DebtAccountType, DebtStrategy } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -117,7 +118,7 @@ function renderStrategyResults(
       step.className = 'payoff-order-step';
       step.innerHTML = `
         <span class="payoff-order-num">${i + 1}</span>
-        <span>${DEBT_TYPE_ICONS[a.type]} ${a.name}</span>
+        <span>${DEBT_TYPE_ICONS[a.type]} ${escapeHtml(a.name)}</span>
         <span class="text-xs text-muted">${a.apr}% APR · ${fmtCents.format(a.balance)}</span>
       `;
       list.appendChild(step);
@@ -178,7 +179,7 @@ export function buildStrategyPanel(
       item.setAttribute('data-testid', 'custom-order-item');
       item.setAttribute('data-account-id', a.id);
       item.innerHTML = `
-        <span>${idx + 1}. ${DEBT_TYPE_ICONS[a.type]} ${a.name}</span>
+        <span>${idx + 1}. ${DEBT_TYPE_ICONS[a.type]} ${escapeHtml(a.name)}</span>
         <span class="text-xs text-muted">${a.apr}% APR · ${fmtCents.format(a.balance)}</span>
         <button class="order-btn" data-dir="up" ${idx === 0 ? 'disabled' : ''}>▲</button>
         <button class="order-btn" data-dir="down" ${idx === orderedAccounts.length - 1 ? 'disabled' : ''}>▼</button>

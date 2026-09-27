@@ -247,7 +247,7 @@ function buildSourceRow(source: IncomeSource, ctx: IncomePanelContext): HTMLElem
 
   row.innerHTML = `
     <div class="source-row-name">
-      ${source.name}
+      ${escapeHtml(source.name)}
       ${!source.active && !isOnce ? '<span class="inactive-badge">Inactive</span>' : ''}
       ${isOnce ? '<span class="inactive-badge one-time-badge">One-time</span>' : ''}
     </div>

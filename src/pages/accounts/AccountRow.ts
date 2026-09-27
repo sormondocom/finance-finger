@@ -1,4 +1,5 @@
 import { fmtCents, sourceMonthly } from '@/utils/finance';
+import { isSafeHttpUrl } from '@/utils/escapeHtml';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { getPaydaysInMonth } from '@/utils/paydays';
 import { openImportWizard } from '@/components/ImportWizard';
@@ -290,7 +291,7 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   });
   actionsCell.appendChild(importBtn);
 
-  if (account.url) {
+  if (account.url && isSafeHttpUrl(account.url)) {
     const link = document.createElement('a');
     link.className = 'icon-btn';
     link.href = account.url;

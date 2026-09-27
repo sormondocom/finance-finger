@@ -5,6 +5,7 @@ import { navigate } from '@/app/router';
 import { fmtCents } from '@/utils/finance';
 import type { DebtAccount, Expense } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 export function buildPaymentRemindersCard(
   pastDue: Array<{ account: DebtAccount; status: AccountPaymentStatus }>,
@@ -78,7 +79,7 @@ export function buildPaymentRemindersCard(
     row.innerHTML = `
       <span class="payment-reminder-icon">${icon}</span>
       <div class="payment-reminder-info">
-        <span class="payment-reminder-name">💳 ${account.name}</span>
+        <span class="payment-reminder-name">💳 ${escapeHtml(account.name)}</span>
         <span class="payment-reminder-meta">${metaLines.join(' · ')}</span>
       </div>
       <span class="payment-reminder-label payment-reminder-label--${severity}">${label}</span>
@@ -114,7 +115,7 @@ export function buildPaymentRemindersCard(
     row.innerHTML = `
       <span class="payment-reminder-icon">${icon}</span>
       <div class="payment-reminder-info">
-        <span class="payment-reminder-name">🧾 ${expense.description}</span>
+        <span class="payment-reminder-name">🧾 ${escapeHtml(expense.description)}</span>
         <span class="payment-reminder-meta">${metaLines.join(' · ')}</span>
       </div>
       <span class="payment-reminder-label payment-reminder-label--${severity}">${label}</span>

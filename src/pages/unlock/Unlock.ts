@@ -3,6 +3,7 @@ import { openVault } from '@/crypto/vault';
 import { readKeyInfo } from '@/crypto/pgp';
 import type { VaultConfig } from '@/types';
 import { BUCK_SVG, PENNY_SVG } from '@/mascot/svgs';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 export class UnlockPage {
   constructor(private config: VaultConfig, private onUnlocked: () => void) {}
@@ -16,8 +17,8 @@ export class UnlockPage {
     el.innerHTML = `
       <div class="unlock-mascot">${mascotSvg}</div>
       <div class="unlock-header">
-        <h1>Howdy, ${this.config.profileName}!</h1>
-        <p>${this.config.mascotName}'s been keeping an eye on things.<br>
+        <h1>Howdy, ${escapeHtml(this.config.profileName)}!</h1>
+        <p>${escapeHtml(this.config.mascotName)}'s been keeping an eye on things.<br>
         Load or paste your private key to pick up where you left off.</p>
       </div>
 

@@ -2,6 +2,7 @@ import { saveDebtAccount, createDebtAccount } from '@/db';
 import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { timestampToDateInput } from '@/utils/dateInput';
 import { openFormModal } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { DebtAccount, DebtAccountType, PaymentCycle } from '@/types';
@@ -41,7 +42,7 @@ export function openDebtForm(
 
   const dueDateDefaultStr = (() => {
     if (existing?.nextDueDateMs) {
-      return new Date(existing.nextDueDateMs).toISOString().split('T')[0];
+      return timestampToDateInput(existing.nextDueDateMs);
     }
     if (existing?.dueDay) {
       const n = new Date();
@@ -133,7 +134,7 @@ export function openDebtForm(
           <div class="form-group">
             <label class="form-label" for="da-intro-end">Intro APR ends on</label>
             <input id="da-intro-end" type="date"
-              value="${existing?.introAprEndDate ? new Date(existing.introAprEndDate).toISOString().split('T')[0] : ''}"
+              value="${existing?.introAprEndDate ? timestampToDateInput(existing.introAprEndDate) : ''}"
               title="When the 0% intro period ends — after this date, the APR above applies and interest accrues" />
             <span class="form-hint">After this date, the APR above applies. Balance isn't interest-free — it still must be paid down.</span>
           </div>
@@ -330,7 +331,7 @@ export function openDebtForm(
       const introEndStr = body.querySelector<HTMLInputElement>('#da-intro-end')?.value ?? '';
       let introAprEndDate: number | undefined;
       if (introChecked && introEndStr) {
-        introAprEndDate = new Date(introEndStr + 'T23:59:59Z').getTime();
+        introAprEndDate = new Date(introEndStr + 'T23:59:59').getTime();
       }
       const url = body.querySelector<HTMLInputElement>('#da-url')!.value.trim() || undefined;
 

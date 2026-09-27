@@ -1,5 +1,6 @@
 import { amortizeSingleCard, amortizeMultiCard } from '@/engine/amortize';
 import { fmtCents } from '@/utils/finance';
+import { escapeHtml } from '@/utils/escapeHtml';
 import type { DebtAccount, DebtAccountType, DebtPayment, DebtStrategy } from '@/types';
 import { userLocale } from '@/utils/locale';
 
@@ -64,7 +65,7 @@ export function buildMilestoneCard(
     row.innerHTML = `
       <div class="milestone-rank">${idx + 1}</div>
       <div class="milestone-info">
-        <div class="milestone-name">${icon} ${account.name}</div>
+        <div class="milestone-name">${icon} ${escapeHtml(account.name)}</div>
         <div class="milestone-progress-wrap">
           <div class="milestone-progress-bar" style="width:${Math.round(pctPaid * 100)}%;background:${barColor}"></div>
         </div>

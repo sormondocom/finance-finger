@@ -10,6 +10,7 @@ import { getMembers, saveMember, createMember, getExpenses, getSetting, getCusto
 import { deleteMemberWithCleanup } from '@/utils/memberUtils';
 import { setCurrency, getCurrentCurrency, SUPPORTED_CURRENCIES } from '@/utils/finance';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
+import { escapeHtml } from '@/utils/escapeHtml';
 import { buildBreakGlassSection } from './BreakGlass';
 import { buildSnapshotsSection } from './SettingsSnapshots';
 import { buildDangerSection } from './SettingsDanger';
@@ -200,7 +201,7 @@ export class SettingsPage {
         <span class="setting-row-desc">Shown on your dashboard as the profile header.</span>
       </div>
       <div class="setting-row-control" style="display:flex;gap:var(--space-3);align-items:center">
-        <input id="profile-name-input" type="text" value="${profileName}" maxlength="48"
+        <input id="profile-name-input" type="text" value="${escapeHtml(profileName)}" maxlength="48"
           style="width:180px;text-align:right" data-testid="settings-profile-name-input" />
         <button id="profile-save-btn" class="btn btn-primary" data-testid="settings-profile-name-save">Save</button>
       </div>

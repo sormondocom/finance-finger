@@ -1032,7 +1032,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
           <p class="iw-automatch-prompt-title">Pattern recognized</p>
           <p class="iw-automatch-prompt-desc">
             We've confirmed <strong>${rule.appliedCount} transactions</strong> matching
-            <strong>"${escHtml(rule.displayName)}"</strong>.<br>
+            <strong>"${escapeHtml(rule.displayName)}"</strong>.<br>
             Would you like to auto-manage similar transactions going forward?
           </p>
           <p class="iw-automatch-prompt-hint">You can always manage or clear rules in Settings → Repeat Transaction Detection.</p>
@@ -1483,7 +1483,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
     const snapText = document.createElement('div');
     snapText.innerHTML = `
       <div>Before importing, <strong>a snapshot will be saved</strong> so you can undo this operation.</div>
-      <div class="iw-snapshot-name">${escHtml(snapLabel)}</div>
+      <div class="iw-snapshot-name">${escapeHtml(snapLabel)}</div>
       <div class="iw-snapshot-sub">Find it in <strong>Settings → Snapshots</strong> under "Import snapshots."</div>
     `;
     snapCallout.appendChild(snapIcon);
@@ -1720,10 +1720,6 @@ export function openImportWizard(opts: ImportWizardOptions): void {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  function escHtml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // ── Start ──────────────────────────────────────────────────────────────────
