@@ -27,30 +27,31 @@ export function paydayCorrelationId(sourceId: string, year: number, month: numbe
 // Windows (relative to now):
 //   same day (dayDiff = 0) AND on/after account reset → auto-record silently
 //   dayDiff 1–N, OR same day but before reset         → return in pendingPrompts (user decides)
-//   dayDiff > N                                       → ignored (stale)
+//   before windowStart                                → ignored (stale)
 //
-// N comes from storage key missedPaydayPromptDays (default 3).
+// `windowStart` is resolved by the caller (resolveCatchUpWindowStart, based on how long
+// it's been since the extension was last opened, capped by the catchUpWindowDays
+// setting). `null` means there is nothing to catch up (e.g. first-ever launch).
 //
 // The account reset timestamp only blocks silent auto-recording; paydays within the
-// prompt window are always surfaced to the user even if the account was reset after them.
-export async function autoRecordPaydays(): Promise<PaydayResult> {
+// window are always surfaced to the user even if the account was reset after them.
+export async function autoRecordPaydays(windowStart: Date | null): Promise<PaydayResult> {
+  if (windowStart == null) return { recorded: 0, pendingPrompts: [] };
+
   const now = Date.now();
 
   const [storageResult, sources, allEntries] = await Promise.all([
-    browser.storage.local.get(['missedPaydayPromptDays', 'accountResetTimestamps']),
+    browser.storage.local.get('accountResetTimestamps'),
     getIncomeSources(),
     getAllLedgerEntries(),
   ]);
 
-  const promptWindowDays = (storageResult['missedPaydayPromptDays'] as number | undefined) ?? 3;
-  const resetTimestamps  = (storageResult['accountResetTimestamps']  as Record<string, number> | undefined) ?? {};
+  const resetTimestamps = (storageResult['accountResetTimestamps'] as Record<string, number> | undefined) ?? {};
 
   const AUTO_RECORD_DAYS = 0; // only auto-record on the same calendar day as payday
-  const nowDate      = new Date(now);
-  const todayStart   = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
-  const cutoffDayStart = new Date(
-    nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - promptWindowDays,
-  ).getTime();
+  const nowDate        = new Date(now);
+  const todayStart      = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+  const cutoffDayStart  = windowStart.getTime();
 
   const activeSources = sources.filter((s) => s.active && s.bankAccountId && s.frequency !== 'once');
   if (activeSources.length === 0) return { recorded: 0, pendingPrompts: [] };

@@ -33,7 +33,7 @@ export function computeNextDue(lastPaid: Date, dueDay: number, monthInterval: nu
   return candidate;
 }
 
-function billInterval(freq: string | null | undefined): number {
+export function billInterval(freq: string | null | undefined): number {
   if (freq === 'quarterly') return 3;
   if (freq === 'annual')    return 12;
   return 1;

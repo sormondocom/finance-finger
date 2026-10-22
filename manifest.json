@@ -21,7 +21,7 @@
   "content_security_policy": {
     "extension_pages": "default-src 'self'; connect-src 'none'; script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;"
   },
-  "permissions": ["storage", "downloads", "alarms"],
+  "permissions": ["storage", "downloads", "alarms", "notifications"],
   "browser_specific_settings": {
     "gecko": {
       "id": "financial-finger@extension",

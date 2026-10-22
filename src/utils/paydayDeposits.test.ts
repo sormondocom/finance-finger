@@ -88,42 +88,55 @@ describe('paydayCorrelationId', () => {
 
 const TODAY = new Date(2026, 8, 19).getTime(); // 2026-09-19 local midnight
 
+// windowStart N days before TODAY — mirrors what resolveCatchUpWindowStart would
+// produce for a gap of N days, without pulling that module into this test.
+function windowStart(days: number): Date {
+  return new Date(TODAY - days * 86_400_000);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.setSystemTime(TODAY);
 
   (browser.storage.local.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-    missedPaydayPromptDays: 3,
     accountResetTimestamps: {},
   });
   (getAllLedgerEntries as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (accounting.recordBankCredit as ReturnType<typeof vi.fn>).mockResolvedValue({ entry: {} });
 });
 
+describe('autoRecordPaydays — null window', () => {
+  it('returns zero recorded and empty prompts when windowStart is null', async () => {
+    (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([makeSource()]);
+    const result = await autoRecordPaydays(null);
+    expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
+  });
+});
+
 describe('autoRecordPaydays — no sources', () => {
   it('returns zero recorded and empty prompts when no active sources', async () => {
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
   });
 
   it('ignores inactive sources', async () => {
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([makeSource({ active: false })]);
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
   });
 
   it('ignores sources without a bankAccountId', async () => {
     const { bankAccountId: _omit, ...source } = makeSource();
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([source]);
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
   });
 
   it('ignores once-frequency sources', async () => {
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([makeSource({ frequency: 'once' })]);
     (getPaydaysInMonth as ReturnType<typeof vi.fn>).mockReturnValue([]);
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result).toEqual({ recorded: 0, pendingPrompts: [] });
   });
 });
@@ -137,7 +150,7 @@ describe('autoRecordPaydays — same-day auto-record', () => {
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
 
     expect(result.recorded).toBe(1);
     expect(result.pendingPrompts).toHaveLength(0);
@@ -160,7 +173,7 @@ describe('autoRecordPaydays — same-day auto-record', () => {
       makeLedgerEntry('payday-src-1-2026-09-19'),
     ]);
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result.recorded).toBe(0);
     expect(accounting.recordBankCredit).not.toHaveBeenCalled();
   });
@@ -175,39 +188,35 @@ describe('autoRecordPaydays — missed payday prompts', () => {
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result.recorded).toBe(0);
     expect(result.pendingPrompts).toHaveLength(1);
     expect(result.pendingPrompts[0]!.sourceName).toBe('Main Job');
     expect(result.pendingPrompts[0]!.correlationId).toBe('payday-src-1-2026-09-18');
   });
 
-  it('ignores paydays older than promptWindowDays', async () => {
+  it('ignores paydays before windowStart', async () => {
     const source = makeSource({ id: 'src-1', frequency: 'monthly' });
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([source]);
     (getPaydaysInMonth as ReturnType<typeof vi.fn>).mockImplementation((_src, year, month) => {
-      if (year === 2026 && month === 8) return [14]; // 5 days ago, outside window of 3
+      if (year === 2026 && month === 8) return [14]; // 5 days ago, outside a 3-day window
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result.pendingPrompts).toHaveLength(0);
     expect(result.recorded).toBe(0);
   });
 
-  it('respects custom promptWindowDays from storage', async () => {
-    (browser.storage.local.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      missedPaydayPromptDays: 7,
-      accountResetTimestamps: {},
-    });
+  it('respects a wider caller-supplied window', async () => {
     const source = makeSource({ id: 'src-1', frequency: 'monthly' });
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([source]);
     (getPaydaysInMonth as ReturnType<typeof vi.fn>).mockImplementation((_src, year, month) => {
-      if (year === 2026 && month === 8) return [13]; // 6 days ago — inside window of 7
+      if (year === 2026 && month === 8) return [13]; // 6 days ago — inside a 7-day window
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(7));
     expect(result.pendingPrompts).toHaveLength(1);
   });
 });
@@ -218,7 +227,6 @@ describe('autoRecordPaydays — account reset gating', () => {
     // at 10am on the 19th does NOT block a payday that's midnight of the 19th.
     const resetTs = new Date(2026, 8, 19, 10, 0, 0).getTime(); // reset today at 10am
     (browser.storage.local.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      missedPaydayPromptDays: 3,
       accountResetTimestamps: { 'bank-1': resetTs },
     });
 
@@ -229,7 +237,7 @@ describe('autoRecordPaydays — account reset gating', () => {
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     // payday day == reset day → still auto-recorded (day-granularity comparison)
     expect(result.recorded).toBe(1);
     expect(result.pendingPrompts).toHaveLength(0);
@@ -239,19 +247,18 @@ describe('autoRecordPaydays — account reset gating', () => {
     // Reset happened yesterday → today's payday is after the reset, but yesterday's payday is before it.
     const resetTs = new Date(2026, 8, 19).getTime(); // reset today (midnight)
     (browser.storage.local.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      missedPaydayPromptDays: 3,
       accountResetTimestamps: { 'bank-1': resetTs },
     });
 
     const source = makeSource({ id: 'src-1', frequency: 'monthly' });
     (getIncomeSources as ReturnType<typeof vi.fn>).mockResolvedValue([source]);
-    // Payday was yesterday (day 18) — within the 3-day prompt window but before the reset day
+    // Payday was yesterday (day 18) — within a 3-day prompt window but before the reset day
     (getPaydaysInMonth as ReturnType<typeof vi.fn>).mockImplementation((_src, year, month) => {
       if (year === 2026 && month === 8) return [18];
       return [];
     });
 
-    const result = await autoRecordPaydays();
+    const result = await autoRecordPaydays(windowStart(3));
     expect(result.recorded).toBe(0);
     expect(result.pendingPrompts).toHaveLength(1);
   });

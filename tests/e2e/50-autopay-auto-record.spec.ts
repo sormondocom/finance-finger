@@ -113,10 +113,12 @@ test('setup: add fixed-amount auto-pay expense linked to bank (past-due)', async
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 
-  // The row should show the 🔄 Auto-pay badge, not a past-due badge
+  // The row should show the 🔄 Auto-pay badge, not a past-due badge — and since
+  // it's also fixed-amount, the 📌 Fixed rate badge should show alongside it.
   const expenseRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Streaming Service' });
   await expect(expenseRow).toBeVisible();
   await expect(expenseRow.locator('[data-testid="expense-autopay-badge"]')).toBeVisible();
+  await expect(expenseRow.locator('[data-testid="expense-fixed-badge"]')).toBeVisible();
   await page.screenshot({ path: 'tests/screenshots/autopay-03-expense-added.png' });
 });
 
@@ -136,6 +138,47 @@ test('unlock vault — launchApp fires autoRecordAutoPay for Streaming Service',
   // Give the async auto-record a moment to complete before navigating away
   await page.waitForTimeout(1500);
   await page.screenshot({ path: 'tests/screenshots/autopay-05-after-unlock.png' });
+});
+
+// ── Actionable, persistent toast ──────────────────────────────────────────────
+
+test('auto-pay recording shows a persistent, actionable toast listing what was recorded', async () => {
+  // toHaveCount (DOM presence) rather than toBeVisible — this position:fixed
+  // toast renders correctly (confirmed visually via screenshot) but Playwright's
+  // visibility heuristic is unreliable for it in this extension-page context;
+  // presence + text content is what this test actually needs to verify.
+  const toast = page.locator('[data-testid="toast-actionable"]');
+  await expect(toast).toHaveCount(1, { timeout: 20_000 });
+  await expect(toast).toContainText('1 auto-pay bill recorded automatically');
+  await expect(toast.locator('[data-testid="toast-actionable-link"]')).toContainText('Streaming Service');
+
+  // Persists across navigation — it lives outside the router-controlled area.
+  await navigateTo(page, 'dashboard');
+  await expect(toast).toHaveCount(1);
+
+  // Still present well past the old 5-second auto-dismiss duration — it only
+  // closes via explicit dismissal now.
+  await page.waitForTimeout(6000);
+  await expect(toast).toHaveCount(1);
+  await page.screenshot({ path: 'tests/screenshots/autopay-05b-actionable-toast.png' });
+});
+
+test('clicking the toast link navigates to and highlights the expense, without dismissing the toast', async () => {
+  const toast = page.locator('[data-testid="toast-actionable"]');
+  await toast.locator('[data-testid="toast-actionable-link"]').click();
+
+  await expect(page.locator('[data-testid="nav-expenses"]')).toBeVisible();
+  const expenseRow = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Streaming Service' });
+  await expect(expenseRow).toHaveClass(/cal-focus-highlight/);
+
+  // Clicking a link navigates but does not dismiss the toast.
+  await expect(toast).toHaveCount(1);
+});
+
+test('the toast can be explicitly dismissed via its close button', async () => {
+  const toast = page.locator('[data-testid="toast-actionable"]');
+  await toast.locator('[data-testid="toast-actionable-close"]').click();
+  await expect(toast).toHaveCount(0, { timeout: 2000 });
 });
 
 // ── Verify auto-record results ────────────────────────────────────────────────
@@ -226,20 +269,33 @@ test('reload + unlock — variable-amount bill is NOT auto-recorded', async () =
   await page.screenshot({ path: 'tests/screenshots/autopay-11-variable-not-recorded.png' });
 });
 
-// ── Settings: auto-pay prompt window ─────────────────────────────────────────
+// ── Settings: catch-up window ────────────────────────────────────────────────
 
-test('Settings shows auto-pay prompt window field with default of 7 days', async () => {
+test('Settings shows catch-up window field with default of 90 days', async () => {
   await navigateTo(page, 'settings');
-  await expect(page.locator('[data-testid="settings-autopay-prompt-row"]')).toBeVisible();
-  const input = page.locator('[data-testid="settings-autopay-prompt-input"]');
-  await expect(input).toHaveValue('7');
+  await expect(page.locator('[data-testid="settings-catchup-window-row"]')).toBeVisible();
+  const input = page.locator('[data-testid="settings-catchup-window-input"]');
+  await expect(input).toHaveValue('90');
   await page.screenshot({ path: 'tests/screenshots/autopay-12-settings.png' });
 });
 
-test('can change auto-pay prompt window and save', async () => {
-  const input = page.locator('[data-testid="settings-autopay-prompt-input"]');
+test('can change catch-up window and save', async () => {
+  const input = page.locator('[data-testid="settings-catchup-window-input"]');
   await input.fill('14');
-  await page.click('[data-testid="settings-autopay-prompt-save"]');
+  await page.click('[data-testid="settings-catchup-window-save"]');
   await expect(input).toHaveValue('14');
   await page.screenshot({ path: 'tests/screenshots/autopay-13-settings-saved.png' });
+});
+
+test('Settings shows a stale-reminder field with default of 7 days', async () => {
+  await expect(page.locator('[data-testid="settings-stale-reminder-row"]')).toBeVisible();
+  const input = page.locator('[data-testid="settings-stale-reminder-input"]');
+  await expect(input).toHaveValue('7');
+});
+
+test('can change the stale-reminder window and save', async () => {
+  const input = page.locator('[data-testid="settings-stale-reminder-input"]');
+  await input.fill('3');
+  await page.click('[data-testid="settings-stale-reminder-save"]');
+  await expect(input).toHaveValue('3');
 });

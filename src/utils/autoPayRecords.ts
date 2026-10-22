@@ -1,71 +1,78 @@
-import browser from 'webextension-polyfill';
 import { getExpenses, saveExpense } from '@/db';
 import { accounting } from '@/accounting';
-import { computeBillStatus } from '@/utils/billStatus';
-import type { Expense } from '@/types';
+import { computeNextDue, billInterval } from '@/utils/billStatus';
+import { expenseCycleCorrelationId } from '@/utils/expenseCatchUp';
 
-export interface AutoPayPrompt {
-  expense: Expense;
-  dueDate: number;
+export interface RecordedAutoPayItem {
+  expenseId: string;
+  description: string;
+  amount: number;
+  date: number;
 }
 
 export interface AutoPayResult {
   recorded: number;
-  pendingPrompts: AutoPayPrompt[];
+  recordedItems: RecordedAutoPayItem[];
 }
 
-// Auto-records fixed-amount auto-pay bills whose due date has passed and no
-// payment exists for the current billing cycle.  Variable-amount auto-pay
-// bills that fall within the prompt window are returned in pendingPrompts so
-// the foreground can notify the user to log the actual charge.
+// Silently auto-records fixed-amount auto-pay bills.
 //
-// Dedup: computeBillStatus(expense) returns 'paid' once expense.date has been
-// updated to fall within the cycle window.  We update expense.date after every
-// silent auto-record so subsequent runs skip already-recorded bills.
+// The single most recent missed cycle (i.e. "is this bill currently past
+// due?") is ALWAYS recorded, regardless of `windowStart` — this matches the
+// original, pre-catch-up behavior of checking on every launch, independent of
+// how long the extension was closed. `windowStart` only extends how far back
+// we ALSO sweep up additional older missed cycles; it must never gate away
+// the current one, or a bill that's simply overdue right now would silently
+// stop getting recorded whenever the gap since last open happens to be small
+// (e.g. reopening the same day, or a session that just created the bill).
 //
-// Prompt window (autoPayPromptDays, default 7): bills whose due date is older
-// than this many days are silently skipped — they are presumed handled via
-// reconciliation or already logged manually.
-export async function autoRecordAutoPay(): Promise<AutoPayResult> {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
-  const [storageResult, expenses] = await Promise.all([
-    browser.storage.local.get('autoPayPromptDays'),
-    getExpenses(),
-  ]);
-
-  const promptWindowDays = (storageResult['autoPayPromptDays'] as number | undefined) ?? 7;
-  const cutoffTs = todayStart - promptWindowDays * 86_400_000;
-
-  const autoPayBills = expenses.filter(
-    (e) => e.isAutoPay && e.recurring && !!e.dueDay,
+// Variable-amount auto-pay bills are NOT handled here; their amount isn't
+// knowable in advance, so they're surfaced via enumerateLapsedExpenseCycles()
+// + the catch-up mascot queue instead, where the user confirms an amount.
+//
+// `windowStart`: the oldest due date additional (non-current) cycles are
+// allowed to backfill. `null` means no additional historical backfill (e.g.
+// first-ever launch) — the current cycle is still recorded. Cycles older than
+// both the window and the current one are skipped but still advance the
+// stored anchor, so they aren't re-evaluated (and re-skipped) forever.
+export async function autoRecordAutoPay(windowStart: Date | null): Promise<AutoPayResult> {
+  const expenses = await getExpenses();
+  const fixedAutoPayBills = expenses.filter(
+    (e) => e.isAutoPay && e.isFixedAmount && e.recurring && !!e.dueDay,
   );
 
-  if (autoPayBills.length === 0) return { recorded: 0, pendingPrompts: [] };
-
   let recordedCount = 0;
-  const pendingPrompts: AutoPayPrompt[] = [];
+  const recordedItems: RecordedAutoPayItem[] = [];
+  const now = Date.now();
 
-  for (const expense of autoPayBills) {
-    const { status, dueDayThisMonth } = computeBillStatus(expense, now);
+  for (const expense of fixedAutoPayBills) {
+    const interval = billInterval(expense.recurringFrequency);
 
-    if (status !== 'past-due') continue;
-    if (!dueDayThisMonth) continue;
+    // Walk forward from the anchor, collecting every cycle due before now.
+    const dueDates: number[] = [];
+    let cursor = expense.date;
+    for (;;) {
+      const dueDateTs = computeNextDue(new Date(cursor), expense.dueDay!, interval).getTime();
+      if (dueDateTs >= now) break;
+      dueDates.push(dueDateTs);
+      cursor = dueDateTs;
+    }
+    if (dueDates.length === 0) continue;
 
-    const dueDateTs = dueDayThisMonth.getTime();
+    const mostRecent = dueDates[dueDates.length - 1]!;
+    const toRecord = dueDates.filter(
+      (d) => d === mostRecent || (windowStart != null && d >= windowStart.getTime()),
+    );
 
-    // Due date is older than the prompt window — skip silently.
-    if (dueDateTs < cutoffTs) continue;
-
-    if (expense.isFixedAmount) {
+    for (const dueDateTs of toRecord) {
       await accounting.recordExpensePayment({
         expenseId: expense.id,
         description: expense.description,
         amount: expense.amount,
         date: dueDateTs,
+        correlationId: expenseCycleCorrelationId(expense.id, new Date(dueDateTs)),
         ...(expense.bankAccountId ? { bankAccountId: expense.bankAccountId } : {}),
-        ...(expense.linkedCardId  ? { cardId: expense.linkedCardId }         : {}),
+        ...(expense.linkedCardId ? { cardId: expense.linkedCardId } : {}),
       });
 
       // If the expense is linked to a card, also post a charge entry so the
@@ -81,14 +88,21 @@ export async function autoRecordAutoPay(): Promise<AutoPayResult> {
         });
       }
 
-      // Advance expense.date into the current cycle window so the next run of
-      // computeBillStatus returns 'paid' and we don't double-record.
-      await saveExpense({ ...expense, date: dueDateTs });
       recordedCount++;
-    } else {
-      pendingPrompts.push({ expense, dueDate: dueDateTs });
+      recordedItems.push({
+        expenseId: expense.id,
+        description: expense.description,
+        amount: expense.amount,
+        date: dueDateTs,
+      });
+    }
+
+    // Single write per expense, advancing all the way to the most recent
+    // cycle regardless of how many were actually recorded vs. skipped.
+    if (mostRecent !== expense.date) {
+      await saveExpense({ ...expense, date: mostRecent });
     }
   }
 
-  return { recorded: recordedCount, pendingPrompts };
+  return { recorded: recordedCount, recordedItems };
 }

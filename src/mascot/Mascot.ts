@@ -8,7 +8,10 @@ import type { NotifierItem } from '@/utils/notifier';
 import type { CustomNotification, MascotGender, MascotTrigger, VaultConfig } from '@/types';
 import { userLocale } from '@/utils/locale';
 import { fmtCents } from '@/utils/finance';
+import { showToast } from '@/utils/errorUI';
 import type { MissedPayday } from '@/utils/paydayDeposits';
+import type { LapsedDebtCycle } from '@/utils/debtCatchUp';
+import type { LapsedExpenseCycle } from '@/utils/expenseCatchUp';
 
 // ── Debt Payoff Celebration ───────────────────────────────────────────────────
 
@@ -365,36 +368,30 @@ export async function showMascot(
   const name = activeConfig?.mascotName ?? (gender === 'buck' ? 'Buck' : 'Penny');
   const lines = getLines(trigger, gender, substitutions);
 
-  const root = document.getElementById('mascot-root');
-  if (!root) { isBusy = false; return; }
+  const rootEl = document.getElementById('mascot-root');
+  if (!rootEl) { isBusy = false; return; }
 
-  root.innerHTML = '';
+  const { root, stack, figure } = ensureShell(gender);
 
-  const bubble = buildBubble(name, gender, lines, () => dismiss(root), items);
-  const figure = buildFigure(gender, () => dismiss(root));
+  // Only one "primary" bubble (briefing/greeting/tip/etc.) exists at a time —
+  // replace any that's already showing rather than wiping the whole shared
+  // root, which would also tear down any catch-up/alert cards stacked above it.
+  stack.querySelector<HTMLElement>(':scope > .mascot-bubble')?.remove();
+
+  const bubble = buildBubble(name, gender, lines, () => dismissPrimary(root), items);
+  // Appended last among the stack's children, which keeps it nearest the
+  // figure (bottom of the visual stack) regardless of what catch-up/alert
+  // cards are already stacked above it.
+  stack.appendChild(bubble);
 
   // When alert items are shown the figure is decorative — dismiss is handled by
   // the explicit "Git along" button. Disabling pointer events on the figure prevents
   // its idle-animation hit area from overlapping the bubble's bottom edge and
   // accidentally triggering the react/dismiss sequence on item clicks.
-  if (items && items.length > 0) {
-    figure.style.pointerEvents = 'none';
-  }
-
-  root.appendChild(bubble);
-  root.appendChild(figure);
-
-  // Guard on animationName so a bubbled child-element animationend doesn't
-  // trigger idle prematurely before mosey-in has actually finished.
-  const onMoseyInEnd = (e: AnimationEvent) => {
-    if (e.animationName !== 'mosey-in') return;
-    figure.removeEventListener('animationend', onMoseyInEnd);
-    if (!figure.classList.contains('leaving')) figure.classList.add('idle');
-  };
-  figure.addEventListener('animationend', onMoseyInEnd);
+  figure.style.pointerEvents = items && items.length > 0 ? 'none' : '';
 
   if (autoDismissMs > 0) {
-    dismissTimer = setTimeout(() => dismiss(root), autoDismissMs);
+    dismissTimer = setTimeout(() => dismissPrimary(root), autoDismissMs);
   }
 }
 
@@ -411,26 +408,83 @@ export async function showTip(): Promise<void> {
   const name = activeConfig?.mascotName ?? (gender === 'buck' ? 'Buck' : 'Penny');
   const lines = getDailyTip(gender);
 
-  const root = document.getElementById('mascot-root');
-  if (!root) { isBusy = false; return; }
+  const rootEl = document.getElementById('mascot-root');
+  if (!rootEl) { isBusy = false; return; }
 
-  root.innerHTML = '';
+  const { root, stack } = ensureShell(gender);
+  stack.querySelector<HTMLElement>(':scope > .mascot-bubble')?.remove();
 
-  const bubble = buildBubble(name, gender, lines, () => dismiss(root));
-  const figure = buildFigure(gender, () => dismiss(root));
-
-  root.appendChild(bubble);
-  root.appendChild(figure);
-
-  const onMoseyInEnd = (e: AnimationEvent) => {
-    if (e.animationName !== 'mosey-in') return;
-    figure.removeEventListener('animationend', onMoseyInEnd);
-    if (!figure.classList.contains('leaving')) figure.classList.add('idle');
-  };
-  figure.addEventListener('animationend', onMoseyInEnd);
+  const bubble = buildBubble(name, gender, lines, () => dismissPrimary(root));
+  stack.appendChild(bubble);
 
   // Tips auto-dismiss after 12 seconds
-  dismissTimer = setTimeout(() => dismiss(root), 12000);
+  dismissTimer = setTimeout(() => dismissPrimary(root), 12000);
+}
+
+// Ensures the single shared #mascot-root shell exists: a `.mascot-stack-cards`
+// wrapper (holding the primary bubble and/or any catch-up/alert cards) and a
+// `.mascot-figure` anchored at the bottom. Reused across calls so multiple
+// independent producers (the daily/briefing bubble, the catch-up queue, etc.)
+// stack together above one mascot instead of each building its own
+// competing overlay at the same fixed screen position.
+function ensureShell(gender: MascotGender): { root: HTMLElement; stack: HTMLElement; figure: HTMLElement } {
+  const root = document.getElementById('mascot-root')!;
+
+  let stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.className = 'mascot-stack-cards';
+    root.appendChild(stack);
+  }
+
+  let figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
+  if (!figure) {
+    figure = buildFigure(gender, () => dismissPrimary(root));
+    root.appendChild(figure);
+
+    // Guard on animationName so a bubbled child-element animationend doesn't
+    // trigger idle prematurely before mosey-in has actually finished.
+    const fig = figure;
+    const onMoseyInEnd = (e: AnimationEvent) => {
+      if (e.animationName !== 'mosey-in') return;
+      fig.removeEventListener('animationend', onMoseyInEnd);
+      if (!fig.classList.contains('leaving')) fig.classList.add('idle');
+    };
+    figure.addEventListener('animationend', onMoseyInEnd);
+  }
+
+  return { root, stack, figure };
+}
+
+// Removes the primary (briefing/greeting/tip/etc.) bubble, if any, and tears
+// down the whole shared root only once nothing else — including any pending
+// catch-up/alert cards — remains in the stack.
+function dismissPrimary(root: HTMLElement): void {
+  if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+
+  const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
+  const primary = stack?.querySelector<HTMLElement>(':scope > .mascot-bubble');
+  primary?.remove();
+
+  const figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
+  if (figure) figure.style.pointerEvents = '';
+
+  isBusy = false;
+  collapseIfEmpty(root);
+}
+
+// Tears down the shared figure (with its mosey-out exit animation) once the
+// stack holds no more cards of any kind — primary or catch-up/alert.
+function collapseIfEmpty(root: HTMLElement): void {
+  const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
+  if (stack && stack.children.length > 0) return;
+
+  const figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
+  if (!figure) { root.innerHTML = ''; return; }
+
+  figure.classList.remove('idle', 'react');
+  figure.classList.add('leaving');
+  figure.addEventListener('animationend', () => { root.innerHTML = ''; }, { once: true });
 }
 
 function buildFigure(gender: MascotGender, onDismiss: () => void): HTMLElement {
@@ -548,7 +602,7 @@ export function updateMascotItems(items: NotifierItem[]): void {
   if (!bubble) return;
 
   if (items.length === 0) {
-    dismiss(root);
+    dismissPrimary(root);
     return;
   }
 
@@ -661,142 +715,229 @@ export async function showBellNotification(notif: CustomNotification): Promise<v
   });
 }
 
-// ── Missed Payday Prompt ──────────────────────────────────────────────────────
+// ── Catch-Up Prompts (missed paydays, lapsed debt payments, lapsed bills) ──────
 
 const MISSED_PAYDAY_INTRO: Record<MascotGender, string> = {
   buck:  "Whoa there, partner! Looks like a paycheck slipped through the fence while you were away.",
   penny: "Oh sugar, it seems a payday deposit got away from us while the app was closed!",
 };
-
 const MISSED_PAYDAY_YES: Record<MascotGender, string> = {
   buck:  "Round it up! 🤠",
   penny: "Yes, record it! 🌻",
 };
-
 const MISSED_PAYDAY_NO: Record<MascotGender, string> = {
   buck:  "Leave it be",
   penny: "No thanks",
 };
 
-// Shows a mascot prompt for each missed payday, one at a time.
-// Calls onRecord when the user confirms — the caller handles the actual ledger write.
-// Paydays dismissed this session are stored in sessionStorage so they aren't re-asked.
-export async function showMissedPaydayPrompt(
-  missed: MissedPayday[],
-  onRecord: (m: MissedPayday) => Promise<void>,
-): Promise<void> {
-  const queue = missed.filter((m) => !sessionStorage.getItem(`ff-payday-skip-${m.correlationId}`));
+const LAPSED_DEBT_INTRO: Record<MascotGender, string> = {
+  buck:  "Hold on now — looks like a debt payment might've slipped by while the gate was closed.",
+  penny: "Oh dear, it seems a debt payment may have gotten away from us while the app was closed!",
+};
+const LAPSED_DEBT_YES: Record<MascotGender, string> = {
+  buck:  "Yep, log it 🤠",
+  penny: "Yes, log it 🌻",
+};
+const LAPSED_DEBT_NO: Record<MascotGender, string> = {
+  buck:  "Not yet",
+  penny: "Not yet",
+};
+
+const LAPSED_EXPENSE_INTRO: Record<MascotGender, string> = {
+  buck:  "Whoa there — a bill might've come due while you were away from the ranch.",
+  penny: "Oh sugar, it looks like a bill may have come due while the app was closed!",
+};
+const LAPSED_EXPENSE_YES: Record<MascotGender, string> = {
+  buck:  "Yep, log it 🤠",
+  penny: "Yes, log it 🌻",
+};
+const LAPSED_EXPENSE_NO: Record<MascotGender, string> = {
+  buck:  "Not yet",
+  penny: "Not yet",
+};
+
+export type CatchUpItem =
+  | { kind: 'payday'; data: MissedPayday }
+  | { kind: 'debt-cycle'; data: LapsedDebtCycle }
+  | { kind: 'expense-cycle'; data: LapsedExpenseCycle };
+
+export interface CatchUpHandlers {
+  recordPayday: (m: MissedPayday) => Promise<void>;
+  /** Resolves once the user has finished with the debt payment modal (submit or cancel). */
+  confirmDebtCycle: (c: LapsedDebtCycle) => Promise<void>;
+  /** Resolves once the user has finished with the expense payment modal (submit or cancel). */
+  confirmExpenseCycle: (c: LapsedExpenseCycle) => Promise<void>;
+  declineDebtCycle: (c: LapsedDebtCycle) => Promise<void>;
+  declineExpenseCycle: (c: LapsedExpenseCycle) => Promise<void>;
+}
+
+// Shows every catch-up item as a stacked set of cards above the single
+// shared mascot figure (`ensureShell`) — the same root the daily/briefing
+// bubble lives in, rather than a competing overlay of its own at the same
+// fixed screen position. Catch-up/alert cards are inserted above (never
+// below) any already-showing primary bubble, so the daily reminders stay
+// nearest the mascot and the lapsed-item cards stack on top of them. Every
+// card is independently interactive from the moment it appears — the user
+// can work through them in any order, not just nearest-to-mascot first.
+// When the stack grows taller than the viewport has room for, `.mascot-stack-cards`
+// wraps overflow cards into an additional column to the left (CSS, see
+// mascot.css) rather than letting them run off the top of the screen.
+// Paydays dismissed this session are stored in sessionStorage (unchanged
+// legacy behavior); debt/expense declines are the caller's responsibility to
+// persist (via declineDebtCycle/declineExpenseCycle) so they don't resurface
+// before the next cycle.
+export async function showCatchUpQueue(items: CatchUpItem[], handlers: CatchUpHandlers): Promise<void> {
+  const queue = items.filter(
+    (item) => item.kind !== 'payday' || !sessionStorage.getItem(`ff-payday-skip-${item.data.correlationId}`),
+  );
   if (queue.length === 0) return;
 
   await loadConfig();
   const gender: MascotGender = activeConfig?.mascotGender ?? 'buck';
 
-  for (const item of queue) {
-    if (sessionStorage.getItem(`ff-payday-skip-${item.correlationId}`)) continue;
-    await showOnePaydayPrompt(item, gender, onRecord);
-  }
+  const rootEl = document.getElementById('mascot-root');
+  if (!rootEl) return;
+  const { root, stack } = ensureShell(gender);
+
+  const primary = stack.querySelector<HTMLElement>(':scope > .mascot-bubble');
+  const cards = queue.map((item) => buildCatchUpCard(item, gender));
+  cards.forEach(({ el }) => {
+    if (primary) stack.insertBefore(el, primary);
+    else stack.appendChild(el);
+  });
+
+  await Promise.all(queue.map((item, i) => runCatchUpCard(item, cards[i]!, handlers, root)));
 }
 
-function showOnePaydayPrompt(
-  item: MissedPayday,
-  gender: MascotGender,
-  onRecord: (m: MissedPayday) => Promise<void>,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'bell-notif-toast';
+interface CatchUpCard {
+  el: HTMLElement;
+  yesBtn: HTMLButtonElement;
+  noBtn: HTMLButtonElement;
+}
 
-    const bubble = document.createElement('div');
-    bubble.className = 'bell-notif-toast-bubble';
+function buildCatchUpCard(item: CatchUpItem, gender: MascotGender): CatchUpCard {
+  const bubble = document.createElement('div');
+  bubble.className = 'bell-notif-toast-bubble';
+  bubble.setAttribute('data-testid', 'catchup-toast');
+  bubble.setAttribute('data-catchup-kind', item.kind);
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'bell-notif-toast-header';
-    const iconEl = document.createElement('span');
-    iconEl.className = 'bell-notif-toast-bell';
-    iconEl.setAttribute('aria-hidden', 'true');
+  const header = document.createElement('div');
+  header.className = 'bell-notif-toast-header';
+  const iconEl = document.createElement('span');
+  iconEl.className = 'bell-notif-toast-bell';
+  iconEl.setAttribute('aria-hidden', 'true');
+  const titleEl = document.createElement('span');
+  titleEl.className = 'bell-notif-toast-title';
+  titleEl.setAttribute('data-testid', 'catchup-toast-title');
+  header.appendChild(iconEl);
+  header.appendChild(titleEl);
+  bubble.appendChild(header);
+
+  let introText: string;
+  let yesText: string;
+  let noText: string;
+  let detailText: string;
+
+  if (item.kind === 'payday') {
     iconEl.textContent = '💰';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'bell-notif-toast-title';
     titleEl.textContent = 'Missed Payday';
-    header.appendChild(iconEl);
-    header.appendChild(titleEl);
-    bubble.appendChild(header);
+    introText = MISSED_PAYDAY_INTRO[gender];
+    yesText = MISSED_PAYDAY_YES[gender];
+    noText = MISSED_PAYDAY_NO[gender];
+    const dateStr = new Date(item.data.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
+    detailText = `${item.data.sourceName} — ${fmtCents.format(item.data.amount)} on ${dateStr}`;
+  } else if (item.kind === 'debt-cycle') {
+    iconEl.textContent = '💳';
+    titleEl.textContent = 'Lapsed Debt Payment';
+    introText = LAPSED_DEBT_INTRO[gender];
+    yesText = LAPSED_DEBT_YES[gender];
+    noText = LAPSED_DEBT_NO[gender];
+    const dateStr = new Date(item.data.dueDate).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
+    detailText = `${item.data.accountName} — due ${dateStr}`;
+  } else {
+    iconEl.textContent = '🧾';
+    titleEl.textContent = 'Lapsed Bill';
+    introText = LAPSED_EXPENSE_INTRO[gender];
+    yesText = LAPSED_EXPENSE_YES[gender];
+    noText = LAPSED_EXPENSE_NO[gender];
+    const dateStr = new Date(item.data.dueDate).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
+    detailText = `${item.data.description} — due ${dateStr}`;
+  }
 
-    const introEl = document.createElement('p');
-    introEl.className = 'bell-notif-toast-canned';
-    introEl.textContent = MISSED_PAYDAY_INTRO[gender];
-    bubble.appendChild(introEl);
+  const introEl = document.createElement('p');
+  introEl.className = 'bell-notif-toast-canned';
+  introEl.textContent = introText;
+  bubble.appendChild(introEl);
 
-    const detailEl = document.createElement('blockquote');
-    detailEl.className = 'bell-notif-toast-custom';
-    const dateStr = new Date(item.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric', year: 'numeric' });
-    const amtStr  = fmtCents.format(item.amount);
-    detailEl.textContent = `${item.sourceName} — ${amtStr} on ${dateStr}`;
-    bubble.appendChild(detailEl);
+  const detailEl = document.createElement('blockquote');
+  detailEl.className = 'bell-notif-toast-custom';
+  detailEl.setAttribute('data-testid', 'catchup-toast-detail');
+  detailEl.textContent = detailText;
+  bubble.appendChild(detailEl);
 
-    // Action buttons
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:var(--space-3);margin-top:var(--space-2)';
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:var(--space-3);margin-top:var(--space-2)';
 
-    const yesBtn = document.createElement('button');
-    yesBtn.className = 'btn btn-primary bell-notif-toast-btn';
-    yesBtn.style.flex = '1';
-    yesBtn.textContent = MISSED_PAYDAY_YES[gender];
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'btn btn-primary bell-notif-toast-btn';
+  yesBtn.style.flex = '1';
+  yesBtn.textContent = yesText;
+  yesBtn.setAttribute('data-testid', 'catchup-toast-yes');
 
-    const noBtn = document.createElement('button');
-    noBtn.className = 'btn btn-secondary bell-notif-toast-btn';
-    noBtn.style.flex = '1';
-    noBtn.textContent = MISSED_PAYDAY_NO[gender];
+  const noBtn = document.createElement('button');
+  noBtn.className = 'btn btn-secondary bell-notif-toast-btn';
+  noBtn.style.flex = '1';
+  noBtn.textContent = noText;
+  noBtn.setAttribute('data-testid', 'catchup-toast-no');
 
-    btnRow.appendChild(yesBtn);
-    btnRow.appendChild(noBtn);
-    bubble.appendChild(btnRow);
+  btnRow.appendChild(yesBtn);
+  btnRow.appendChild(noBtn);
+  bubble.appendChild(btnRow);
 
-    const figEl = document.createElement('div');
-    figEl.className = 'bell-notif-toast-figure';
-    figEl.setAttribute('aria-hidden', 'true');
-    figEl.innerHTML = gender === 'buck' ? BUCK_SVG : PENNY_SVG;
+  return { el: bubble, yesBtn, noBtn };
+}
 
-    overlay.appendChild(bubble);
-    overlay.appendChild(figEl);
-    document.body.appendChild(overlay);
-
+function runCatchUpCard(item: CatchUpItem, card: CatchUpCard, handlers: CatchUpHandlers, root: HTMLElement): Promise<void> {
+  const { el, yesBtn, noBtn } = card;
+  return new Promise<void>((resolve) => {
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
-      overlay.classList.add('bell-notif-out');
+      el.classList.add('bell-notif-card--out');
       setTimeout(() => {
-        if (document.body.contains(overlay)) overlay.remove();
+        el.remove();
+        collapseIfEmpty(root);
         resolve();
-      }, 380);
+      }, 300);
     };
 
     yesBtn.addEventListener('click', async () => {
       yesBtn.disabled = true;
       noBtn.disabled  = true;
-      try { await onRecord(item); } catch { /* recording failure is non-fatal */ }
+      try {
+        if (item.kind === 'payday') await handlers.recordPayday(item.data);
+        else if (item.kind === 'debt-cycle') await handlers.confirmDebtCycle(item.data);
+        else await handlers.confirmExpenseCycle(item.data);
+      } catch (err) {
+        showToast('Something went wrong recording that — you can still log it manually from its page.', 'error', 8000);
+        console.error('[FinancialFinger] catch-up record failed:', err);
+      }
       finish();
     });
 
-    noBtn.addEventListener('click', () => {
-      sessionStorage.setItem(`ff-payday-skip-${item.correlationId}`, '1');
+    noBtn.addEventListener('click', async () => {
+      noBtn.disabled  = true;
+      yesBtn.disabled = true;
+      if (item.kind === 'payday') {
+        sessionStorage.setItem(`ff-payday-skip-${item.data.correlationId}`, '1');
+      } else if (item.kind === 'debt-cycle') {
+        await handlers.declineDebtCycle(item.data);
+      } else {
+        await handlers.declineExpenseCycle(item.data);
+      }
       finish();
     });
   });
 }
 
-function dismiss(root: HTMLElement): void {
-  if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
-
-  const fig = root.querySelector<HTMLElement>('.mascot-figure');
-  if (fig) {
-    fig.classList.remove('idle', 'react');
-    fig.classList.add('leaving');
-    fig.addEventListener('animationend', () => { root.innerHTML = ''; isBusy = false; }, { once: true });
-  } else {
-    root.innerHTML = '';
-    isBusy = false;
-  }
-}

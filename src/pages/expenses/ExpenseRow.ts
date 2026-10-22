@@ -408,7 +408,7 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     ? `<span class="expense-threshold-badge" data-testid="expense-threshold-badge">⚡ ${fmtCents.format(expense.threshold)}</span>`
     : '';
 
-  const fixedBadge = !isAutoPay && !!expense.isFixedAmount && expense.recurring
+  const fixedBadge = !!expense.isFixedAmount && expense.recurring
     ? '<span class="expense-fixed-badge" data-testid="expense-fixed-badge">📌 Fixed rate</span>'
     : '';
 

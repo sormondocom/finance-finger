@@ -5,7 +5,7 @@ import { fmtCents } from '@/utils/finance';
 import { computeMinPayment } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { todayDateInput } from '@/utils/dateInput';
+import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
 import type { DebtAccount, BankAccount } from '@/types';
 
 export interface DebtPaymentModalOptions {
@@ -13,11 +13,15 @@ export interface DebtPaymentModalOptions {
   bankAccounts: BankAccount[];
   onSave: () => Promise<void> | void;
   onPayoff?: (account: DebtAccount, newBalance: number) => void;
+  /** Pre-fill the payment date with this timestamp instead of today — used by catch-up to default to the lapsed cycle's due date. */
+  defaultDate?: number;
+  /** Called when the modal closes, whether via submit or cancel. Used by the catch-up queue to wait for this modal before advancing. */
+  onClose?: () => void;
 }
 
-export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayoff }: DebtPaymentModalOptions): void {
+export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayoff, defaultDate, onClose }: DebtPaymentModalOptions): void {
   const minPay = computeMinPayment(a);
-  const today = todayDateInput();
+  const today = defaultDate != null ? timestampToDateInput(defaultDate) : todayDateInput();
 
   const body = document.createElement('div');
   body.style.cssText = 'display:flex;flex-direction:column;gap:var(--space-4)';
@@ -118,6 +122,7 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
     title: `Make a Payment — ${a.name}`,
     body,
     submitLabel: 'Record Payment',
+    ...(onClose ? { onClose } : {}),
     onSubmit: async (close) => {
       const amountRaw = parseFloat(body.querySelector<HTMLInputElement>('#pay-amount')!.value);
       const dateStr = body.querySelector<HTMLInputElement>('#pay-date')!.value;

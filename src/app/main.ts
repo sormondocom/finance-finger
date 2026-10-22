@@ -3,8 +3,10 @@ import './styles/nav.css';
 import browser from 'webextension-polyfill';
 import { register, navigate, navigateReplace, initRouter, onRouteChange } from './router';
 import { isVaultOpen, closeVault } from '@/crypto/vault';
-import { showToast } from '@/utils/errorUI';
-import { setCurrency } from '@/utils/finance';
+import { showToast, showActionableToast } from '@/utils/errorUI';
+import { setCurrency, fmtCents } from '@/utils/finance';
+import { userLocale } from '@/utils/locale';
+import { FAMILY_SVG } from '@/mascot/svgs';
 import type { VaultConfig } from '@/types';
 
 async function getVaultConfig(): Promise<VaultConfig | null> {
@@ -12,11 +14,21 @@ async function getVaultConfig(): Promise<VaultConfig | null> {
   return (result['vaultConfig'] as VaultConfig | undefined) ?? null;
 }
 
+// Reads the previous lastOpenedAt timestamp (for catch-up's "how long has it
+// been" calculation) before overwriting it with now. Null means first-ever
+// launch — nothing to catch up.
+async function getAndStampLastOpenedAt(): Promise<number | null> {
+  const result = await browser.storage.local.get('lastOpenedAt');
+  const prev = (result['lastOpenedAt'] as number | undefined) ?? null;
+  await browser.storage.local.set({ lastOpenedAt: Date.now() });
+  return prev;
+}
+
 function buildNav(): HTMLElement {
   const nav = document.getElementById('app-nav')!;
   nav.innerHTML = `
     <div class="nav-brand">
-      <span class="nav-brand-logo">🐷</span>
+      <span class="nav-brand-logo">${FAMILY_SVG}</span>
       <span class="nav-brand-name">Financial<br>Finger</span>
     </div>
     <nav class="nav-links" role="navigation" aria-label="Main">
@@ -156,41 +168,15 @@ function launchApp(): void {
     }
   });
 
-  // Auto-record recent missed paydays and prompt the user via mascot for older ones.
-  void import('@/utils/paydayDeposits').then(({ autoRecordPaydays }) => {
-    void autoRecordPaydays().then(async ({ pendingPrompts }) => {
-      if (pendingPrompts.length === 0) return;
-      const [{ showMissedPaydayPrompt }, { accounting }] = await Promise.all([
-        import('@/mascot/Mascot'),
-        import('@/accounting'),
-      ]);
-      void showMissedPaydayPrompt(pendingPrompts, (m) =>
-        accounting.recordBankCredit({
-          accountId: m.bankAccountId,
-          description: m.sourceName,
-          amount: m.amount,
-          date: m.date,
-          correlationId: m.correlationId,
-        }).then(() => undefined),
-      );
-    }).catch((err) => console.error('autoRecordPaydays failed:', err));
-  });
-
-  // Auto-record fixed-amount auto-pay bills that are past due; toast for variable-amount ones.
-  void import('@/utils/autoPayRecords').then(({ autoRecordAutoPay }) => {
-    void autoRecordAutoPay().then(({ recorded, pendingPrompts }) => {
-      if (recorded > 0) {
-        showToast(`${recorded} auto-pay bill${recorded > 1 ? 's' : ''} recorded automatically.`, 'info', 5000);
-      }
-      if (pendingPrompts.length > 0) {
-        const names = pendingPrompts.map((p) => p.expense.description).join(', ');
-        showToast(
-          `Auto-pay bills need amounts logged: ${names}. Go to Expenses → Log Actual.`,
-          'warning',
-          8000,
-        );
-      }
-    }).catch((err) => console.error('autoRecordAutoPay failed:', err));
+  // Catch up on everything that may have lapsed while the extension was closed:
+  // paydays and fixed-amount auto-pay bills get real ledger entries automatically
+  // (bounded by how long it's actually been, capped by catchUpWindowDays), while
+  // debt payments and other recurring bills are surfaced as a single mascot-hosted
+  // checklist the user confirms or declines one at a time. See src/utils/catchUp.ts.
+  void getAndStampLastOpenedAt().then((prevOpenedAt) => {
+    void import('@/utils/catchUp')
+      .then(({ runCatchUp }) => runCatchUp(prevOpenedAt))
+      .catch((err) => console.error('runCatchUp failed:', err));
   });
 
   // Check for any due custom notifications after the dashboard has rendered, then
@@ -215,37 +201,54 @@ function launchApp(): void {
           const today = new Date().toDateString();
           if (today !== lastPaydayCheckDate) {
             lastPaydayCheckDate = today;
+            // The extension has stayed continuously open across a calendar-day
+            // rollover — a separate, narrower concern from the reopen catch-up
+            // above. Only re-check TODAY's newly-due items (same-day window),
+            // via the same (now multi-cycle-capable) functions; this does not
+            // enumerate lapsed debt/bill cycles — the live status badges already
+            // cover that passively while the tab is open.
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
             void import('@/utils/paydayDeposits').then(({ autoRecordPaydays }) => {
-              void autoRecordPaydays().then(async ({ pendingPrompts }) => {
+              void autoRecordPaydays(todayStart).then(async ({ pendingPrompts }) => {
                 if (pendingPrompts.length === 0) return;
-                const [{ showMissedPaydayPrompt }, { accounting }] = await Promise.all([
+                const [{ showCatchUpQueue }, { accounting }] = await Promise.all([
                   import('@/mascot/Mascot'),
                   import('@/accounting'),
                 ]);
-                void showMissedPaydayPrompt(pendingPrompts, (m) =>
-                  accounting.recordBankCredit({
-                    accountId: m.bankAccountId,
-                    description: m.sourceName,
-                    amount: m.amount,
-                    date: m.date,
-                    correlationId: m.correlationId,
-                  }).then(() => undefined),
+                void showCatchUpQueue(
+                  pendingPrompts.map((data) => ({ kind: 'payday' as const, data })),
+                  {
+                    recordPayday: (m) => accounting.recordBankCredit({
+                      accountId: m.bankAccountId,
+                      description: m.sourceName,
+                      amount: m.amount,
+                      date: m.date,
+                      correlationId: m.correlationId,
+                    }).then(() => undefined),
+                    confirmDebtCycle: () => Promise.resolve(),
+                    confirmExpenseCycle: () => Promise.resolve(),
+                    declineDebtCycle: () => Promise.resolve(),
+                    declineExpenseCycle: () => Promise.resolve(),
+                  },
                 );
               }).catch((err) => console.error('autoRecordPaydays failed:', err));
             });
             void import('@/utils/autoPayRecords').then(({ autoRecordAutoPay }) => {
-              void autoRecordAutoPay().then(({ recorded, pendingPrompts }) => {
-                if (recorded > 0) {
-                  showToast(`${recorded} auto-pay bill${recorded > 1 ? 's' : ''} recorded automatically.`, 'info', 5000);
-                }
-                if (pendingPrompts.length > 0) {
-                  const names = pendingPrompts.map((p) => p.expense.description).join(', ');
-                  showToast(
-                    `Auto-pay bills need amounts logged: ${names}. Go to Expenses → Log Actual.`,
-                    'warning',
-                    8000,
-                  );
-                }
+              void autoRecordAutoPay(todayStart).then(({ recorded, recordedItems }) => {
+                if (recordedItems.length === 0) return;
+                showActionableToast(
+                  `${recorded} auto-pay bill${recorded > 1 ? 's' : ''} recorded automatically:`,
+                  'info',
+                  recordedItems.map((item) => ({
+                    label: `${item.description} — ${fmtCents.format(item.amount)} (${new Date(item.date).toLocaleDateString(userLocale, { month: 'short', day: 'numeric' })})`,
+                    onClick: () => {
+                      sessionStorage.setItem('cal-focus-expense', item.expenseId);
+                      navigate('/expenses');
+                    },
+                  })),
+                );
               }).catch((err) => console.error('autoRecordAutoPay failed:', err));
             });
           }

@@ -456,7 +456,11 @@ export class AccountingService implements IAccountingService {
         -params.amount,
         params.description,
         params.date,
-        { sourceId: record.id, sourceType: 'expense-payment' },
+        {
+          sourceId: record.id,
+          sourceType: 'expense-payment',
+          ...(params.correlationId != null ? { correlationId: params.correlationId } : {}),
+        },
       );
       saveOps.push(saveLedgerEntry(bankEntry));
     }

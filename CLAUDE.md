@@ -59,7 +59,7 @@ npm run build                        # verify build works before making changes
 - Each page lives in `src/pages/<name>/`. The main class implements `render(): HTMLElement`.
 - Pages are lazy-loaded via dynamic `import()` in `src/app/main.ts`'s `register()` calls.
 - Error states: use `showPageError(container, message, onRetry?)` from `src/utils/errorUI.ts`.
-- Toast notifications: use `showToast(message, type?, durationMs?)` from the same file.
+- Toast notifications: use `showToast(message, type?, durationMs?)` from the same file. For a toast that needs a list of clickable follow-up links (e.g. "go to this item") and must persist until explicitly dismissed (no auto-dismiss timer), use `showActionableToast(message, type, actions)` instead — both live in a `document.body`-level container the router never touches, so either survives SPA navigation.
 - Forms open in modals: use `openFormModal({ title, body, onSubmit, onCancel })` from `src/components/Modal.ts`.
 - User content injected into `innerHTML` must be escaped with `escapeHtml()` from `src/utils/escapeHtml.ts`. Never interpolate user strings raw into template literals that are assigned to `.innerHTML`.
 
@@ -67,6 +67,7 @@ npm run build                        # verify build works before making changes
 
 - Buck (cowboy pig) or Penny (sunflower pig). Appears bottom-right as a fixed overlay with alert badges.
 - `showMascot(alertType)` triggers a specific alert. Per-session suppression uses `sessionStorage` so the mascot doesn't repeat across client-side navigations.
+- **One shared stack, not competing overlays.** `#mascot-root` holds exactly one `.mascot-figure` plus a single `.mascot-stack-cards` container (`ensureShell()` in `Mascot.ts`, created lazily and reused). The daily/briefing bubble (`showMascot`/`showTip`) is always the "primary" card — at most one at a time, appended last so it stays nearest the figure. `showCatchUpQueue`'s payday/debt-cycle/expense-cycle cards are inserted *above* the primary card (closer to the top of the stack), and every card is independently interactive from the moment it's added — there is no "only the nearest card is clickable" ordering requirement; the user can confirm/decline any of them in any order. `dismissPrimary()` removes just the primary card; `collapseIfEmpty()` tears down the shared figure only once the stack holds nothing at all. When the stack grows taller than the viewport allows, `.mascot-stack-cards` (`flex-wrap: wrap-reverse`) spills overflow cards into an additional column to the left instead of running off the top of the screen. `showBellNotification` (custom user reminders) is intentionally the exception — it's a one-off modal-like overlay that still hides `#mascot-root` while shown, unrelated to this stack.
 
 ### Background service worker (`src/background/index.ts`)
 
@@ -107,6 +108,8 @@ Every interactive element in E2E tests is identified by `data-testid`. Prefixes 
 | `setup-` | Setup wizard (next/back/enter-app buttons) |
 | `unlock-` | Unlock page (key textarea, passphrase input, submit button) |
 | `settings-recon-` | Settings – Reconciliation section |
+| `catchup-` | Reopen catch-up mascot toast (`src/mascot/Mascot.ts`'s `showCatchUpQueue`) |
+| `toast-actionable` | Persistent toast with clickable follow-up links (`src/utils/errorUI.ts`'s `showActionableToast`) |
 
 ### E2E test structure
 
@@ -130,29 +133,20 @@ Every interactive element in E2E tests is identified by `data-testid`. Prefixes 
 - Within `upgrade()`, use `transaction.objectStore(name)` to access existing stores (not `database.createObjectStore()`).
 - Cast to `any` only when the TypeScript schema types don't expose what you need (e.g., deleting an index that's no longer in the type).
 
-### Payday auto-record (`src/utils/paydayDeposits.ts`)
+### Reopen catch-up (`src/utils/catchUp.ts`)
 
-`autoRecordPaydays()` runs on every app open (triggered from `src/app/main.ts`). It:
+`runCatchUp()` runs once per real launch (triggered from `launchApp()` in `src/app/main.ts`, after `getAndStampLastOpenedAt()` reads the *previous* `lastOpenedAt` value and overwrites it). Goal: the ledger ends up complete regardless of how long the extension was closed, not just "an hour or two."
 
-1. Looks at all active income sources that have a `bankAccountId` and a non-once frequency.
-2. For each source, collects paydays in the range `[today − promptWindowDays, today]`.
-3. **Same-day paydays** that haven't been recorded and fall on/after the account's reset timestamp are auto-recorded silently via `accounting.recordBankCredit()`. A `correlationId` of the form `payday-<sourceId>-YYYY-MM-DD` prevents double-recording.
-4. **Missed paydays** (1–N days ago) are returned as `pendingPrompts` and surfaced via the mascot so the user can confirm or dismiss.
-5. Paydays older than the prompt window are silently ignored.
+1. **Window resolution** (`src/utils/catchUpWindow.ts`): `resolveCatchUpWindowStart(prevOpenedAt, now, catchUpWindowDays)` computes `min(daysSinceLastOpen, catchUpWindowDays)` in **whole calendar days** (midnight to midnight) — never raw elapsed milliseconds, since a fractional-day gap would mean reopening even a few hours after a same-day close could land the window's lower bound after midnight of "yesterday," silently excluding anything due yesterday. A same-day reopen (0 calendar days apart) still returns today's midnight, not `null` — there's still "today" to check. Returns `null` only on a fresh install or when `catchUpWindowDays` is 0 (catch-up disabled). `catchUpWindowDays` (default 90) is a single shared setting covering paydays, auto-pay, debt payments, and bills — not tunable per-category.
+2. **Paydays** (`src/utils/paydayDeposits.ts`, unchanged logic, now parameterized by `windowStart` instead of reading its own setting): same-day paydays auto-record silently; older-but-in-window ones go to the catch-up queue.
+3. **Fixed-amount auto-pay bills** (`src/utils/autoPayRecords.ts`): the single most recent overdue cycle is **always** recorded regardless of `windowStart` — this matches the original, pre-catch-up behavior of checking on every launch independent of how long the extension was closed, and must never regress (a `windowStart` that happens to be narrow, e.g. a same-day reopen, must not silently stop a currently-overdue bill from being recorded). `windowStart` only extends how far back *additional older* missed cycles are also backfilled (this used to silently lose history for anything but the single most recent cycle). Each recorded cycle calls `accounting.recordExpensePayment()` with a `correlationId` of the form `expense-cycle-<expenseId>-YYYY-MM-DD`; the anchor is saved once at the end, advanced to the most recent cycle regardless of how many were actually recorded vs. skipped as too old. Variable-amount auto-pay bills are no longer this function's job (see next point).
+4. **Debt payments and all other recurring bills** (variable-amount auto-pay *and* plain manually-paid bills): `enumerateLapsedDebtCycles`/`enumerateLapsedExpenseCycles` (`src/utils/debtCatchUp.ts`/`expenseCatchUp.ts`) are pure functions that walk forward cycle-by-cycle (`advanceByCycle`/`computeNextDue`) from the account's/expense's last-known-paid anchor, returning every lapsed cycle in `[windowStart, now)` with no qualifying payment. These are **not** auto-recorded — the amount isn't knowable in advance.
+5. **Unified mascot queue** (`src/mascot/Mascot.ts`'s `showCatchUpQueue`/`CatchUpItem`): merges payday + debt-cycle + expense-cycle items into one sequential, one-at-a-time toast queue. "Yes" on a payday records directly; "Yes" on a debt/expense cycle opens the real `openDebtPaymentModal`/`openExpensePaymentModal` (pre-filled via their `defaultDate` option with the cycle's due date, not today) and waits for it to close (`onClose`) before advancing. "Not now" on a debt/expense cycle persists a decline (see below); payday's "No" stays session-only (`sessionStorage`, unchanged).
+6. **Decline persistence**: `catchUpDeclinedCycles` (`browser.storage.local`, `Record<correlationId, declinedAt>`) suppresses a specific declined cycle until its due date changes (a later cycle has a different `correlationId`, so it isn't suppressed) — pruned of entries older than 180 days on each write.
 
-Related `browser.storage.local` keys: `missedPaydayPromptDays` (default 3), `accountResetTimestamps`.
+The separate "stays continuously open" path (the 60-second poll + day-rollover recheck further down in `main.ts`) intentionally does **not** run the debt/expense enumeration — only the same-day payday/auto-pay recheck, via the same (now bug-fixed) functions. Re-litigating that path's behavior is out of scope for catch-up; the live status badges on the Debt/Expenses pages already cover that case passively while a tab stays open.
 
-### Auto-pay auto-record (`src/utils/autoPayRecords.ts`)
-
-`autoRecordAutoPay()` runs on every app open (triggered from `src/app/main.ts`). It:
-
-1. Collects all recurring expenses that have `isAutoPay === true` and a `dueDay` set.
-2. For each, calls `computeBillStatus(expense, now)` — only processes bills with status `'past-due'`.
-3. Bills whose due date is older than `autoPayPromptDays` days (default 7) are silently skipped — use Reconciliation to correct the balance manually for those.
-4. **Fixed-amount bills** (`isFixedAmount === true`): recorded silently via `accounting.recordExpensePayment()`. If `bankAccountId` is set a bank-debit ledger entry is created; if `linkedCardId` is set a card charge is also posted. The expense's `date` is then advanced to `dueDateTs` so `computeBillStatus` returns `'paid'` on subsequent runs (the dedup mechanism).
-5. **Variable-amount bills** (`isFixedAmount` falsy): pushed to `pendingPrompts`; the foreground surfaces a toast so the user can go to Expenses → Log Actual.
-
-Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
+A background nudge (`src/background/index.ts`'s `maybeNudgeStaleUser`, piggybacked on the existing 30-min `ff-auto-snapshot` alarm) fires a `browser.notifications` reminder once `staleReminderDays` (default 7) have passed since `lastOpenedAt`, re-nudging every `staleReminderDays` while still stale. Requires the `notifications` manifest permission.
 
 ### browser.storage.local key inventory
 
@@ -162,9 +156,12 @@ Related `browser.storage.local` key: `autoPayPromptDays` (default 7).
 | `theme` | Settings page | App boot | Quick-access theme color scheme (avoids IDB on startup) |
 | `currency` | Settings page | App boot | Quick-access currency code |
 | `lastSnapshotError` | Background worker | App open (main.ts) | `{ message, time }` — surfaced as a toast if set |
-| `missedPaydayPromptDays` | Settings page | `paydayDeposits.ts` | How many days back to surface missed-payday prompts (default 3) |
+| `lastOpenedAt` | `main.ts` (`getAndStampLastOpenedAt`) | `catchUp.ts`, background worker | Timestamp of the last real launch — drives the catch-up window and the stale-reminder nudge |
+| `catchUpWindowDays` | Settings page | `catchUp.ts` | Max days to look back for missed paydays/bills/debt payments (default 90) — replaces the old `missedPaydayPromptDays`/`autoPayPromptDays` (migrated once, see `catchUp.ts`) |
+| `catchUpDeclinedCycles` | `catchUp.ts` (on "Not now") | `catchUp.ts` | `Record<correlationId, declinedAt>` — suppresses a specific declined debt/bill cycle until a later cycle comes due |
+| `staleReminderDays` | Settings page | Background worker | Days of inactivity before the "come back" notification fires (default 7) |
+| `lastStaleNudgeAt` | Background worker | Background worker | Dedup for the stale-reminder notification — at most one per `staleReminderDays` |
 | `accountResetTimestamps` | `resetAccount()` | `paydayDeposits.ts` | `Record<accountId, timestamp>` — gates same-day auto-recording after a history reset |
-| `autoPayPromptDays` | Settings page | `autoPayRecords.ts` | How many days past-due a variable-amount auto-pay bill surfaces a prompt (default 7) |
 
 ### Snapshot store list
 

@@ -101,6 +101,7 @@ export interface RecordExpensePaymentParams {
   date: number;
   bankAccountId?: string;
   cardId?: string;
+  correlationId?: string;
 }
 
 export interface UpdateExpensePaymentParams {

@@ -42,8 +42,8 @@ export class SettingsPage {
   private notifications: CustomNotification[] = [];
   private expenses: Expense[] = [];
   private snapshots: RawSnapshot[] = [];
-  private missedPaydayPromptDays = 3;
-  private autoPayPromptDays = 7;
+  private catchUpWindowDays = 90;
+  private staleReminderDays = 7;
   private container!: HTMLElement;
 
   render(): HTMLElement {
@@ -56,7 +56,7 @@ export class SettingsPage {
   private async load(): Promise<void> {
     try {
       const [storageResult, config, members, sharingKeys, notifications, expenses, snapshots] = await Promise.all([
-        browser.storage.local.get(['missedPaydayPromptDays', 'autoPayPromptDays']),
+        browser.storage.local.get(['catchUpWindowDays', 'staleReminderDays']),
         getConfig(),
         getMembers(),
         getSharingKeys(),
@@ -70,10 +70,10 @@ export class SettingsPage {
       this.notifications = notifications;
       this.expenses     = expenses;
       this.snapshots    = snapshots;
-      this.missedPaydayPromptDays =
-        (storageResult['missedPaydayPromptDays'] as number | undefined) ?? 3;
-      this.autoPayPromptDays =
-        (storageResult['autoPayPromptDays'] as number | undefined) ?? 7;
+      this.catchUpWindowDays =
+        (storageResult['catchUpWindowDays'] as number | undefined) ?? 90;
+      this.staleReminderDays =
+        (storageResult['staleReminderDays'] as number | undefined) ?? 7;
       this.paint();
     } catch (err) {
       showPageError(this.container, err instanceof Error ? err.message : 'Failed to load settings', () => { void this.load(); });
@@ -92,7 +92,7 @@ export class SettingsPage {
     this.container.appendChild(this.sectionTheme());
     this.container.appendChild(this.sectionSecurity());
     this.container.appendChild(buildNotificationsSection(this.notifications, this.expenses, (msg) => this.showToast(msg)));
-    this.container.appendChild(this.sectionPaydays());
+    this.container.appendChild(this.sectionCatchUp());
     this.container.appendChild(buildDataSharingSection(this.sharingKeys, this.config?.publicKeyArmored, this.config?.profileName, (msg, ms) => this.showToast(msg, ms)));
     this.container.appendChild(buildImportRulesSection((msg) => this.showToast(msg)));
     this.container.appendChild(buildSnapshotsSection(this.snapshots, (msg) => this.showToast(msg)));
@@ -627,78 +627,81 @@ export class SettingsPage {
     return wrap;
   }
 
-  // ── Paydays section ───────────────────────────────────────────────────
+  // ── Catch-Up section ───────────────────────────────────────────────────
 
-  private sectionPaydays(): HTMLElement {
+  private sectionCatchUp(): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'settings-group';
-    wrap.innerHTML = `<div class="settings-group-title">Paydays</div>`;
+    wrap.innerHTML = `<div class="settings-group-title">Catch-Up</div>`;
 
     const row = document.createElement('div');
     row.className = 'setting-row';
+    row.setAttribute('data-testid', 'settings-catchup-window-row');
     row.innerHTML = `
       <div class="setting-row-info">
-        <span class="setting-row-label">Missed payday prompt window</span>
+        <span class="setting-row-label">Catch-up window</span>
         <span class="setting-row-desc">
-          If your app is open on payday, the deposit is recorded automatically.
-          If you miss checking in, your mascot will ask whether to record it —
-          up to this many <strong>days after the payday date</strong>. Set to 0
-          to disable the prompt entirely.
+          When you reopen the app after it's been closed, paydays and
+          fixed-amount auto-pay bills are recorded automatically, and your
+          mascot will walk you through any lapsed debt payments or other bills
+          one at a time — looking back up to this many
+          <strong>days since you were last here</strong>. Set to 0 to disable
+          catch-up entirely.
         </span>
       </div>
       <div class="setting-row-control" style="display:flex;gap:var(--space-3);align-items:center">
-        <input id="missed-payday-days-input" type="number" min="0" max="60" step="1"
-          value="${this.missedPaydayPromptDays}" style="width:90px;text-align:right" />
+        <input id="catchup-window-input" type="number" min="0" max="180" step="1"
+          value="${this.catchUpWindowDays}" style="width:90px;text-align:right"
+          data-testid="settings-catchup-window-input" />
         <span style="font-size:var(--text-sm);color:var(--color-muted)">days</span>
-        <button id="missed-payday-days-save" class="btn btn-primary">Save</button>
+        <button id="catchup-window-save" class="btn btn-primary"
+          data-testid="settings-catchup-window-save">Save</button>
       </div>
     `;
 
-    row.querySelector('#missed-payday-days-save')!.addEventListener('click', async () => {
-      const input = row.querySelector<HTMLInputElement>('#missed-payday-days-input')!;
-      const val = Math.max(0, Math.min(60, parseInt(input.value, 10) || 0));
+    row.querySelector('#catchup-window-save')!.addEventListener('click', async () => {
+      const input = row.querySelector<HTMLInputElement>('#catchup-window-input')!;
+      const val = Math.max(0, Math.min(180, parseInt(input.value, 10) || 0));
       input.value = String(val);
-      await browser.storage.local.set({ missedPaydayPromptDays: val });
-      this.missedPaydayPromptDays = val;
-      this.showToast('Payday prompt window saved.');
+      await browser.storage.local.set({ catchUpWindowDays: val });
+      this.catchUpWindowDays = val;
+      this.showToast('Catch-up window saved.');
     });
 
     wrap.appendChild(row);
 
-    const autoPayRow = document.createElement('div');
-    autoPayRow.className = 'setting-row';
-    autoPayRow.setAttribute('data-testid', 'settings-autopay-prompt-row');
-    autoPayRow.innerHTML = `
+    const nudgeRow = document.createElement('div');
+    nudgeRow.className = 'setting-row';
+    nudgeRow.setAttribute('data-testid', 'settings-stale-reminder-row');
+    nudgeRow.innerHTML = `
       <div class="setting-row-info">
-        <span class="setting-row-label">Auto-pay prompt window</span>
+        <span class="setting-row-label">Reminder if you've been away</span>
         <span class="setting-row-desc">
-          Fixed-amount auto-pay bills are recorded silently when their due date
-          passes. If the amount varies (e.g. utilities), a notification will
-          remind you to log the actual charge — up to this many
-          <strong>days after the due date</strong>. Set to 0 to disable these
-          prompts.
+          If you haven't opened Finance Finger in this many days, you'll get a
+          browser notification nudging you to come check in and catch up. Set
+          to 0 to disable.
         </span>
       </div>
       <div class="setting-row-control" style="display:flex;gap:var(--space-3);align-items:center">
-        <input id="autopay-prompt-days-input" type="number" min="0" max="60" step="1"
-          value="${this.autoPayPromptDays}" style="width:90px;text-align:right"
-          data-testid="settings-autopay-prompt-input" />
+        <input id="stale-reminder-input" type="number" min="0" max="60" step="1"
+          value="${this.staleReminderDays}" style="width:90px;text-align:right"
+          data-testid="settings-stale-reminder-input" />
         <span style="font-size:var(--text-sm);color:var(--color-muted)">days</span>
-        <button id="autopay-prompt-days-save" class="btn btn-primary"
-          data-testid="settings-autopay-prompt-save">Save</button>
+        <button id="stale-reminder-save" class="btn btn-primary"
+          data-testid="settings-stale-reminder-save">Save</button>
       </div>
     `;
 
-    autoPayRow.querySelector('#autopay-prompt-days-save')!.addEventListener('click', async () => {
-      const input = autoPayRow.querySelector<HTMLInputElement>('#autopay-prompt-days-input')!;
+    nudgeRow.querySelector('#stale-reminder-save')!.addEventListener('click', async () => {
+      const input = nudgeRow.querySelector<HTMLInputElement>('#stale-reminder-input')!;
       const val = Math.max(0, Math.min(60, parseInt(input.value, 10) || 0));
       input.value = String(val);
-      await browser.storage.local.set({ autoPayPromptDays: val });
-      this.autoPayPromptDays = val;
-      this.showToast('Auto-pay prompt window saved.');
+      await browser.storage.local.set({ staleReminderDays: val });
+      this.staleReminderDays = val;
+      this.showToast('Reminder window saved.');
     });
 
-    wrap.appendChild(autoPayRow);
+    wrap.appendChild(nudgeRow);
     return wrap;
   }
 

@@ -305,6 +305,39 @@
   transform-origin: bottom right;
 }
 
+/* Shared card stack inside #mascot-root: holds the primary briefing/greeting/
+   tip bubble (appended last, so it stays nearest the figure at the bottom of
+   the visual stack) plus any catch-up/alert cards (inserted above it, so
+   they stack "on top" rather than overlapping it or the figure at the same
+   screen position). Normal (non-reversed) column so DOM order == visual
+   top-to-bottom order; last child is always nearest the figure.
+   Every card is independently interactive the moment it's added — there is
+   no "only the nearest card is clickable" gating. When the column grows
+   taller than the viewport has room for, flex-wrap:wrap-reverse spills
+   overflow cards into an additional column to the LEFT (since the whole
+   shell is anchored to the right edge) instead of running off the top of
+   the screen. */
+.mascot-stack-cards {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap-reverse;
+  align-items: flex-end;
+  align-content: flex-end;
+  gap: var(--space-3);
+  max-height: calc(100vh - 180px);
+  pointer-events: none;
+}
+
+.mascot-stack-cards > * {
+  pointer-events: all;
+}
+
+.bell-notif-card--out {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 0;
+  transform: translateX(40px);
+}
+
 .bell-notif-toast-figure svg {
   width: 90px;
   height: auto;

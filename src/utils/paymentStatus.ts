@@ -27,13 +27,30 @@ export interface AccountPaymentStatus {
   historicalMonths: HistoricalMonth[];
 }
 
+// Shared "was this billing cycle paid" check — same window (14 days before the
+// cycle's due date through end of that month) and minimum-payment rule used by
+// computePaymentStatus's current-cycle check, exported so catch-up enumeration
+// can ask the same question about past cycles.
+export function hasQualifyingPaymentForCycle(
+  payments: DebtPayment[],
+  cycleDueDate: Date,
+  minimumPayment: number | undefined,
+): boolean {
+  const windowStart = new Date(cycleDueDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const windowEnd = new Date(cycleDueDate.getFullYear(), cycleDueDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const total = payments
+    .filter((p) => { const d = new Date(p.date); return d >= windowStart && d <= windowEnd; })
+    .reduce((s, p) => s + p.amount, 0);
+  return minimumPayment != null ? total >= minimumPayment : total > 0;
+}
+
 export function computeMinPayment(a: DebtAccount): number | undefined {
   if (a.minimumPaymentValue == null) return undefined;
   if (a.minimumPaymentType === 'fixed') return a.minimumPaymentValue;
   return Math.max(a.balance * a.minimumPaymentValue / 100, 25);
 }
 
-function advanceByCycle(date: Date, cycle: PaymentCycle): Date {
+export function advanceByCycle(date: Date, cycle: PaymentCycle): Date {
   const d = new Date(date);
   switch (cycle) {
     case 'monthly': {

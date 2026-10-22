@@ -18,6 +18,10 @@ export interface ExpensePaymentModalOptions {
   allPaidRecords: ExpensePaidRecord[];
   existingRecord?: ExpensePaidRecord;
   onSave: () => Promise<void> | void;
+  /** Pre-fill the payment date with this timestamp instead of today — used by catch-up to default to the lapsed cycle's due date. */
+  defaultDate?: number;
+  /** Called when the modal closes, whether via submit or cancel. Used by the catch-up queue to wait for this modal before advancing. */
+  onClose?: () => void;
 }
 
 export function openExpensePaymentModal({
@@ -26,13 +30,15 @@ export function openExpensePaymentModal({
   cardAccounts,
   existingRecord,
   onSave,
+  defaultDate,
+  onClose,
 }: ExpensePaymentModalOptions): void {
   const isBill = expense.recurring && !!expense.dueDay;
   // Once a bill is paid, firstDueDate is no longer needed — billing has started.
   const { firstDueDate: _fd, ...baseExpense } = expense;
   const isFixed = !!expense.isFixedAmount;
   const isUpdate = !!existingRecord;
-  const today = todayDateInput();
+  const today = defaultDate != null ? timestampToDateInput(defaultDate) : todayDateInput();
   const prefillDate = existingRecord ? timestampToDateInput(existingRecord.date) : today;
   const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
   const overageLimit = expense.threshold ?? expense.amount;
@@ -104,6 +110,7 @@ export function openExpensePaymentModal({
     title: isUpdate ? `Edit Payment — ${expense.description}` : `Record Payment — ${expense.description}`,
     body,
     submitLabel: isUpdate ? 'Save Changes' : 'Record Payment',
+    ...(onClose ? { onClose } : {}),
     onSubmit: async (close) => {
       const rawAmount = parseFloat(amountInput.value);
       if (isNaN(rawAmount) || rawAmount < 0) return;

@@ -459,3 +459,23 @@ export const PENNY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
   <ellipse cx="30" cy="138" rx="12" ry="7" fill="#C47A8A"/>
   <ellipse cx="90" cy="138" rx="12" ry="7" fill="#C47A8A"/>
 </svg>`;
+
+// ── Family logo (sidebar brand mark) ────────────────────────────────────────
+// Composes the core family — Buck, Penny, a child, and a baby — into one
+// huddled "family photo" group for the sidebar logo. Built by transforming
+// the existing character markup above (not duplicated by hand) so it can
+// never visually drift from the individual mascots as their art evolves.
+
+function innerMarkup(svg: string): string {
+  return svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+}
+
+export const FAMILY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 160" fill="none" role="img" aria-label="The Financial Finger family — Buck, Penny, and the kids">
+  <!-- Medallion backdrop — also keeps Buck's navy overalls from vanishing against a navy sidebar -->
+  <rect x="3" y="3" width="164" height="154" rx="26" fill="#F0D898"/>
+  <rect x="3" y="3" width="164" height="154" rx="26" fill="none" stroke="#C9A84C" stroke-width="3"/>
+  <g transform="translate(5 0) scale(0.5)">${innerMarkup(BUCK_SVG)}</g>
+  <g transform="translate(105 0) scale(0.5)">${innerMarkup(PENNY_SVG)}</g>
+  <g transform="translate(45 65) scale(0.46)">${innerMarkup(CHILD_BOY_SVG)}</g>
+  <g transform="translate(95 75) scale(0.42)">${innerMarkup(BABY_GIRL_SVG)}</g>
+</svg>`;
