@@ -367,6 +367,13 @@
   color: var(--ff-cream);
 }
 
+.member-avatar--pet {
+  background: rgba(45, 90, 39, 0.16);
+  color: var(--ff-green);
+  border: 1px solid rgba(45, 90, 39, 0.35);
+  font-size: var(--text-sm);
+}
+
 .member-roster-name {
   flex: 1;
   font-size: var(--text-sm);

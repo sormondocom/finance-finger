@@ -10,11 +10,12 @@ function cardMembers(): HTMLElement {
   const card = makeCard('👥', 'Household Members');
   card.innerHTML += `
     <div class="edu-card-voice">
-      <p>Members are the people in your household who have income. They appear in income source forms, the Dashboard's Income panel, and optionally on expenses and memos.</p>
+      <p>Members are the people — and pets — in your household. People appear in income source forms, the Dashboard's Income panel, and optionally on expenses and memos; pets skip income but can still be assigned to expenses.</p>
     </div>
     <div class="help-steps">
       <div class="help-step"><span class="help-step-num">➕</span><div class="help-step-body">On the <strong>Income</strong> page, type a name into the <em>Add member</em> field and click <strong>Add Member</strong> (or press Enter).</div></div>
-      <div class="help-step"><span class="help-step-num">✏️</span><div class="help-step-body">Click the avatar chip to choose avatar type: adult male, adult female, baby, child, or teen.</div></div>
+      <div class="help-step"><span class="help-step-num">✏️</span><div class="help-step-body">Click the avatar chip to choose avatar type: adult male, adult female, baby, child, teen, pet (dog), or pet (cat).</div></div>
+      <div class="help-step"><span class="help-step-num">🐾</span><div class="help-step-body">Added a pet? Assign their vet bills, food, and grooming to them on the <strong>Expenses</strong> page just like you would for a person, so pet costs show up attributed by name.</div></div>
       <div class="help-step"><span class="help-step-num">🗑️</span><div class="help-step-body">Remove a member in <strong>Settings → Members</strong>. A confirmation warns you that all their income sources will also be removed.</div></div>
     </div>
     <div class="help-callout">

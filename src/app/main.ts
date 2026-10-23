@@ -74,6 +74,16 @@ function setActiveNavLink(route: string): void {
   });
 }
 
+// A dismissed mascot leaves a small clickable "door" behind so it can be
+// brought back without reloading — but left in place across navigation it's
+// a fixed-position element that could end up sitting on top of unrelated
+// controls on whatever page the user lands on next. Clearing it on every
+// route change scopes it to the page it was dismissed on. Dynamically
+// imported to match this module's existing lazy-loading of the mascot code.
+function clearMascotDoor(): void {
+  void import('@/mascot/Mascot').then(({ dismissDoor }) => dismissDoor());
+}
+
 async function applyTheme(): Promise<void> {
   const result = await browser.storage.local.get('theme');
   const theme = result['theme'] as string | undefined;
@@ -155,7 +165,7 @@ function launchApp(): void {
     return new BreakGlassPage().render(cfg?.mascotGender);
   });
 
-  onRouteChange(setActiveNavLink);
+  onRouteChange((route) => { setActiveNavLink(route); clearMascotDoor(); });
 
   // Replace the setup/unlock history entry so Back doesn't return to the gate.
   navigateReplace('/dashboard');

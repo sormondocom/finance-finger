@@ -5,7 +5,7 @@ import { createVault } from '@/crypto/vault';
 import { createMember, saveMember, deleteMember } from '@/db';
 import { escapeHtml } from '@/utils/escapeHtml';
 import type { AvatarType, MascotGender, VaultConfig } from '@/types';
-import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG } from '@/mascot/svgs';
+import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG, PUG_SVG, CAT_SVG } from '@/mascot/svgs';
 
 export function avatarTypeToSvg(type: AvatarType): string {
   switch (type) {
@@ -17,6 +17,8 @@ export function avatarTypeToSvg(type: AvatarType): string {
     case 'child-female':return CHILD_GIRL_SVG;
     case 'teen-male':   return TEEN_BOY_SVG;
     case 'teen-female': return TEEN_GIRL_SVG;
+    case 'pet-dog':      return PUG_SVG;
+    case 'pet-cat':      return CAT_SVG;
     default:            return BABY_GIRL_SVG; // legacy 'child' → baby-female
   }
 }
@@ -663,6 +665,8 @@ export class SetupWizard {
       { type: 'child-female', label: 'Kid Girl',     svg: CHILD_GIRL_SVG},
       { type: 'teen-male',    label: 'Teen Boy',     svg: TEEN_BOY_SVG  },
       { type: 'teen-female',  label: 'Teen Girl',    svg: TEEN_GIRL_SVG },
+      { type: 'pet-dog',      label: 'Pet (Dog)',    svg: PUG_SVG       },
+      { type: 'pet-cat',      label: 'Pet (Cat)',    svg: CAT_SVG       },
     ];
 
     types.forEach(({ type, label, svg }) => {

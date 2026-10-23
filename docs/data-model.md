@@ -65,7 +65,7 @@ type DebtStrategy = 'avalanche' | 'snowball' | 'custom'
 ### `AvatarType`
 
 ```typescript
-type AvatarType = 'male' | 'female' | 'child' | 'baby-male' | 'baby-female' | 'child-male' | 'child-female' | 'teen-male' | 'teen-female'
+type AvatarType = 'male' | 'female' | 'child' | 'baby-male' | 'baby-female' | 'child-male' | 'child-female' | 'teen-male' | 'teen-female' | 'pet-dog' | 'pet-cat'
 ```
 
 ### `HouseholdMember`

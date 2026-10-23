@@ -87,6 +87,14 @@ const SCREENSHOTS = [
 
   // Data Sharing (import success)
   ['ei-03-import-success.png',          '36-data-sharing-import.png'],
+
+  // Break Glass — Cross-Store Search (Query tab)
+  ['bg-query-01-tabs.png',              '37-break-glass-query-tab.png'],
+  ['bg-query-04-text-multi-store.png',  '38-break-glass-query-text.png'],
+  ['bg-query-08-uuid-search.png',       '39-break-glass-query-uuid.png'],
+
+  // Import wizard — duplicate detection warning
+  ['import-09-duplicate.png',           '40-import-duplicate.png'],
 ];
 
 async function main() {

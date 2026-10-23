@@ -182,6 +182,10 @@ The **six-step setup wizard** runs automatically on first launch:
 | **Profile** | Name your household |
 | **Done** | Vault is created; you land on the dashboard |
 
+<p align="center">
+  <img src="docs/screenshots/31-setup-keys.png" alt="Setup wizard Keys step — generate a new PGP keypair" width="500" />
+</p>
+
 > **Not sure what a PGP key is?** That's okay — most people don't.
 > [PGP (Pretty Good Privacy)](https://en.wikipedia.org/wiki/Pretty_Good_Privacy) is a public-key encryption standard used by security software worldwide.
 > The short version: the setup wizard generates two linked keys — a **public key** (safe to share) and a **private key** (only you keep it).
@@ -197,7 +201,9 @@ On subsequent launches the **vault unlock screen** appears. Paste your private k
 
 ### Household & income
 
-**Household members** — Add named members to your household. Each member has an avatar type that determines their icon throughout the app: **adult male**, **adult female**, **baby boy**, **baby girl**, **kid boy**, **kid girl**, **teen boy**, or **teen girl**. Members are used to assign income sources so you can see each person's contribution to household income.
+**Household members** — Add named members to your household. Each member has an avatar type that determines their icon throughout the app: **adult male**, **adult female**, **baby boy**, **baby girl**, **kid boy**, **kid girl**, **teen boy**, **teen girl**, **pet (dog)**, or **pet (cat)**. Members are used to assign income sources so you can see each person's contribution to household income.
+
+**Pets** — Add a dog or cat as a household member the same way you'd add a person (Settings → Members, or the "+ Add Person" step during setup). Pets get their own themed avatar — a bandana'd pug or a cat with a sunflower collar charm — and can be assigned to expenses just like a person, which is the main reason to add one: so vet bills, food, grooming, and other pet costs show up attributed to them on the Expenses page. Pets don't have income sources and aren't counted as a "child" anywhere the app distinguishes adults from kids (e.g. mascot celebrations).
 
 **Income sources** — Each member can have multiple income sources. The pay type can be **salary** (enter the amount at any frequency) or **hourly** (enter an hourly rate and hours per period — the app computes the per-period pay and shows a preview). Frequencies: **hourly, weekly, biweekly, semi-monthly, monthly, quarterly, annual, or one-time**. Semi-monthly sources support two features: unequal paychecks (different amounts on the 1st-of-month and 15th-of-month paydays) and a **schedule variant** (choose whether paydays fall on the 1st and 15th, or on the 15th and end-of-month). Every source is normalized to monthly for all calculations. Sources can be toggled active/inactive without deleting them. Income sources can optionally be linked to a bank account to feed the Accounts page balance projection.
 
@@ -468,6 +474,8 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 **Briefing items are clickable** — each alert in the daily briefing list is a navigation link that takes you directly to the relevant page (Debt or Expenses) while keeping the mascot visible. The left navigation updates immediately on click.
 
 **Live update** — when you pay a bill or record a debt payment, the mascot's item list refreshes automatically. If you clear all outstanding alerts, the mascot dismisses itself.
+
+**Bringing the mascot back** — dismissing the mascot leaves a small closed door behind in the same bottom-right corner, in place of the figure. Click it to bring the mascot back out — no page reload needed. If there was still an unresolved payment alert showing when you dismissed the briefing (the debt or bill is still past due or due soon — dismissing the bubble doesn't resolve what it was warning about), clicking the door brings back that same briefing with whatever is still outstanding, rather than a blank greeting. The door only sticks around on the page where you dismissed the mascot — navigating to a different page clears it, so it never ends up sitting on top of unrelated buttons on a page you've since moved on to.
 
 ---
 
@@ -897,6 +905,10 @@ The Ledger page shows a complete audit trail of every balance-affecting action a
 Entries are displayed newest-first, grouped by date. Each entry appears as a card with a type badge and description in the header, and one or two **account coins** below it. Each coin shows the account name, its running balance at that point in history (`bal $X.XX`), and the signed amount of the transaction on the right — positive values increased the balance, negative values decreased it.
 
 The most recent entry for any given account reflects its current balance, which matches the "actual balance" shown on the Accounts and Debt pages — all three derive from the same ledger replay.
+
+<p align="center">
+  <img src="docs/screenshots/30-ledger-charge.png" alt="Ledger showing a single-coin charge entry and a payment entry on the same debt account" width="800" />
+</p>
 
 **Payments and transfers: linked cards**
 
@@ -1518,6 +1530,10 @@ Rows where the **date or amount cannot be parsed** are skipped. The count of ski
 
 Every import is fingerprinted with a **SHA-256 checksum** of the raw file content. If you try to import the same file again (even against a different account), the wizard shows a yellow warning banner with the date of the previous import. You can still proceed — the warning is informational only.
 
+<p align="center">
+  <img src="docs/screenshots/40-import-duplicate.png" alt="Import wizard Step 4 showing a possible-duplicate warning banner" width="800" />
+</p>
+
 Import records are stored in your encrypted vault and included in snapshots, so the deduplication history survives vault restores.
 
 ### Snapshot and rollback
@@ -1662,6 +1678,10 @@ The **Query tab** inside Break Glass is a diagnostic search tool that finds reco
 
 Open Break Glass (Settings → 🔧 Open Break Glass → confirm the warning), then click the **Query** tab.
 
+<p align="center">
+  <img src="docs/screenshots/37-break-glass-query-tab.png" alt="Break Glass Query tab with empty search form" width="800" />
+</p>
+
 **Searching by text**
 
 Enter any string in the **Text** field — a payee name, description, account name, or any partial text. The search is case-insensitive and matches any string field that contains the entered text. Examples:
@@ -1692,6 +1712,10 @@ Both fields can be filled at the same time. A record matches if it has a field m
 
 Results are grouped by store (Members, Income Sources, Expenses, Debt Accounts, etc.). Each result row shows the record's display name, which field(s) matched (e.g. `matched: Amount, Description`), and a **View in Browser →** button that switches to the Data Browser tab with that record already selected.
 
+<p align="center">
+  <img src="docs/screenshots/38-break-glass-query-text.png" alt="Query tab showing text search results grouped by store" width="800" />
+</p>
+
 **UUID / ID search**
 
 Paste any record ID (UUID) into the Text field to find every record in the database that references it. This is the fastest way to trace a broken reference — for example, paste a member's ID to immediately surface all income sources, reminders, or other records that point to that member. A common diagnostic workflow:
@@ -1699,6 +1723,10 @@ Paste any record ID (UUID) into the Text field to find every record in the datab
 1. Open the Data Browser, find the member or record in question, and copy its `id` field value.
 2. Switch to the Query tab, paste the ID into the Text field, and click **Search All Stores**.
 3. Every record that references that ID appears — grouped by store — alongside a **View in Browser →** link for each.
+
+<p align="center">
+  <img src="docs/screenshots/39-break-glass-query-uuid.png" alt="Query tab UUID search finding every record that references a member ID" width="800" />
+</p>
 
 ---
 

@@ -87,6 +87,40 @@
   animation: mosey-out 0.5s ease-in forwards;
 }
 
+/* ── Door (re-summon affordance) ───────────────────────────────────────── */
+/* Left behind once the mascot is fully dismissed, in the same corner, so
+   there's a way back in without reloading the page. */
+
+@keyframes door-open {
+  0%   { transform: perspective(200px) rotateY(0deg); opacity: 1; }
+  100% { transform: perspective(200px) rotateY(-75deg); opacity: 0; }
+}
+
+.mascot-door {
+  all: unset;
+  display: block;
+  pointer-events: all;
+  cursor: pointer;
+  transform-origin: right center;
+  animation: mosey-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.mascot-door svg {
+  display: block;
+  width: 52px;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  transition: transform 200ms ease;
+}
+
+.mascot-door:hover svg {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.mascot-door.opening {
+  animation: door-open 0.35s ease-in forwards;
+}
+
 /* ── Speech bubble ─────────────────────────────────────────────────────── */
 
 .mascot-bubble {
@@ -306,30 +340,50 @@
 }
 
 /* Shared card stack inside #mascot-root: holds the primary briefing/greeting/
-   tip bubble (appended last, so it stays nearest the figure at the bottom of
-   the visual stack) plus any catch-up/alert cards (inserted above it, so
-   they stack "on top" rather than overlapping it or the figure at the same
-   screen position). Normal (non-reversed) column so DOM order == visual
-   top-to-bottom order; last child is always nearest the figure.
-   Every card is independently interactive the moment it's added — there is
-   no "only the nearest card is clickable" gating. When the column grows
-   taller than the viewport has room for, flex-wrap:wrap-reverse spills
-   overflow cards into an additional column to the LEFT (since the whole
-   shell is anchored to the right edge) instead of running off the top of
-   the screen. */
+   tip bubble plus any catch-up/alert cards. Every card is independently
+   interactive the moment it's added — there is no "only the nearest card is
+   clickable" gating.
+
+   Positioning is computed entirely in JS (layoutStack() in Mascot.ts), not
+   CSS flex-wrap. A `flex-direction:column; flex-wrap:wrap-reverse` layout
+   was tried first (overflow cards spilling into an additional column to the
+   left of the right-anchored shell) but a wrapped multi-line flex
+   container's intrinsic "auto" width is underspecified across engines:
+   Chromium sizes the box to fit every wrapped column, Firefox sizes it to
+   fit only the first column and renders any additional column's cards
+   outside that box entirely — off past the viewport edge and out of
+   click/scroll reach, confirmed via a real multi-card-stack Firefox repro
+   (neither `width: max-content` nor an explicit multi-column width fixed
+   it; Firefox's line-placement under wrap-reverse didn't match Chromium's
+   either, not just the box's own sizing). JS-computed absolute positioning
+   sidesteps the whole class of bug: each card's `right`/`bottom` offset is
+   plain arithmetic, not a browser layout algorithm, so it can't diverge
+   between engines. `position:absolute` here also removes this container
+   from #mascot-root's flex flow entirely, so #mascot-root's own size is
+   driven only by .mascot-figure — identical compact sizing to before this
+   container existed. */
 .mascot-stack-cards {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: wrap-reverse;
-  align-items: flex-end;
-  align-content: flex-end;
-  gap: var(--space-3);
-  max-height: calc(100vh - 180px);
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
 
 .mascot-stack-cards > * {
+  position: absolute;
   pointer-events: all;
+}
+
+/* .mascot-bubble and .bell-notif-toast-bubble each set their own
+   `position: relative` (for their speech-bubble tail ::before/::after). At
+   equal specificity with the rule above, source order would decide the
+   winner — .bell-notif-toast-bubble is declared later in this file, so it
+   would silently win and leave catch-up cards out of flow instead of
+   absolutely positioned, turning their JS-computed right/bottom into
+   relative offsets from an arbitrary static-flow position. Naming both
+   classes here outranks both on specificity regardless of source order. */
+.mascot-stack-cards > .mascot-bubble,
+.mascot-stack-cards > .bell-notif-toast-bubble {
+  position: absolute;
 }
 
 .bell-notif-card--out {

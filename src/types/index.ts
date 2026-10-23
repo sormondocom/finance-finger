@@ -48,7 +48,9 @@ export type AvatarType =
   | 'child-male'
   | 'child-female'
   | 'teen-male'
-  | 'teen-female';
+  | 'teen-female'
+  | 'pet-dog'
+  | 'pet-cat';
 
 export interface HouseholdMember {
   id: string;

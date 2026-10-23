@@ -4,6 +4,7 @@ export function render(grid: HTMLElement): void {
   grid.appendChild(cardDashboardSummary());
   grid.appendChild(cardDashboardHealth());
   grid.appendChild(cardDashboardActivity());
+  grid.appendChild(cardMascot());
 }
 
 function cardDashboardSummary(): HTMLElement {
@@ -56,6 +57,21 @@ function cardDashboardActivity(): HTMLElement {
     <div class="edu-card-voice">
       <p>In <strong>Custom Range</strong> mode, the widget becomes a <strong>Period Report</strong>: a month-by-month table with expandable rows showing individual one-time items.</p>
       <p>The gold <strong>tip widget</strong> at the page bottom delivers a rotating daily financial tip from Buck or Penny when clicked.</p>
+    </div>
+  `;
+  return card;
+}
+
+function cardMascot(): HTMLElement {
+  const card = makeCard('🚪', 'Bringing the Mascot Back');
+  card.innerHTML += `
+    <div class="edu-card-voice">
+      <p>Buck or Penny dismiss on purpose — click <strong>"Git along now!"</strong> / <strong>"Shoo now, sugar!"</strong> at the bottom of their speech bubble. Critical alerts never auto-dismiss on their own.</p>
+    </div>
+    <div class="help-steps">
+      <div class="help-step"><span class="help-step-num">🚪</span><div class="help-step-body">Dismissing leaves a small <strong>closed door</strong> behind in the same corner. Click it to bring the mascot back out — no page reload needed.</div></div>
+      <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body">If a debt or bill was still <strong>past due or due soon</strong> when you dismissed the briefing, clicking the door brings that same briefing back with whatever's still outstanding — dismissing the mascot never makes a real warning go away.</div></div>
+      <div class="help-step"><span class="help-step-num">📍</span><div class="help-step-body">The door only stays on the page where you dismissed the mascot — navigating elsewhere clears it, so it won't end up sitting on top of a button on a different page.</div></div>
     </div>
   `;
   return card;

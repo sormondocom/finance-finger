@@ -247,6 +247,7 @@ export class SettingsPage {
         return;
       }
       this.members.forEach((m) => {
+        const isPet = m.avatarType === 'pet-dog' || m.avatarType === 'pet-cat';
         const isChild = childTypes.has(m.avatarType ?? '');
         const isFemale = m.avatarType === 'female';
         const row = document.createElement('div');
@@ -255,8 +256,8 @@ export class SettingsPage {
         row.setAttribute('data-member-id', m.id);
 
         const avatar = document.createElement('div');
-        avatar.className = `member-avatar${isChild ? ' member-avatar--child' : isFemale ? ' member-avatar--female' : ''}`;
-        avatar.textContent = m.name.charAt(0).toUpperCase();
+        avatar.className = `member-avatar${isPet ? ' member-avatar--pet' : isChild ? ' member-avatar--child' : isFemale ? ' member-avatar--female' : ''}`;
+        avatar.textContent = isPet ? (m.avatarType === 'pet-dog' ? '🐶' : '🐱') : m.name.charAt(0).toUpperCase();
 
         const nameEl = document.createElement('span');
         nameEl.className = 'member-roster-name';
@@ -311,6 +312,8 @@ export class SettingsPage {
       { type: 'child-female', label: '🐷 Kid Girl' },
       { type: 'teen-male',    label: '🐷 Teen Boy' },
       { type: 'teen-female',  label: '🐷 Teen Girl' },
+      { type: 'pet-dog',      label: '🐶 Pet (Dog)' },
+      { type: 'pet-cat',      label: '🐱 Pet (Cat)' },
     ];
 
     const typeRow = document.createElement('div');

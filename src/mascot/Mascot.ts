@@ -1,6 +1,6 @@
 import './mascot.css';
 import browser from 'webextension-polyfill';
-import { BUCK_SVG, PENNY_SVG } from './svgs';
+import { BUCK_SVG, PENNY_SVG, DOOR_SVG } from './svgs';
 import { getLines, getDailyTip } from './messages';
 import { navigate } from '@/app/router';
 import { playCowbell } from '@/utils/bellSound';
@@ -383,6 +383,7 @@ export async function showMascot(
   // figure (bottom of the visual stack) regardless of what catch-up/alert
   // cards are already stacked above it.
   stack.appendChild(bubble);
+  layoutStack(root);
 
   // When alert items are shown the figure is decorative — dismiss is handled by
   // the explicit "Git along" button. Disabling pointer events on the figure prevents
@@ -416,6 +417,7 @@ export async function showTip(): Promise<void> {
 
   const bubble = buildBubble(name, gender, lines, () => dismissPrimary(root));
   stack.appendChild(bubble);
+  layoutStack(root);
 
   // Tips auto-dismiss after 12 seconds
   dismissTimer = setTimeout(() => dismissPrimary(root), 12000);
@@ -429,6 +431,11 @@ export async function showTip(): Promise<void> {
 // competing overlay at the same fixed screen position.
 function ensureShell(gender: MascotGender): { root: HTMLElement; stack: HTMLElement; figure: HTMLElement } {
   const root = document.getElementById('mascot-root')!;
+
+  // A programmatic summon (a payment alert firing, a reminder, etc.) should
+  // supersede the "dismissed, door showing" state rather than stack oddly
+  // alongside it.
+  root.querySelector<HTMLElement>(':scope > .mascot-door')?.remove();
 
   let stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
   if (!stack) {
@@ -456,6 +463,75 @@ function ensureShell(gender: MascotGender): { root: HTMLElement; stack: HTMLElem
   return { root, stack, figure };
 }
 
+// Pixel values matching mascot.css's var(--space-3) (0.75rem @ a 16px root
+// font-size) — the gap this module previously got "for free" from flexbox's
+// `gap` property, now reproduced by hand since cards are positioned via
+// plain arithmetic instead. If --space-3 ever changes, update this too.
+const STACK_GAP_PX = 12;
+
+// Positions every card in the stack via plain `right`/`bottom` offsets
+// instead of CSS flex-wrap. Must be called after any mutation that adds,
+// removes, or resizes a card (new card inserted, a card removed, or the
+// primary bubble's items list changed height) — see call sites. Packs cards
+// into columns bottom-up, working backward from the LAST DOM child (which
+// is always the primary bubble when one exists, or the most-recently-queued
+// catch-up card otherwise) so whatever is nearest the figure never gets
+// pushed into an overflow column; only the OLDEST cards (earliest in DOM
+// order) spill into an additional column further left once a column's
+// height budget (same vh-based budget the old CSS used) is exhausted.
+//
+// This exists because `flex-direction:column; flex-wrap:wrap-reverse` (the
+// original approach) renders correctly in Chromium but not Firefox: a
+// wrapped multi-line flex container's intrinsic "auto" width is
+// underspecified across engines, and Firefox's version left overflow cards
+// positioned outside the container's own box — past the viewport edge and
+// unclickable. Plain arithmetic can't diverge between browsers the way a
+// browser's own layout algorithm can.
+function layoutStack(root: HTMLElement): void {
+  const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
+  if (!stack) return;
+  const cards = Array.from(stack.children) as HTMLElement[];
+  if (cards.length === 0) return;
+
+  const figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
+  const figureReserve = figure ? figure.offsetHeight + STACK_GAP_PX : 0;
+  const maxColumnHeight = window.innerHeight - 180; // matches the old CSS's calc(100vh - 180px)
+
+  // Walk DOM order back-to-front, grouping into columns; unshift keeps each
+  // column's own array in original (top-to-bottom) order once built.
+  const columns: HTMLElement[][] = [[]];
+  let runningHeight = 0;
+  for (let i = cards.length - 1; i >= 0; i--) {
+    const card = cards[i]!;
+    const column = columns[columns.length - 1]!;
+    const h = card.offsetHeight;
+    const withGap = h + (column.length > 0 ? STACK_GAP_PX : 0);
+    if (column.length > 0 && runningHeight + withGap > maxColumnHeight) {
+      columns.push([card]);
+      runningHeight = h;
+    } else {
+      column.unshift(card);
+      runningHeight += withGap;
+    }
+  }
+
+  // columns[0] is nearest the figure (rightmost); each subsequent column
+  // stacks further left.
+  let right = 0;
+  for (const column of columns) {
+    let bottom = figureReserve;
+    let columnWidth = 0;
+    for (let i = column.length - 1; i >= 0; i--) {
+      const card = column[i]!;
+      card.style.right = `${right}px`;
+      card.style.bottom = `${bottom}px`;
+      bottom += card.offsetHeight + STACK_GAP_PX;
+      columnWidth = Math.max(columnWidth, card.offsetWidth);
+    }
+    right += columnWidth + STACK_GAP_PX;
+  }
+}
+
 // Removes the primary (briefing/greeting/tip/etc.) bubble, if any, and tears
 // down the whole shared root only once nothing else — including any pending
 // catch-up/alert cards — remains in the stack.
@@ -470,21 +546,109 @@ function dismissPrimary(root: HTMLElement): void {
   if (figure) figure.style.pointerEvents = '';
 
   isBusy = false;
+  layoutStack(root);
   collapseIfEmpty(root);
 }
 
 // Tears down the shared figure (with its mosey-out exit animation) once the
-// stack holds no more cards of any kind — primary or catch-up/alert.
+// stack holds no more cards of any kind — primary or catch-up/alert — and
+// leaves the door behind so the mascot can be brought back without a reload.
 function collapseIfEmpty(root: HTMLElement): void {
   const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
   if (stack && stack.children.length > 0) return;
 
   const figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
-  if (!figure) { root.innerHTML = ''; return; }
+  if (!figure) { showDoor(root); return; }
 
   figure.classList.remove('idle', 'react');
   figure.classList.add('leaving');
-  figure.addEventListener('animationend', () => { root.innerHTML = ''; }, { once: true });
+  figure.addEventListener('animationend', () => { showDoor(root); }, { once: true });
+}
+
+// Called from the router's route-change hook in main.ts. Two cleanups, both
+// for the same reason: the door (and, transitively, a bare bubble that would
+// otherwise auto-dismiss into one later) is a real, clickable, fixed-position
+// element — left in place across navigation it follows the user onto other
+// pages and risks sitting on top of unrelated page controls in that same
+// corner.
+//
+// 1. Remove an existing door outright — it has nothing to do with whatever
+//    page the user is navigating to.
+// 2. A bare greeting/tip bubble (no items) has nothing tied to the page the
+//    user is leaving either, so let it go silently rather than risk ITS OWN
+//    auto-dismiss timer firing later, on some other page, and leaving a
+//    fresh door there instead (this is exactly how Break Glass's "Edit
+//    Fields" button got blocked in testing: a stale greeting's 6s
+//    auto-dismiss fired while the user had already moved two pages on).
+//    Item-bearing bubbles (the daily briefing, catch-up queue) are left
+//    untouched — those are explicitly meant to persist across navigation so
+//    the user can act on an item from a different page; only the bubble
+//    itself is removed if present, any catch-up cards stay and get
+//    repositioned.
+export function dismissDoor(): void {
+  const root = document.getElementById('mascot-root');
+  if (!root) return;
+  root.querySelector(':scope > .mascot-door')?.remove();
+
+  const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
+  const primary = stack?.querySelector<HTMLElement>(':scope > .mascot-bubble');
+  if (!primary || primary.querySelector('.mascot-items-list')) return;
+
+  if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+  primary.remove();
+  isBusy = false;
+  const figure = root.querySelector<HTMLElement>(':scope > .mascot-figure');
+  if (figure) figure.style.pointerEvents = '';
+
+  if (stack && stack.children.length === 0) {
+    root.innerHTML = ''; // no door — this was stale, unseen content, not an explicit dismissal
+  } else {
+    layoutStack(root);
+  }
+}
+
+// Brings the mascot back out from behind the door. If there's still an
+// outstanding, unresolved payment alert (a past-due/due-soon bill or debt
+// that was showing in the briefing bubble when it got dismissed — dismissing
+// the bubble doesn't resolve what it was warning about), re-shows that same
+// briefing with whatever is currently outstanding rather than a blank
+// greeting, so dismissing the mascot was never a way to make a real warning
+// disappear. Falls through to a plain greeting when nothing is outstanding.
+async function reopen(): Promise<void> {
+  const { getCurrentAlerts } = await import('@/utils/notifier');
+  const alerts = getCurrentAlerts();
+  if (alerts.length > 0) {
+    await showMascot('briefing', {}, 0, alerts);
+  } else {
+    await greet();
+  }
+}
+
+// Replaces the dismissed mascot with a small closed-door button in the same
+// corner. Clicking it plays a brief door-open animation, then calls reopen()
+// — the only way back in previously was a full page reload, since dismissal
+// wiped #mascot-root entirely.
+function showDoor(root: HTMLElement): void {
+  root.innerHTML = '';
+
+  const door = document.createElement('button');
+  door.type = 'button';
+  door.className = 'mascot-door';
+  door.setAttribute('data-testid', 'mascot-door');
+  door.setAttribute('aria-label', 'Bring the mascot back');
+  door.title = "Knock, knock — click to bring 'em back out";
+  door.innerHTML = DOOR_SVG;
+
+  door.addEventListener('click', () => {
+    if (door.classList.contains('opening')) return;
+    door.classList.add('opening');
+    door.addEventListener('animationend', () => {
+      door.remove();
+      void reopen();
+    }, { once: true });
+  });
+
+  root.appendChild(door);
 }
 
 function buildFigure(gender: MascotGender, onDismiss: () => void): HTMLElement {
@@ -615,6 +779,7 @@ export function updateMascotItems(items: NotifierItem[]): void {
     else bubble.appendChild(list);
   }
   renderItemsIntoList(list, items);
+  layoutStack(root);
 
   const fig = root.querySelector<HTMLElement>('.mascot-figure');
   if (fig) fig.style.pointerEvents = 'none';
@@ -805,6 +970,7 @@ export async function showCatchUpQueue(items: CatchUpItem[], handlers: CatchUpHa
     if (primary) stack.insertBefore(el, primary);
     else stack.appendChild(el);
   });
+  layoutStack(root);
 
   await Promise.all(queue.map((item, i) => runCatchUpCard(item, cards[i]!, handlers, root)));
 }
@@ -907,6 +1073,7 @@ function runCatchUpCard(item: CatchUpItem, card: CatchUpCard, handlers: CatchUpH
       el.classList.add('bell-notif-card--out');
       setTimeout(() => {
         el.remove();
+        layoutStack(root);
         collapseIfEmpty(root);
         resolve();
       }, 300);

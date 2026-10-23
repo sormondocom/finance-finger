@@ -406,6 +406,98 @@ export const TEEN_GIRL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
   <ellipse cx="90" cy="138" rx="12" ry="7" fill="#C47A8A"/>
 </svg>`;
 
+// ── Household pets ───────────────────────────────────────────────────────────
+// Dressed in the same western/farm theme as the rest of the household — a
+// bandana for the pug (echoes Buck's cowboy motif) and a sunflower charm on
+// the cat's collar (echoes Penny's sunflower hat).
+
+export const PUG_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" fill="none" role="img" aria-label="Pug dog">
+  <!-- Body -->
+  <ellipse cx="60" cy="108" rx="33" ry="33" fill="#D9A866"/>
+  <!-- Belly patch -->
+  <ellipse cx="60" cy="112" rx="19" ry="21" fill="#F0DCB8"/>
+  <!-- Bandana -->
+  <path d="M34 86 L86 86 L60 106 Z" fill="#B2432E"/>
+  <circle cx="46" cy="90" r="2.2" fill="#F0DCB8"/>
+  <circle cx="60" cy="94" r="2.2" fill="#F0DCB8"/>
+  <circle cx="74" cy="90" r="2.2" fill="#F0DCB8"/>
+  <path d="M60 106 L56 116 L64 116 Z" fill="#8F3222"/>
+  <!-- Curly tail (drawn after the body so it sits on top, poking out to the side) -->
+  <path d="M90 120 Q104 122 103 110 Q102 101 93 104" stroke="#C98F4E" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <!-- Front paws -->
+  <ellipse cx="42" cy="139" rx="11" ry="7" fill="#C98F4E"/>
+  <ellipse cx="78" cy="139" rx="11" ry="7" fill="#C98F4E"/>
+  <!-- Ears (small folded pug flaps, close to the head) -->
+  <path d="M40 33 Q30 36 31 48 Q32 58 42 57 Q38 47 40 33 Z" fill="#8B5E34"/>
+  <path d="M80 33 Q90 36 89 48 Q88 58 78 57 Q82 47 80 33 Z" fill="#8B5E34"/>
+  <!-- Head -->
+  <ellipse cx="60" cy="56" rx="28" ry="25" fill="#D9A866"/>
+  <!-- Forehead wrinkles -->
+  <path d="M46 38 Q60 32 74 38" stroke="#B48750" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <path d="M48 44 Q60 39 72 44" stroke="#B48750" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <!-- Black mask / muzzle patch -->
+  <ellipse cx="60" cy="64" rx="18" ry="14" fill="#3B2B22"/>
+  <!-- Eyes (big bulging pug eyes) -->
+  <circle cx="48" cy="53" r="7.5" fill="white"/>
+  <circle cx="72" cy="53" r="7.5" fill="white"/>
+  <circle cx="49" cy="54" r="5" fill="#2C2416"/>
+  <circle cx="73" cy="54" r="5" fill="#2C2416"/>
+  <circle cx="51" cy="51.5" r="1.8" fill="white"/>
+  <circle cx="75" cy="51.5" r="1.8" fill="white"/>
+  <!-- Snout wrinkle + nose -->
+  <ellipse cx="60" cy="66" rx="9" ry="6" fill="#241a15"/>
+  <ellipse cx="60" cy="63" rx="7" ry="5" fill="#3B2B22"/>
+  <!-- Mouth -->
+  <path d="M52 73 Q60 78 68 73" stroke="#1a120d" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+</svg>`;
+
+export const CAT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" fill="none" role="img" aria-label="Cat">
+  <!-- Tail -->
+  <path d="M88 125 Q106 122 103 102 Q101 90 90 92" stroke="#E3A857" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <!-- Body -->
+  <ellipse cx="60" cy="108" rx="31" ry="33" fill="#E3A857"/>
+  <!-- Belly patch -->
+  <ellipse cx="60" cy="113" rx="17" ry="20" fill="#FBEBD2"/>
+  <!-- Tabby stripes on body -->
+  <path d="M34 92 Q40 97 36 104" stroke="#C98B3E" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M86 92 Q80 97 84 104" stroke="#C98B3E" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Front paws -->
+  <ellipse cx="44" cy="139" rx="10" ry="7" fill="#D4984A"/>
+  <ellipse cx="76" cy="139" rx="10" ry="7" fill="#D4984A"/>
+  <!-- Ears -->
+  <path d="M33 34 L44 18 L50 40 Z" fill="#E3A857"/>
+  <path d="M87 34 L76 18 L70 40 Z" fill="#E3A857"/>
+  <path d="M37 32 L44 23 L47 36 Z" fill="#F5B8C4"/>
+  <path d="M83 32 L76 23 L73 36 Z" fill="#F5B8C4"/>
+  <!-- Head -->
+  <ellipse cx="60" cy="55" rx="27" ry="24" fill="#E3A857"/>
+  <!-- Tabby forehead stripes -->
+  <path d="M52 33 Q54 40 52 46" stroke="#C98B3E" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M60 31 L60 46" stroke="#C98B3E" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M68 33 Q66 40 68 46" stroke="#C98B3E" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Eyes (almond, green) -->
+  <ellipse cx="48" cy="54" rx="6.5" ry="7" fill="white"/>
+  <ellipse cx="72" cy="54" rx="6.5" ry="7" fill="white"/>
+  <ellipse cx="48" cy="55" rx="4.2" ry="5.5" fill="#5B9C4A"/>
+  <ellipse cx="72" cy="55" rx="4.2" ry="5.5" fill="#5B9C4A"/>
+  <ellipse cx="48" cy="55" rx="1.4" ry="5" fill="#1a1510"/>
+  <ellipse cx="72" cy="55" rx="1.4" ry="5" fill="#1a1510"/>
+  <!-- Nose -->
+  <path d="M56 65 L64 65 L60 70 Z" fill="#F0879B"/>
+  <!-- Mouth -->
+  <path d="M60 70 Q60 73 55 74 M60 70 Q60 73 65 74" stroke="#2C2416" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+  <!-- Whiskers -->
+  <path d="M30 60 L46 62 M30 67 L46 65 M90 60 L74 62 M90 67 L74 65" stroke="#2C2416" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <!-- Collar with sunflower charm -->
+  <path d="M38 71 Q60 80 82 71" stroke="#B2432E" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <circle cx="60" cy="80" r="5" fill="#C9A84C"/>
+  <circle cx="60" cy="80" r="2.3" fill="#8B6914"/>
+  <ellipse cx="60" cy="74" rx="2" ry="3.2" fill="#C9A84C"/>
+  <ellipse cx="60" cy="86" rx="2" ry="3.2" fill="#C9A84C"/>
+  <ellipse cx="54" cy="80" rx="3.2" ry="2" fill="#C9A84C"/>
+  <ellipse cx="66" cy="80" rx="3.2" ry="2" fill="#C9A84C"/>
+</svg>`;
+
 export const PENNY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" fill="none" role="img" aria-label="Penny the pig">
   <!-- Body / overalls -->
   <ellipse cx="60" cy="100" rx="42" ry="44" fill="#2D5A27"/>
@@ -465,17 +557,42 @@ export const PENNY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
 // huddled "family photo" group for the sidebar logo. Built by transforming
 // the existing character markup above (not duplicated by hand) so it can
 // never visually drift from the individual mascots as their art evolves.
+// Three close rows by depth: parents in back, kids in front of them, the
+// pug in front of the kids — nearest the "camera" and smallest, like a dog
+// scooting into frame at someone's feet.
 
 function innerMarkup(svg: string): string {
   return svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 }
 
-export const FAMILY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 160" fill="none" role="img" aria-label="The Financial Finger family — Buck, Penny, and the kids">
+export const FAMILY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 160" fill="none" role="img" aria-label="The Financial Finger family — Buck, Penny, the kids, and the pug">
   <!-- Medallion backdrop — also keeps Buck's navy overalls from vanishing against a navy sidebar -->
   <rect x="3" y="3" width="164" height="154" rx="26" fill="#F0D898"/>
   <rect x="3" y="3" width="164" height="154" rx="26" fill="none" stroke="#C9A84C" stroke-width="3"/>
-  <g transform="translate(5 0) scale(0.5)">${innerMarkup(BUCK_SVG)}</g>
-  <g transform="translate(105 0) scale(0.5)">${innerMarkup(PENNY_SVG)}</g>
-  <g transform="translate(45 65) scale(0.46)">${innerMarkup(CHILD_BOY_SVG)}</g>
-  <g transform="translate(95 75) scale(0.42)">${innerMarkup(BABY_GIRL_SVG)}</g>
+  <!-- Back row: parents -->
+  <g transform="translate(8 -2) scale(0.49)">${innerMarkup(BUCK_SVG)}</g>
+  <g transform="translate(90 -2) scale(0.49)">${innerMarkup(PENNY_SVG)}</g>
+  <!-- Middle row: kids, tucked in close between/in front of the parents -->
+  <g transform="translate(36 50) scale(0.45)">${innerMarkup(CHILD_BOY_SVG)}</g>
+  <g transform="translate(82 56) scale(0.41)">${innerMarkup(BABY_GIRL_SVG)}</g>
+  <!-- Front row: the pug, nearest and smallest, in front of the kids -->
+  <g transform="translate(53 96) scale(0.42)">${innerMarkup(PUG_SVG)}</g>
+</svg>`;
+
+// ── Mascot door (re-summon affordance) ────────────────────────────────────────
+// Shown in place of the mascot figure once it's been fully dismissed, so the
+// user has a way to bring it back without reloading the page. A rustic
+// ledge-and-brace barn door — matches the farm theme the mascots live in.
+
+export const DOOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100" role="img" aria-hidden="true">
+  <rect x="2" y="2" width="76" height="96" rx="6" fill="#6B4423"/>
+  <rect x="9" y="9" width="62" height="82" rx="3" fill="#B2432E"/>
+  <line x1="29" y1="11" x2="29" y2="89" stroke="#8F3222" stroke-width="2"/>
+  <line x1="51" y1="11" x2="51" y2="89" stroke="#8F3222" stroke-width="2"/>
+  <path d="M13 24 L67 24" stroke="#8F3222" stroke-width="3" stroke-linecap="round"/>
+  <path d="M13 76 L67 76" stroke="#8F3222" stroke-width="3" stroke-linecap="round"/>
+  <path d="M15 73 L65 27" stroke="#8F3222" stroke-width="3" stroke-linecap="round"/>
+  <rect x="39" y="12" width="2" height="76" fill="#F0D898" opacity="0.55"/>
+  <circle cx="61" cy="52" r="4.5" fill="#C9A84C"/>
+  <circle cx="61" cy="52" r="2" fill="#8B6914"/>
 </svg>`;
