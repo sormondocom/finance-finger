@@ -386,13 +386,20 @@ export function openDebtForm(
       // a baseline to derive from. For edits, only reconcile when the user
       // explicitly changed the stored balance value.
       //
-      // Use start-of-day (local midnight) so the entry sorts before any
-      // same-day payments (which the payment modal defaults to noon).
+      // Opening balance is dated to epoch (0) so it always sorts before any
+      // real transaction, the same protection bank accounts' AccountForm.ts
+      // uses — without it, a newly-created debt account whose first catch-up
+      // cycle gets backdated (a due date entered a few days in the past) can
+      // have that backdated payment's effect on the derived balance silently
+      // clobbered by a same-day-or-later reconciliation. Balance corrections
+      // on an existing account are a real point-in-time event, not a seed —
+      // those stay dated to start-of-day (local midnight) so they still sort
+      // before any same-day payments (which the payment modal defaults to noon).
       const todayMidnight = new Date();
       todayMidnight.setHours(0, 0, 0, 0);
       const startOfDay = todayMidnight.getTime();
       if (!existing && balance > 0) {
-        await accounting.reconcileAccount({ accountId: account.id, accountType: 'debt', targetBalance: balance, note: 'Opening balance', date: startOfDay });
+        await accounting.reconcileAccount({ accountId: account.id, accountType: 'debt', targetBalance: balance, note: 'Opening balance', date: 0 });
       } else if (existing && existing.balance !== balance) {
         await accounting.reconcileAccount({ accountId: account.id, accountType: 'debt', targetBalance: balance, note: 'Balance correction', date: startOfDay });
       }

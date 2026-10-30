@@ -62,8 +62,8 @@ function buildChartInstance(
     datasets.push({
       label: `With +${fmtCents.format(extraPayment)}/mo`,
       data: extraData,
-      borderColor: 'var(--ff-green)',
-      backgroundColor: 'rgba(45,90,39,0.07)',
+      borderColor: 'var(--status-paid)',
+      backgroundColor: 'var(--status-paid-fill)',
       fill: true,
       tension: 0.3,
       pointRadius: 0,

@@ -20,7 +20,11 @@ export function openConfirmDialog(opts: ConfirmDialogOptions): Promise<boolean> 
 
     const msg = document.createElement('p');
     msg.className = 'text-sm';
-    msg.style.margin = '0';
+    // pre-line (not the default normal): a multi-line message built with
+    // embedded '\n's — e.g. a bulleted account list — otherwise collapses
+    // to one long line, since HTML whitespace collapsing doesn't care that
+    // the newlines are really there in the text content.
+    msg.style.cssText = 'margin:0;white-space:pre-line';
     msg.textContent = opts.message;
     content.appendChild(msg);
 

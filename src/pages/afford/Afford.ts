@@ -102,7 +102,7 @@ export class AffordPage {
         <div>
           <span class="reality-stat-label">${surplus >= 0 ? 'Surplus' : 'Shortfall'}</span>
           <span class="reality-stat-value"
-            style="color:${surplus >= 0 ? 'var(--ff-green)' : 'var(--color-danger)'}">
+            style="color:${surplus >= 0 ? 'var(--status-paid)' : 'var(--status-past-due)'}">
             ${hasData ? fmt.format(Math.abs(surplus)) : '—'}
           </span>
         </div>
@@ -156,10 +156,10 @@ export class AffordPage {
         <div>
           <span class="projection-stat-label">Adj. Surplus</span>
           <span class="projection-stat-value"
-            style="color:${adjSurplus >= 0 ? 'var(--ff-green)' : 'var(--color-danger)'}">
+            style="color:${adjSurplus >= 0 ? 'var(--status-paid)' : 'var(--status-past-due)'}">
             ${fmt.format(adjSurplus)}
           </span>
-          <span class="projection-delta" style="color:${delta >= 0 ? 'var(--ff-green)' : 'var(--color-danger)'}">
+          <span class="projection-delta" style="color:${delta >= 0 ? 'var(--status-paid)' : 'var(--status-past-due)'}">
             ${delta >= 0 ? '+' : ''}${fmt.format(delta)} vs. baseline
           </span>
         </div>

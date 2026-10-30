@@ -246,8 +246,8 @@ export class InsightsPage {
         <p>The math says avalanche wins. But the best strategy is the one you'll <strong>actually stick to</strong>. If you need that early win to stay motivated, snowball is right for you. Head to the <em>Debt & Cards</em> page to run your numbers on both.</p>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-        <div class="calc-result good" style="border-left-color:var(--ff-navy)">
-          <div style="font-weight:700;color:var(--ff-navy);margin-bottom:var(--space-1)">🧊 Avalanche</div>
+        <div class="calc-result good" style="border-left-color:var(--color-accent)">
+          <div style="font-weight:700;color:var(--color-accent);margin-bottom:var(--space-1)">🧊 Avalanche</div>
           <div class="text-sm text-muted">Best for: saving money</div>
           <div class="text-sm text-muted">Requires: patience</div>
         </div>
@@ -402,10 +402,10 @@ export class InsightsPage {
       const limit   = parseFloat(card.querySelector<HTMLInputElement>('#util-limit')!.value) || 1;
       const util    = balance / limit * 100;
       const result  = card.querySelector<HTMLElement>('#util-result')!;
-      const rating  = util <= 10 ? { label: 'Excellent', color: 'var(--ff-green)' }
-                    : util <= 30 ? { label: 'Good', color: 'var(--ff-gold-dark)' }
-                    : util <= 50 ? { label: 'Fair', color: 'var(--ff-rust)' }
-                    : { label: 'High — pay this down', color: 'var(--color-danger)' };
+      const rating  = util <= 10 ? { label: 'Excellent', color: 'var(--status-paid)' }
+                    : util <= 30 ? { label: 'Good', color: 'var(--status-payday)' }
+                    : util <= 50 ? { label: 'Fair', color: 'var(--status-due-soon)' }
+                    : { label: 'High — pay this down', color: 'var(--status-past-due)' };
       result.className = util <= 30 ? 'calc-result good' : 'calc-result';
       result.innerHTML = `
         <div class="calc-result-row">
@@ -431,7 +431,7 @@ export class InsightsPage {
   private cardCreditScore(): HTMLElement {
     const card = this.makeCard('🔢', 'What Makes a Credit Score?');
     const factors = [
-      { label: 'Payment history',     pct: 35, color: 'var(--ff-navy)',   desc: 'Pay on time, every time. This is the biggest factor.' },
+      { label: 'Payment history',     pct: 35, color: 'var(--color-accent)',   desc: 'Pay on time, every time. This is the biggest factor.' },
       { label: 'Credit utilization',  pct: 30, color: 'var(--ff-rust)',   desc: 'Keep balances below 30% of your limit.' },
       { label: 'Length of history',   pct: 15, color: 'var(--ff-gold)',   desc: 'Older accounts help. Don\'t close your oldest card.' },
       { label: 'Credit mix',          pct: 10, color: 'var(--ff-green)',  desc: 'A mix of credit cards, loans, etc. shows you can handle different types.' },
@@ -616,8 +616,8 @@ export class InsightsPage {
         <p>You have two mathematically linked pieces:</p>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
-        <div class="calc-result good" style="border-left-color:var(--ff-navy)">
-          <div style="font-weight:700;color:var(--ff-navy);margin-bottom:var(--space-2)">🔓 Public Key</div>
+        <div class="calc-result good" style="border-left-color:var(--color-accent)">
+          <div style="font-weight:700;color:var(--color-accent);margin-bottom:var(--space-2)">🔓 Public Key</div>
           <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm);line-height:1.7">
             <li>Safe to share with anyone</li>
             <li>Encrypts data or verifies a signature</li>
@@ -681,8 +681,8 @@ export class InsightsPage {
         <p>Why a <em>passphrase</em> and not a <em>password</em>? Length is the biggest factor in how hard something is to crack. Four random words strung together — <em>"correct horse battery staple"</em> — give you more entropy than a short jumble of symbols most people can barely remember.</p>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
-        <div class="calc-result" style="border-left-color:var(--color-danger)">
-          <div style="font-weight:700;color:var(--color-danger);margin-bottom:var(--space-2)">❌ Weak approach</div>
+        <div class="calc-result" style="border-left-color:var(--status-past-due)">
+          <div style="font-weight:700;color:var(--status-past-due);margin-bottom:var(--space-2)">❌ Weak approach</div>
           <div class="text-sm text-muted" style="font-family:monospace">P@ssw0rd1!</div>
           <div class="text-sm text-muted" style="margin-top:var(--space-1)">Short, predictable substitutions. Cracked in seconds by modern tools.</div>
         </div>

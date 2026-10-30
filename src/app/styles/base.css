@@ -168,11 +168,11 @@ input:focus, textarea:focus, select:focus {
 
 .form-error {
   font-size: var(--text-xs);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .req {
-  color: var(--color-danger);
+  color: var(--status-past-due);
   margin-left: 2px;
   font-size: 0.8em;
   vertical-align: super;
@@ -246,6 +246,31 @@ body.no-sidebar #app-content {
   padding-top: var(--space-16);
 }
 
+/* ── Narrow-viewport layout ───────────────────────────────────────────────
+   #app-nav is otherwise a fixed-position 240px-wide left rail with no
+   fallback at any width — below this breakpoint it genuinely overflowed
+   the viewport and clipped content (confirmed: ~850px of real content width
+   against a 465px viewport, with the household name title cut off). Below
+   the breakpoint the sidebar becomes a normal-flow top bar instead of a
+   fixed rail, and its own contents (nav.css) wrap onto as many lines as
+   needed rather than demanding a fixed column height. */
+@media (max-width: 860px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #app-nav {
+    position: static;
+    width: 100%;
+    height: auto;
+    bottom: auto;
+  }
+
+  #app-main {
+    margin-left: 0;
+  }
+}
+
 /* ── Help navigation button (global utility) ─────────────────────────────── */
 
 .help-nav-btn {
@@ -282,4 +307,52 @@ body.no-sidebar #app-content {
 
 .cal-focus-highlight {
   animation: cal-focus-pulse 2s ease-out forwards;
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────
+   Global rules apply everywhere (nobody wants the navy sidebar wasting a
+   printed page, regardless of which page they printed from). Page-specific
+   print layout (Reports, Calendar) lives in each page's own stylesheet and
+   is scoped to that page's root class. `.no-print` hides any element only
+   when printing — attach it to buttons/controls that make no sense on paper. */
+@media print {
+  #app-nav {
+    display: none !important;
+  }
+
+  /* #app-main reserves margin-left: var(--sidebar-width) for the fixed
+     sidebar at all other times; with the sidebar hidden above, that
+     margin would otherwise survive and shift the whole page to the
+     right on paper. */
+  #app-main {
+    margin-left: 0 !important;
+  }
+
+  #app-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* The mascot figure and its "door" re-summon button are fixed-position
+     overlays — meaningless on paper and would otherwise print on top of
+     whatever page content lands in that corner. */
+  #mascot-root {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Printed color often comes out washed out by default; this project's
+     status dots/badges rely on background color to carry meaning, so ask
+     the browser to keep it rather than silently stripping it to save ink. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

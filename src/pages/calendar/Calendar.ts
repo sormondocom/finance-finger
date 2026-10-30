@@ -227,7 +227,7 @@ export class CalendarPage {
     monthNav.className = 'calendar-month-nav';
 
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'calendar-nav-btn';
+    prevBtn.className = 'calendar-nav-btn no-print';
     prevBtn.setAttribute('aria-label', 'Previous month');
     prevBtn.setAttribute('data-testid', 'cal-prev');
     prevBtn.innerHTML = '&#8249;';
@@ -245,7 +245,7 @@ export class CalendarPage {
       .toLocaleString('default', { month: 'long', year: 'numeric' });
 
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'calendar-nav-btn';
+    nextBtn.className = 'calendar-nav-btn no-print';
     nextBtn.setAttribute('aria-label', 'Next month');
     nextBtn.setAttribute('data-testid', 'cal-next');
     nextBtn.innerHTML = '&#8250;';
@@ -256,20 +256,28 @@ export class CalendarPage {
       this.paint();
     });
 
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn btn-secondary btn-sm no-print';
+    printBtn.style.marginLeft = 'var(--space-3)';
+    printBtn.setAttribute('data-testid', 'cal-print-btn');
+    printBtn.textContent = '🖨 Print';
+    printBtn.addEventListener('click', () => this.printCalendar());
+
     monthNav.appendChild(prevBtn);
     monthNav.appendChild(monthLabel);
     monthNav.appendChild(nextBtn);
+    monthNav.appendChild(printBtn);
     header.appendChild(monthNav);
 
     // Legend
     const legend = document.createElement('div');
     legend.className = 'calendar-legend';
     legend.innerHTML = `
-      <div class="legend-item"><span class="legend-dot" style="background:var(--color-danger)"></span>Past Due</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--ff-rust)"></span>Due Soon</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--ff-green)"></span>Paid</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--ff-sage)"></span>Upcoming</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--ff-gold)"></span>Payday</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-past-due)"></span>Past Due</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-due-soon)"></span>Due Soon</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-paid)"></span>Paid</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-ok)"></span>Upcoming</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-payday)"></span>Payday</div>
       <div class="legend-item"><span class="legend-dot" style="background:#0d9488"></span>Payment Made</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--color-border)"></span>One-time</div>
     `;
@@ -452,6 +460,109 @@ export class CalendarPage {
     }
   }
 
+  // Prints the calendar on a single page regardless of how many week-rows
+  // the current month has (4–6, depending on how it falls). Picks whichever
+  // orientation needs less shrinking, then scales just the grid down (not
+  // the header/legend/summary text) to fit the remaining vertical space.
+  //
+  // There's no scriptable way to observe the browser's actual print layout
+  // before it happens — emulateMedia('print') (and the real print pipeline)
+  // lay out the page at the PAPER's width, not the on-screen viewport's, so
+  // a plain getBoundingClientRect() taken here (still screen width) isn't
+  // representative and under-predicts how tall a narrower print render
+  // would actually come out. Forcing the grid to the width + cell-height
+  // this function assumes print will use, just for this measurement, is
+  // what makes the estimate trustworthy — a width/height is still an
+  // estimate (conservative Letter/A4-safe numbers, not a read of the user's
+  // actual paper/printer), not a guarantee, which is why SAFETY_MARGIN
+  // below shaves a bit more off on top rather than cutting it exactly to
+  // the computed fit.
+  private printCalendar(): void {
+    const header = this.container.querySelector<HTMLElement>('.calendar-header');
+    const summaryBar = this.container.querySelector<HTMLElement>('.calendar-summary');
+    const gridWrap = this.container.querySelector<HTMLElement>('.calendar-grid-wrap');
+    const grid = gridWrap?.querySelector<HTMLElement>('.calendar-grid');
+    if (!header || !gridWrap || !grid) { window.print(); return; }
+
+    const PX_PER_IN = 96;
+    const MARGIN_IN = 0.5;
+    // Extra shrink beyond the computed fit. Wider than the measurement
+    // error alone would suggest — CSS Grid's print fragmentation (combined
+    // with break-inside:avoid on every cell) measurably needs more slack
+    // than a plain height comparison predicts: testing a 6-row month found
+    // the real single-page breakeven sitting right around 0.78-0.85 zoom,
+    // with some render-to-render jitter right at that boundary (sub-pixel
+    // layout variance near a tight fit), even though the forced-width/
+    // forced-cell-height measurement above said it should fit near 1.0.
+    // Landing further below that noisy boundary, not just barely under it,
+    // so a borderline month doesn't occasionally tip over into 2 pages.
+    const SAFETY_MARGIN = 0.68;
+    // Smaller of Letter (8.5x11) and A4 (8.27x11.69) on each axis, so the
+    // estimate stays safe regardless of which the user's printer defaults to.
+    const SAFE_SHORT_IN = Math.min(8.5, 8.27) - MARGIN_IN * 2; // 7.27in
+    const SAFE_LONG_IN  = Math.min(11, 11.69) - MARGIN_IN * 2; // 10in
+    const portraitBox  = { w: SAFE_SHORT_IN * PX_PER_IN, h: SAFE_LONG_IN  * PX_PER_IN };
+    const landscapeBox = { w: SAFE_LONG_IN  * PX_PER_IN, h: SAFE_SHORT_IN * PX_PER_IN };
+
+    const headerH = header.getBoundingClientRect().height;
+    const summaryH = summaryBar?.getBoundingClientRect().height ?? 0;
+    const gapBudget = 32; // spacing between header/summary/grid sections
+
+    // Pre-measure the grid at a given target width, with cells forced to
+    // the print min-height (--cal-cell-min-h, see calendar.css) — not just
+    // whatever width/height the on-screen viewport happens to be — so chip
+    // text wraps the same way it will during the real print.
+    const measureAt = (targetWidthPx: number): { w: number; h: number } => {
+      const prevWidth = gridWrap.style.width;
+      gridWrap.style.width = `${targetWidthPx}px`;
+      gridWrap.style.setProperty('--cal-cell-min-h', '80px');
+      const rect = grid.getBoundingClientRect();
+      gridWrap.style.width = prevWidth;
+      gridWrap.style.removeProperty('--cal-cell-min-h');
+      return { w: rect.width, h: rect.height };
+    };
+
+    const scaleFor = (box: { w: number; h: number }): number => {
+      const availH = box.h - headerH - summaryH - gapBudget;
+      const measured = measureAt(box.w);
+      return Math.min(1, box.w / measured.w, availH / measured.h) * SAFETY_MARGIN;
+    };
+
+    const portraitScale = scaleFor(portraitBox);
+    const landscapeScale = scaleFor(landscapeBox);
+    // Prefer landscape unless portrait is a meaningfully better fit — the
+    // 7-column grid generally reads better wide.
+    const useLandscape = landscapeScale >= portraitScale - 0.03;
+    const scale = Math.min(1, useLandscape ? landscapeScale : portraitScale);
+
+    const pageStyle = document.createElement('style');
+    pageStyle.textContent = `@page { size: ${useLandscape ? 'landscape' : 'portrait'}; margin: ${MARGIN_IN}in; }`;
+    document.head.appendChild(pageStyle);
+
+    const scaleApplied = scale < 1;
+    if (scaleApplied) {
+      // CSS `transform: scale()` only affects paint, not layout — the
+      // print engine computes page breaks from pre-transform layout
+      // geometry, so a transformed-but-still-"full height" grid still
+      // split across two pages in testing even though it visually looked
+      // like it fit. `zoom` genuinely rescales the box model (size, fonts,
+      // padding together), so the element's real layout height shrinks and
+      // pagination sees the smaller size, same as it would for a user who
+      // manually reduced their print dialog's scale percentage.
+      grid.style.setProperty('zoom', String(scale));
+    }
+
+    const cleanup = () => {
+      pageStyle.remove();
+      if (scaleApplied) {
+        grid.style.removeProperty('zoom');
+      }
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  }
+
   private chipNav(e: MouseEvent, sessionKey: string, id: string, route: '/expenses' | '/income' | '/debt'): void {
     if ((e.target as HTMLElement).closest('a, button')) return;
     sessionStorage.setItem(sessionKey, id);
@@ -468,7 +579,7 @@ export class CalendarPage {
     ];
 
     const toolbar = document.createElement('div');
-    toolbar.className = 'paint-toolbar';
+    toolbar.className = 'paint-toolbar no-print';
     toolbar.setAttribute('data-testid', 'paint-toolbar');
 
     const toggleBtn = document.createElement('button');

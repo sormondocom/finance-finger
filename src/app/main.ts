@@ -75,13 +75,24 @@ function setActiveNavLink(route: string): void {
 }
 
 // A dismissed mascot leaves a small clickable "door" behind so it can be
-// brought back without reloading — but left in place across navigation it's
-// a fixed-position element that could end up sitting on top of unrelated
-// controls on whatever page the user lands on next. Clearing it on every
-// route change scopes it to the page it was dismissed on. Dynamically
-// imported to match this module's existing lazy-loading of the mascot code.
-function clearMascotDoor(): void {
-  void import('@/mascot/Mascot').then(({ dismissDoor }) => dismissDoor());
+// brought back without reloading. The door is meant to persist across
+// navigation — it's the whole point of the feature — so this only clears a
+// bare, not-yet-dismissed bubble caught mid-navigation (see
+// clearBareBubbleOnNavigate's own doc comment). Dynamically imported to
+// match this module's existing lazy-loading of the mascot code.
+function clearStaleMascotBubble(): void {
+  void import('@/mascot/Mascot').then(({ clearBareBubbleOnNavigate }) => clearBareBubbleOnNavigate());
+}
+
+// #mascot-root sits fixed in the bottom-right corner at the maximum z-index
+// (always on top), which intercepts clicks on Break Glass's own controls
+// that land in that same corner — this is what blocked its "Edit Fields"
+// button in testing. Every other page is fine with the door/mascot
+// persisting there, so instead of clearing it (which would lose it for the
+// rest of the session), it's just hidden via CSS while Break Glass is the
+// active route and reappears exactly as it was on navigating away.
+function toggleMascotForBreakGlass(route: string): void {
+  document.getElementById('mascot-root')?.classList.toggle('mascot-hidden', route === '/break-glass');
 }
 
 async function applyTheme(): Promise<void> {
@@ -165,7 +176,11 @@ function launchApp(): void {
     return new BreakGlassPage().render(cfg?.mascotGender);
   });
 
-  onRouteChange((route) => { setActiveNavLink(route); clearMascotDoor(); });
+  onRouteChange((route) => {
+    setActiveNavLink(route);
+    clearStaleMascotBubble();
+    toggleMascotForBreakGlass(route);
+  });
 
   // Replace the setup/unlock history entry so Back doesn't return to the gate.
   navigateReplace('/dashboard');
@@ -308,6 +323,28 @@ async function boot(): Promise<void> {
 // Surface storage-full errors regardless of which save operation triggered them.
 // QuotaExceededError is an infrastructure failure — no individual page handler
 // is well-positioned to catch it, and silent swallowing causes invisible data loss.
+//
+// Everything else that reaches here — any other unhandled rejection, or any
+// uncaught synchronous error from the 'error' listener below — used to vanish
+// entirely: no toast, nothing in any log a user could ever hand back to the
+// developer. There's no telemetry by design (nothing is ever sent anywhere),
+// so the console is genuinely the only record; this just makes sure *something*
+// visible happens in the UI too, and that the console record is as complete
+// as possible (message + stack) for whoever ends up reading it over someone's
+// shoulder or via a screen-share.
+let lastGenericErrorToastAt = 0;
+function reportUnexpectedError(err: unknown, source: string): void {
+  console.error(`[${source}]`, err);
+  const now = Date.now();
+  if (now - lastGenericErrorToastAt < 3000) return; // avoid a toast storm from one root cause
+  lastGenericErrorToastAt = now;
+  showToast(
+    'Something unexpected went wrong. Your data is encrypted locally and nothing was sent anywhere — check the browser console for details, or try reloading.',
+    'error',
+    8000,
+  );
+}
+
 window.addEventListener('unhandledrejection', (e) => {
   if (e.reason instanceof DOMException && e.reason.name === 'QuotaExceededError') {
     e.preventDefault();
@@ -316,7 +353,14 @@ window.addEventListener('unhandledrejection', (e) => {
       'error',
       12000,
     );
+    return;
   }
+  e.preventDefault();
+  reportUnexpectedError(e.reason, 'unhandledrejection');
+});
+
+window.addEventListener('error', (e) => {
+  reportUnexpectedError(e.error ?? e.message, 'uncaught error');
 });
 
 boot().catch((err) => {

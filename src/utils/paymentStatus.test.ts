@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeMinPayment, computePaymentStatus } from './paymentStatus';
+import { computeMinPayment, computePaymentStatus, advanceByCycle } from './paymentStatus';
 import type { DebtAccount, DebtPayment } from '@/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,6 +116,68 @@ describe('computePaymentStatus — month-end due date advancement', () => {
     expect(result.dueDayThisMonth?.getDate()).toBe(31);
     expect(result.dueDayThisMonth?.getMonth()).toBe(0);
     expect(result.dueDayThisMonth?.getFullYear()).toBe(2026);
+  });
+
+  // A single advance through one short month (Jan 31 → Feb 28, or Dec 31 →
+  // Jan 31 above) can't expose this bug — it only drifts once a SECOND
+  // monthly advance re-derives its target day from the already-clamped
+  // candidate instead of the account's real due day. Crossing Jan → Feb →
+  // March forces exactly that second advance.
+  it('self-corrects back to day 31 in March after clamping through February (dueDay set)', () => {
+    const acct = makeAccount({
+      balance: 1000,
+      paymentCycle: 'monthly',
+      minimumPaymentType: 'fixed',
+      minimumPaymentValue: 50,
+      dueDay: 31,
+      nextDueDateMs: new Date(2026, 0, 31).getTime(), // Jan 31
+    });
+    // now = March 28: due date must advance Jan31 -> Feb28 -> Mar31 (two hops)
+    const result = computePaymentStatus(acct, [], new Date(2026, 2, 28));
+    expect(result.dueDayThisMonth?.getDate()).toBe(31);
+    expect(result.dueDayThisMonth?.getMonth()).toBe(2); // March
+  });
+
+  it('without dueDay, the same two-hop advance incorrectly drifts to day 28 (documents the pre-fix fallback)', () => {
+    const acct = makeAccount({
+      balance: 1000,
+      paymentCycle: 'monthly',
+      minimumPaymentType: 'fixed',
+      minimumPaymentValue: 50,
+      nextDueDateMs: new Date(2026, 0, 31).getTime(), // Jan 31, no dueDay field
+    });
+    const result = computePaymentStatus(acct, [], new Date(2026, 2, 28));
+    expect(result.dueDayThisMonth?.getDate()).toBe(28);
+    expect(result.dueDayThisMonth?.getMonth()).toBe(2); // March
+  });
+});
+
+// ── advanceByCycle anchorDay ───────────────────────────────────────────────────
+
+describe('advanceByCycle', () => {
+  it('without an anchor, repeated monthly advances drift the target day downward through short months', () => {
+    let d = new Date(2026, 0, 31); // Jan 31
+    d = advanceByCycle(d, 'monthly');       // -> Feb 28 (clamped)
+    d = advanceByCycle(d, 'monthly');       // targetDay re-derived from Feb 28 -> March 28, not 31
+    expect(d.getDate()).toBe(28);
+    expect(d.getMonth()).toBe(2);
+  });
+
+  it('with an explicit anchorDay, repeated monthly advances self-correct back to the real due day', () => {
+    let d = new Date(2026, 0, 31); // Jan 31
+    d = advanceByCycle(d, 'monthly', 31);   // -> Feb 28 (clamped, maxDay for Feb)
+    d = advanceByCycle(d, 'monthly', 31);   // -> March 31 (anchor re-asserted)
+    expect(d.getDate()).toBe(31);
+    expect(d.getMonth()).toBe(2);
+  });
+
+  it('with an explicit anchorDay, clamps correctly through consecutive short months (Jan 31 -> Apr 30)', () => {
+    let d = new Date(2026, 0, 31); // Jan 31
+    d = advanceByCycle(d, 'monthly', 31); // Feb 28
+    d = advanceByCycle(d, 'monthly', 31); // March 31
+    d = advanceByCycle(d, 'monthly', 31); // April 30 (clamped, April has 30 days)
+    expect(d.getDate()).toBe(30);
+    expect(d.getMonth()).toBe(3);
   });
 });
 

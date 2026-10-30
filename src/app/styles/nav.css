@@ -113,3 +113,70 @@
   color: rgba(240, 232, 212, 0.25);
   letter-spacing: 0.04em;
 }
+
+/* ── Narrow-viewport layout ───────────────────────────────────────────────
+   Matches the breakpoint in base.css, which turns #app-nav from a fixed
+   left rail into a normal-flow top bar. Every section here switches from a
+   vertical stack to a horizontal, wrapping flow so nothing demands more
+   width than the viewport actually has — the active-link indicator moves
+   from a left border to a bottom border to match. */
+@media (max-width: 860px) {
+  #app-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .nav-brand {
+    padding: 0 var(--space-2) 0 0;
+    border-bottom: none;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    margin-right: var(--space-2);
+  }
+
+  .nav-brand-name {
+    display: none; /* logo alone is enough once the layout is this tight */
+  }
+
+  .nav-links {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0;
+  }
+
+  .nav-link {
+    padding: var(--space-2) var(--space-3);
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .nav-link--active {
+    border-left-color: transparent;
+    border-bottom-color: var(--ff-gold);
+  }
+
+  .nav-footer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    border-top: none;
+    padding-top: 0;
+    gap: var(--space-1);
+  }
+
+  .nav-lock-btn {
+    width: auto;
+    padding: var(--space-2) var(--space-3);
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .nav-coffee,
+  .nav-version {
+    padding: var(--space-2) var(--space-3);
+  }
+}

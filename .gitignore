@@ -10,3 +10,9 @@ public/icons/icon-*.png
 coverage/
 # Playwright auto-captures — always blank for extensions (popup runs in chrome-extension:// context)
 test-results/
+# Playwright HTML report — regenerates every run, same reasoning as test-results/
+tests/playwright-report/
+# Raw Playwright run output, when redirected to a file
+test-run.log
+# Claude Code scratch output (Artifact mockups, one-off intermediates) — never project content
+.scratch/

@@ -4,6 +4,7 @@ import { generateKeyPair, readKeyInfo, validatePrivateKey } from '@/crypto/pgp';
 import { createVault } from '@/crypto/vault';
 import { createMember, saveMember, deleteMember } from '@/db';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { downloadFile } from '@/utils/download';
 import type { AvatarType, MascotGender, VaultConfig } from '@/types';
 import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG, PUG_SVG, CAT_SVG } from '@/mascot/svgs';
 
@@ -229,7 +230,7 @@ export class SetupWizard {
 
       <div class="tab-panel ${this.state.keyMode === 'import' ? 'active' : ''}" id="tab-import">
         <div class="form-group">
-          <label class="form-label">Public key</label>
+          <label class="form-label" for="import-pub">Public key</label>
           <div class="file-input-row">
             <button type="button" class="btn btn-secondary btn-sm" id="import-pub-pick">Choose file…</button>
             <input id="import-pub-file" type="file" accept=".asc,.txt,.key,.pub" style="display:none" />
@@ -239,7 +240,7 @@ export class SetupWizard {
           <textarea id="import-pub" rows="4" placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Private key</label>
+          <label class="form-label" for="import-priv">Private key</label>
           <div class="file-input-row">
             <button type="button" class="btn btn-secondary btn-sm" id="import-priv-pick">Choose file…</button>
             <input id="import-priv-file" type="file" accept=".asc,.txt,.key" style="display:none" />
@@ -421,22 +422,12 @@ export class SetupWizard {
       const btnGroup = document.createElement('div');
       btnGroup.className = 'save-key-actions';
 
-      const triggerKeyDownload = (content: string, filename: string): void => {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      };
-
       const savePrivBtn = document.createElement('button');
       savePrivBtn.className = 'btn btn-primary';
       savePrivBtn.setAttribute('data-testid', 'save-private-key');
       savePrivBtn.textContent = '💾 Save Private Key';
       savePrivBtn.addEventListener('click', () => {
-        triggerKeyDownload(privKey, 'ff-private-key.asc');
+        downloadFile(privKey, 'ff-private-key.asc');
         savePrivBtn.textContent = '✓ Private Key Downloaded';
         savePrivBtn.className = 'btn btn-secondary';
         nextBtn.disabled = false;
@@ -448,7 +439,7 @@ export class SetupWizard {
       savePubBtn.setAttribute('data-testid', 'save-public-key');
       savePubBtn.textContent = '💾 Save Public Key';
       savePubBtn.addEventListener('click', () => {
-        triggerKeyDownload(pubKey, 'ff-public-key.asc');
+        downloadFile(pubKey, 'ff-public-key.asc');
         savePubBtn.textContent = '✓ Public Key Downloaded';
         savePubBtn.disabled = true;
       });

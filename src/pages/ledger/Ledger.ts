@@ -1120,7 +1120,12 @@ export class LedgerPage {
 
     const byDay = new Map<string, FeedItem[]>();
     for (const item of pageItems) {
-      const key = fmtDate(item.date);
+      // An opening-balance reconciliation is deliberately dated to epoch (0)
+      // so it always sorts before any real transaction, however far a catch-up
+      // cycle backdates one (see AccountForm.ts / DebtAccountForm.ts). Formatting
+      // that literally would show "Dec 31, 1969" — group those under a plain
+      // label instead of a date that reads as a bug.
+      const key = item.date === 0 ? 'Opening Balances' : fmtDate(item.date);
       if (!byDay.has(key)) byDay.set(key, []);
       byDay.get(key)!.push(item);
     }

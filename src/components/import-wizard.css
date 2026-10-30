@@ -411,7 +411,7 @@ dialog.ff-modal.import-wizard-modal {
   font-size: var(--text-base);
 }
 
-.iw-review-txn-amount.debit  { color: var(--color-danger); }
+.iw-review-txn-amount.debit  { color: var(--status-past-due); }
 .iw-review-txn-amount.credit { color: var(--ff-green); }
 
 .iw-review-opts {

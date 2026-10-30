@@ -565,30 +565,31 @@ function collapseIfEmpty(root: HTMLElement): void {
   figure.addEventListener('animationend', () => { showDoor(root); }, { once: true });
 }
 
-// Called from the router's route-change hook in main.ts. Two cleanups, both
-// for the same reason: the door (and, transitively, a bare bubble that would
-// otherwise auto-dismiss into one later) is a real, clickable, fixed-position
-// element — left in place across navigation it follows the user onto other
-// pages and risks sitting on top of unrelated page controls in that same
-// corner.
+// Called from the router's route-change hook in main.ts on every navigation.
+// Clears a *bare* primary bubble (no items list) that's still showing when
+// the user navigates away, rather than leaving it to its OWN auto-dismiss
+// timer, which would otherwise fire later, on some other page (this is
+// exactly how Break Glass's "Edit Fields" button got blocked in testing: a
+// stale greeting's 6s auto-dismiss fired while the user had already moved
+// two pages on — see hideMascotForBreakGlass() below for how that page is
+// now handled instead). Clearing it leaves a door on the page just
+// navigated to — the same page a real explicit dismissal would have left
+// one on — so a bare bubble caught mid-flight by navigation (e.g. the
+// once-per-session daily greeting, clicked away from before its 6s timer)
+// doesn't vanish with no way back for the rest of the session.
 //
-// 1. Remove an existing door outright — it has nothing to do with whatever
-//    page the user is navigating to.
-// 2. A bare greeting/tip bubble (no items) has nothing tied to the page the
-//    user is leaving either, so let it go silently rather than risk ITS OWN
-//    auto-dismiss timer firing later, on some other page, and leaving a
-//    fresh door there instead (this is exactly how Break Glass's "Edit
-//    Fields" button got blocked in testing: a stale greeting's 6s
-//    auto-dismiss fired while the user had already moved two pages on).
-//    Item-bearing bubbles (the daily briefing, catch-up queue) are left
-//    untouched — those are explicitly meant to persist across navigation so
-//    the user can act on an item from a different page; only the bubble
-//    itself is removed if present, any catch-up cards stay and get
-//    repositioned.
-export function dismissDoor(): void {
+// An *existing* door is deliberately left alone here — it's a standing
+// "bring the mascot back" control the user already asked for by dismissing
+// it, and should stay reachable as they move around the app, not disappear
+// again on the very next page (an earlier version cleared it on every route
+// change, which is exactly the bug this was reported as: the door not
+// persisting across screens). Item-bearing bubbles (the daily briefing,
+// catch-up queue) are also left untouched — those are explicitly meant to
+// persist across navigation so the user can act on an item from a different
+// page; only the bare-bubble case is cleared here.
+export function clearBareBubbleOnNavigate(): void {
   const root = document.getElementById('mascot-root');
   if (!root) return;
-  root.querySelector(':scope > .mascot-door')?.remove();
 
   const stack = root.querySelector<HTMLElement>(':scope > .mascot-stack-cards');
   const primary = stack?.querySelector<HTMLElement>(':scope > .mascot-bubble');
@@ -601,7 +602,7 @@ export function dismissDoor(): void {
   if (figure) figure.style.pointerEvents = '';
 
   if (stack && stack.children.length === 0) {
-    root.innerHTML = ''; // no door — this was stale, unseen content, not an explicit dismissal
+    showDoor(root);
   } else {
     layoutStack(root);
   }

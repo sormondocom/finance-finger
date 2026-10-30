@@ -38,8 +38,8 @@
   color: var(--color-text);
 }
 
-.budget-stat-value.positive { color: var(--ff-green); }
-.budget-stat-value.negative { color: var(--color-danger); }
+.budget-stat-value.positive { color: var(--status-paid); }
+.budget-stat-value.negative { color: var(--status-past-due); }
 
 .budget-stat-sub {
   font-size: var(--text-xs);
@@ -208,9 +208,9 @@
   font-weight: var(--weight-bold);
 }
 
-.buckets-assign-value--positive { color: var(--ff-green); }
-.buckets-assign-value--negative { color: var(--color-danger); }
-.buckets-assign-value--zero     { color: var(--ff-gold-dark); }
+.buckets-assign-value--positive { color: var(--status-paid); }
+.buckets-assign-value--negative { color: var(--status-past-due); }
+.buckets-assign-value--zero     { color: var(--status-payday); }
 
 .buckets-grid {
   display: flex;
@@ -269,9 +269,9 @@
   margin-top: 2px;
 }
 
-.bucket-pct--ok      { color: var(--ff-green); }
-.bucket-pct--warning { color: var(--ff-rust); }
-.bucket-pct--over    { color: var(--color-danger); }
+.bucket-pct--ok      { color: var(--status-paid); }
+.bucket-pct--warning { color: var(--status-due-soon); }
+.bucket-pct--over    { color: var(--status-past-due); }
 
 /* ── No-budget categories ───────────────────────────────────────────────── */
 
@@ -441,7 +441,7 @@ dialog.ff-modal:has(.be-spending-ledger) {
   font-weight: var(--weight-semibold);
   white-space: nowrap;
   text-align: right;
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .be-spending-empty {

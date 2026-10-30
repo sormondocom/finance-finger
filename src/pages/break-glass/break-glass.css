@@ -47,7 +47,7 @@
 .bg-warning-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--color-danger);
+  color: var(--status-past-due);
   margin: 0;
 }
 
@@ -126,7 +126,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0;
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 /* ── Tab bar ─────────────────────────────────────────────────────────────── */
@@ -156,8 +156,8 @@
 }
 
 .bg-tab-btn--active {
-  color: var(--ff-navy);
-  border-bottom-color: var(--ff-navy);
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
 }
 
 [data-theme="dark"] .bg-tab-btn--active {
@@ -393,7 +393,7 @@
 }
 
 .bg-delete-btn {
-  color: var(--color-danger);
+  color: var(--status-past-due);
   border-color: rgba(239, 68, 68, 0.4);
 }
 
@@ -403,7 +403,7 @@
 
 .bg-detail-err {
   font-size: var(--text-xs);
-  color: var(--color-danger);
+  color: var(--status-past-due);
   flex-shrink: 0;
 }
 
@@ -472,7 +472,7 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  color: var(--ff-navy);
+  color: var(--color-accent);
   text-decoration: underline;
   word-break: break-all;
   text-align: left;
@@ -664,7 +664,7 @@
 
 .bg-scanner-err {
   font-size: var(--text-sm);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .bg-scanner-group {
@@ -719,7 +719,7 @@
 
 .bg-issue-badge--dangling {
   background: rgba(239, 68, 68, 0.12);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .bg-issue-badge--missing {

@@ -15,7 +15,7 @@
   font-size: 1.5rem;
   line-height: 1;
   flex-shrink: 0;
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .ff-error-body {

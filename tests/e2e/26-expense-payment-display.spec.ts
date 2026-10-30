@@ -10,7 +10,7 @@
  *  3.  Actual amount under threshold → green colour.
  *  4.  Actual amount 1-10% over threshold → light red (#f87171).
  *  5.  Actual amount 10-25% over threshold → medium red (#ef4444).
- *  6.  Actual amount 25%+ over threshold → full danger red (var(--color-danger)).
+ *  6.  Actual amount 25%+ over threshold → full danger red (var(--status-past-due)).
  *  7.  After payment, "✎ Edit Payment" button appears on a non-auto-pay paid expense.
  *  8.  Before payment, the "Edit Payment" button is absent.
  *  9.  Auto-pay expense never shows the "Edit Payment" button.
@@ -155,7 +155,7 @@ test('actual amount under threshold is coloured green', async () => {
   const style = await powerBillRow()
     .locator('[data-testid="expense-actual-amount"]')
     .getAttribute('style');
-  expect(style).toContain('var(--ff-green)');
+  expect(style).toContain('var(--status-paid)');
 });
 
 // ── Test 7-8: Edit Payment button ────────────────────────────────────────────
@@ -249,7 +249,7 @@ test('edit payment to $130 (30% over) → amount shows full danger red', async (
   const style = await powerBillRow()
     .locator('[data-testid="expense-actual-amount"]')
     .getAttribute('style');
-  expect(style).toContain('var(--color-danger)');
+  expect(style).toContain('var(--status-past-due)');
   await page.screenshot({ path: 'tests/screenshots/pay-display-06-danger-red.png' });
 });
 
@@ -263,6 +263,6 @@ test('edit payment back to $90 (under threshold) → amount returns to green', a
   const style = await powerBillRow()
     .locator('[data-testid="expense-actual-amount"]')
     .getAttribute('style');
-  expect(style).toContain('var(--ff-green)');
+  expect(style).toContain('var(--status-paid)');
   await page.screenshot({ path: 'tests/screenshots/pay-display-07-back-to-green.png' });
 });

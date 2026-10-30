@@ -3,23 +3,13 @@ import { saveSetting } from '@/db';
 import { readKeyInfo } from '@/crypto/pgp';
 import { buildExportBundle, encryptExport, decryptImport, applyImport } from '@/crypto/export';
 import { openFormModal } from '@/components/Modal';
+import { downloadFile } from '@/utils/download';
 import type { SharingKey } from '@/types';
 
 async function putSharingKeys(keys: SharingKey[]): Promise<void> {
   await saveSetting('sharingKeys', keys);
 }
 
-function triggerDownload(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 async function resolveDownloadPath(filename: string): Promise<string> {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -104,7 +94,7 @@ export function buildDataSharingSection(
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'btn btn-secondary';
-      removeBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger);flex-shrink:0';
+      removeBtn.style.cssText = 'font-size:var(--text-xs);color:var(--status-past-due);flex-shrink:0';
       removeBtn.textContent = 'Remove';
       removeBtn.addEventListener('click', async () => {
         sharingKeys = sharingKeys.filter((k) => k.id !== sk.id);
@@ -498,7 +488,7 @@ function openExportModal(
         const pad = (n: number) => String(n).padStart(2, '0');
         const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
         const filename = `ff-export-${ts}.ffx`;
-        triggerDownload(armored, filename);
+        downloadFile(armored, filename);
         close();
         const savedPath = await resolveDownloadPath(filename);
         showToast(`Saved to: ${savedPath}`, 6000);

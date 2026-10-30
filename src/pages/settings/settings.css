@@ -131,7 +131,7 @@
 
 .theme-btn.active {
   border-color: var(--ff-gold);
-  color: var(--ff-navy);
+  color: var(--color-accent);
   background: rgba(201, 168, 76, 0.12);
 }
 
@@ -309,7 +309,7 @@
 
 .export-import-warning {
   font-size: var(--text-xs);
-  color: var(--color-danger);
+  color: var(--status-past-due);
   background: rgba(239, 68, 68, 0.06);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-sm);
@@ -319,7 +319,7 @@
 .export-import-error {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 /* ── Member roster ──────────────────────────────────────────────────────── */
@@ -448,7 +448,7 @@
 }
 
 .settings-danger .setting-row-label {
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 /* ── Reminders / Notifications list ────────────────────────────────────── */

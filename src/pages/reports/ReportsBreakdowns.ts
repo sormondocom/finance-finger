@@ -76,7 +76,7 @@ export function buildCategoryBreakdown(
     const row = document.createElement('div');
     row.className = 'reports-table-row';
     row.innerHTML = `
-      <span class="reports-color-dot" style="background:${cat.color}"></span>
+      <span class="reports-color-dot" style="background:${escapeHtml(cat.color)}"></span>
       <span class="reports-table-name">${escapeHtml(cat.name)}</span>
       <span class="reports-table-pct">${pct}%</span>
       <span class="reports-table-value">${fmtCents.format(total)}</span>

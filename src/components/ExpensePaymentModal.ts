@@ -99,7 +99,7 @@ export function openExpensePaymentModal({
         const over = val - overageLimit;
         const label = expense.threshold ? 'Over target by' : `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by`;
         overageMsg.textContent = `⚠ ${label} ${fmtCents.format(over)}`;
-        overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
+        overageMsg.style.cssText = 'display:block;color:var(--status-past-due);font-size:var(--text-xs);margin-top:var(--space-1)';
       } else {
         overageMsg.style.display = 'none';
       }

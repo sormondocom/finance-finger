@@ -714,7 +714,7 @@ export class BreakGlassPage {
     } catch (e) {
       const errSpan = document.createElement('span');
       errSpan.className = 'bg-list-empty';
-      errSpan.style.color = 'var(--color-danger)';
+      errSpan.style.color = 'var(--status-past-due)';
       errSpan.textContent = `Load failed: ${(e as Error).message}`;
       this.listDiv.replaceChildren(errSpan);
       this.countEl.textContent = '';

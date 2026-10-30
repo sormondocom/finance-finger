@@ -12,6 +12,13 @@
   margin-bottom: var(--space-4);
 }
 
+.reports-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
 .reports-presets {
   display: flex;
   flex-wrap: wrap;
@@ -249,6 +256,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.reports-card-print-btn {
+  align-self: flex-end;
+  margin-top: var(--space-1);
 }
 
 /* ── Chart wrappers ─────────────────────────────────────────────────────────── */
@@ -549,7 +561,7 @@
 
 .overage-count-badge {
   font-weight: var(--weight-bold);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .overage-month-grid {
@@ -598,7 +610,7 @@
 .overage-month-diff {
   font-size: 10px;
   font-weight: var(--weight-bold);
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .overage-month-ok {
@@ -767,13 +779,13 @@
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
-  color: var(--ff-green);
+  color: var(--status-paid);
   transition: color 0.4s ease;
   line-height: 1;
 }
 
-.lb-balance-val.lb-warning { color: var(--ff-gold-dark); }
-.lb-balance-val.lb-danger  { color: var(--color-danger);  }
+.lb-balance-val.lb-warning { color: var(--status-due-soon); }
+.lb-balance-val.lb-danger  { color: var(--status-past-due); }
 
 .lb-balance-sub {
   font-size: var(--text-xs);
@@ -862,8 +874,8 @@
   color: var(--color-text);
 }
 
-.lb-sv-red   { color: var(--color-danger); }
-.lb-sv-green { color: var(--ff-green);     }
+.lb-sv-red   { color: var(--status-past-due); }
+.lb-sv-green { color: var(--status-paid);     }
 
 /* ── Day info row ───────────────────────────────────────────────────────────── */
 
@@ -897,9 +909,9 @@
 }
 
 .lb-chip--payday  {
-  background: rgba(201, 168, 76, 0.12);
-  color: var(--ff-gold-dark, var(--ff-gold));
-  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: var(--status-payday-fill);
+  color: var(--status-payday);
+  border: 1px solid var(--status-payday);
 }
 
 .lb-chip--expense {
@@ -1114,4 +1126,159 @@
   white-space: nowrap;
   text-align: right;
   min-width: 72px;
+}
+
+/* ── Accounts Summary ──────────────────────────────────────────────────── */
+
+.accounts-summary-group {
+  margin-top: var(--space-4);
+}
+
+.accounts-summary-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+
+.accounts-summary-group-title {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.accounts-summary-group-total {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-summary-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accounts-summary-row {
+  display: grid;
+  grid-template-columns: repeat(var(--accounts-summary-cols, 4), 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  background: var(--color-bg-elevated);
+}
+
+.accounts-summary-row > span:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text-muted);
+}
+
+.accounts-summary-row--head {
+  background: transparent;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  padding-top: 0;
+  padding-bottom: var(--space-1);
+}
+
+.accounts-summary-row--head > span:not(:first-child) {
+  color: var(--color-text-muted);
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────
+   The range picker, preset buttons, and expandable KPI detail toggles are
+   screen-only interactions; charts and tables are what's worth putting on
+   paper. break-inside:avoid keeps a card from being sliced across a page
+   boundary wherever that's reasonably avoidable. */
+@media print {
+  .reports-presets,
+  .reports-custom-row,
+  .reports-kpi-detail,
+  .reports-kpi--expandable .reports-kpi-sub {
+    display: none !important;
+  }
+
+  .reports-page .card,
+  .reports-page .reports-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc;
+    min-width: 0;
+  }
+
+  /* break-inside:avoid above only stops a single card from being split
+     across a page boundary — it doesn't stop the browser from packing
+     several cards onto the same page whenever they happen to fit (which is
+     why a compact card like Leaky Bucket was landing on the same page as
+     whatever came before it). Force every report section onto its own
+     page. The first two direct children of .reports-page (the range
+     header and the KPI overview) are the exception — they're meant to
+     share a single front page, not the start of a new one.
+     Suppressed (via .reports-page--isolate, set by printOnlyCard() in
+     ReportsUtils.ts) when printing a single card: nth-child position is
+     unaware that every other section is hidden, and would otherwise force
+     a blank leading page before the one card left visible. */
+  .reports-page:not(.reports-page--isolate) > *:nth-child(n+3) {
+    break-before: page;
+  }
+
+  .reports-page {
+    background: white !important;
+  }
+
+  /* Chart.js (responsive:true) sizes each <canvas> to an explicit inline
+     pixel width captured from the on-screen layout, and never gets a chance
+     to redraw at the page's narrower print width — window.print() doesn't
+     fire the resize/ResizeObserver callbacks it relies on. Left alone, that
+     oversized canvas (via its default min-width:auto) drags its flex/grid
+     ancestors wider than the page along with it, and the excess is clipped
+     at the page edge rather than reaching the printout. Let every ancestor
+     shrink below its content's intrinsic width, then force the canvas's own
+     box down to fit — scaling the already-rendered bitmap down rather than
+     letting it dictate layout width. */
+  .reports-chart-wrap {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .reports-chart-wrap canvas {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .reports-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .reports-grid-2 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .accounts-summary-row {
+    grid-template-columns: repeat(var(--accounts-summary-cols, 4), minmax(0, 1fr));
+  }
+
+  /* Applied by printOnlyCard() (ReportsUtils.ts) to every section that
+     isn't the one card the user asked to print — removed again once the
+     print dialog closes. */
+  .print-isolate-hide {
+    display: none !important;
+  }
+
+  /* .reports-income-chips is a horizontally-scrolling row on screen (one
+     fixed-width chip per month, overflow-x:auto) — there's no scrollbar on
+     paper, so anything past the visible width was silently clipped at the
+     page edge instead of reaching the printout at all. Wrap onto additional
+     rows instead. */
+  .reports-income-chips {
+    overflow-x: visible !important;
+    flex-wrap: wrap !important;
+  }
 }

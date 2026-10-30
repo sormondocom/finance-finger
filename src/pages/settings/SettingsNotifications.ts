@@ -118,7 +118,7 @@ export function buildNotificationsSection(
 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn btn-secondary';
-      delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger)';
+      delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--status-past-due)';
       delBtn.textContent = 'Delete';
       delBtn.addEventListener('click', async () => {
         if (!await openConfirmDialog({ message: `Delete reminder "${n.label}"?` })) return;

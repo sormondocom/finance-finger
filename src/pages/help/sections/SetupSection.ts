@@ -32,8 +32,8 @@ function cardKeyPair(): HTMLElement {
       <p>Financial Finger uses <strong>OpenPGP</strong> (ECC curve25519) to protect your data. Two mathematically linked keys are generated:</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
-      <div class="calc-result good" style="border-left-color:var(--ff-navy)">
-        <div style="font-weight:700;color:var(--ff-navy);margin-bottom:var(--space-2)">🔓 Public Key</div>
+      <div class="calc-result good" style="border-left-color:var(--color-accent)">
+        <div style="font-weight:700;color:var(--color-accent);margin-bottom:var(--space-2)">🔓 Public Key</div>
         <ul style="margin:0;padding-left:var(--space-4);font-size:var(--text-sm);line-height:1.7">
           <li>Stored in the extension</li>
           <li>Used to encrypt your vault key and exports</li>

@@ -272,7 +272,7 @@ The vault key is a random 32-byte `CryptoKey` (`extractable: false`) generated a
 All financial records are stored in IndexedDB via [`idb`](https://github.com/jakearchibald/idb) with a typed schema. Every value is an `EncryptedRecord` — the raw domain object is never written to disk. See the auto-generated [Data Model](docs/data-model.md) for the full field reference.
 
 ```
-IndexedDB: "financial-finger" (v14)
+IndexedDB: "financial-finger" (v15)
   ├─ members                (key: id)
   ├─ income_sources         (key: id)
   ├─ expense_categories     (key: id)
@@ -286,6 +286,7 @@ IndexedDB: "financial-finger" (v14)
   ├─ account_transfers      (key: id)
   ├─ import_records         (key: id)      ← CSV import history for deduplication
   ├─ transaction_rules      (key: id)      ← auto-match rules for repeat imports
+  ├─ ledger                 (key: id)      ← double-entry ledger entries; balances are derived by replay
   ├─ scenarios              (key: id)
   ├─ calendar_marks         (key: YYYY-MM-DD)
   ├─ calendar_memos         (key: id)
@@ -424,10 +425,10 @@ src/
 ├─ engine/
 │   └─ amortize.ts         Pure amortization and trap-detection functions
 ├─ mascot/
-│   ├─ svgs.ts             Inline SVG for Buck and Penny
-│   ├─ mascot.css          Mosey-in, idle, react, leaving, celebration animations
+│   ├─ svgs.ts             Inline SVG for Buck, Penny, the kids, the pug, and the door
+│   ├─ mascot.css          Mosey-in, idle, react, leaving, door-open, celebration animations
 │   ├─ messages.ts         Dialogue banks, tip banks, getDailyTip, getLines
-│   └─ Mascot.ts           showMascot, updateMascotItems, greet, celebration overlay
+│   └─ Mascot.ts           showMascot, updateMascotItems, greet, showCatchUpQueue, dismissDoor, celebration overlay
 ├─ pages/
 │   ├─ setup/              6-step onboarding wizard
 │   ├─ unlock/             Vault unlock screen

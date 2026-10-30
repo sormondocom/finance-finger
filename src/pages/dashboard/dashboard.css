@@ -46,7 +46,7 @@
 
 .dashboard-title {
   font-size: var(--text-3xl);
-  color: var(--ff-navy);
+  color: var(--color-accent);
 }
 
 .dashboard-subtitle {
@@ -78,7 +78,7 @@
 .summary-card.income  { border-top-color: var(--ff-green); }
 .summary-card.expense { border-top-color: var(--ff-rust); }
 .summary-card.surplus { border-top-color: var(--ff-gold); }
-.summary-card.debt    { border-top-color: var(--ff-navy); }
+.summary-card.debt    { border-top-color: var(--color-accent); }
 
 .summary-card-label {
   font-size: var(--text-xs);
@@ -109,7 +109,7 @@
 }
 
 .bd-sep { color: var(--color-border); }
-.bd-pos { color: var(--ff-green); }
+.bd-pos { color: var(--status-paid); }
 .bd-neg { color: var(--ff-rust); }
 
 /* ── Empty states ──────────────────────────────────────────────────────── */
@@ -193,8 +193,17 @@
 
 .dashboard-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr), not plain 1fr: a bare 1fr track won't shrink below its
+     content's intrinsic min-content width — an empty-state panel's
+     button/text was wide enough on its own to force the whole two-column
+     grid wider than the viewport on narrow screens, well past where
+     anything else on the page was overflowing. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-6);
+}
+
+@media (max-width: 700px) {
+  .dashboard-panels { grid-template-columns: 1fr; }
 }
 
 .dashboard-panel h2 {
@@ -284,7 +293,7 @@
   letter-spacing: 0.05em;
 }
 
-.ma-income { color: var(--ff-green); }
+.ma-income { color: var(--status-paid); }
 .ma-expense { color: var(--ff-rust); }
 
 .ma-empty {
@@ -336,7 +345,7 @@
   text-align: right;
 }
 
-.ma-amount-income { color: var(--ff-green); }
+.ma-amount-income { color: var(--status-paid); }
 .ma-amount-expense { color: var(--ff-rust); }
 
 .ma-subtotal {
@@ -410,7 +419,7 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   text-align: right;
-  color: var(--ff-green);
+  color: var(--status-paid);
 }
 
 .report-net-neg {
@@ -477,8 +486,8 @@
 /* ── Payment Reminders card ──────────────────────────────────────────────── */
 
 .payment-reminders-card {
-  border-color: rgba(220, 38, 38, 0.3);
-  background: rgba(220, 38, 38, 0.03);
+  border-color: color-mix(in srgb, var(--status-past-due) 30%, transparent);
+  background: color-mix(in srgb, var(--status-past-due) 3%, transparent);
 }
 
 .payment-reminders-title-row {
@@ -523,13 +532,13 @@
 }
 
 .payment-reminder-row--past-due {
-  border-color: rgba(220, 38, 38, 0.4);
-  background: rgba(220, 38, 38, 0.04);
+  border-color: var(--status-past-due);
+  background: color-mix(in srgb, var(--status-past-due) 4%, transparent);
 }
 
 .payment-reminder-row--due-soon {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.04);
+  border-color: var(--status-due-soon);
+  background: color-mix(in srgb, var(--status-due-soon) 4%, transparent);
 }
 
 .payment-reminder-icon { font-size: 1.1rem; flex-shrink: 0; }
@@ -563,13 +572,13 @@
 }
 
 .payment-reminder-label--past-due {
-  background: rgba(220, 38, 38, 0.12);
-  color: var(--color-danger);
-  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: var(--status-past-due-fill);
+  color: var(--status-past-due);
+  border: 1px solid var(--status-past-due);
 }
 
 .payment-reminder-label--due-soon {
-  background: rgba(245, 158, 11, 0.12);
-  color: #B45309;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: var(--status-due-soon-fill);
+  color: var(--status-due-soon);
+  border: 1px solid var(--status-due-soon);
 }

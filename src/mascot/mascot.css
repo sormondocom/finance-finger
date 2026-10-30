@@ -18,6 +18,13 @@
   pointer-events: none;
 }
 
+/* Break Glass's own controls land in this same bottom-right corner; this
+   hides the mascot/door there without losing it (see toggleMascotForBreakGlass
+   in main.ts) — it reappears exactly as it was on navigating to any other page. */
+#mascot-root.mascot-hidden {
+  display: none;
+}
+
 /* ── Mosey-in animation ────────────────────────────────────────────────── */
 
 @keyframes mosey-in {
@@ -245,15 +252,15 @@
 }
 
 .mascot-item-status--critical {
-  background: rgba(220, 38, 38, 0.12);
-  color: var(--color-danger);
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: var(--status-past-due-fill);
+  color: var(--status-past-due);
+  border: 1px solid var(--status-past-due);
 }
 
 .mascot-item-status--warning {
-  background: rgba(180, 83, 9, 0.12);
-  color: #b45309;
-  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: var(--status-due-soon-fill);
+  color: var(--status-due-soon);
+  border: 1px solid var(--status-due-soon);
 }
 
 .mascot-item-date {

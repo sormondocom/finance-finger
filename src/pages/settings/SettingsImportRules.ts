@@ -131,7 +131,7 @@ export function buildImportRulesSection(showToast: (msg: string) => void): HTMLE
 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn btn-secondary';
-      delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger);flex-shrink:0';
+      delBtn.style.cssText = 'font-size:var(--text-xs);color:var(--status-past-due);flex-shrink:0';
       delBtn.textContent = 'Remove';
       delBtn.addEventListener('click', async () => {
         await deleteTransactionRule(rule.id);

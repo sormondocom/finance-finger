@@ -22,13 +22,20 @@ const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 
 // Past-due bill: 6 days ago (min day 1)
 const PAST_DUE_BILL_DAY = Math.max(1, dayOfMonth - 6);
-// Due-soon bill: 3 days from now (max day 27)
-const DUE_SOON_BILL_DAY = Math.min(27, dayOfMonth + 3);
+// Due-soon bill: 3 days from now. computeBillStatus (src/utils/billStatus.ts)
+// always re-derives "day of month" against the *current* real month/year —
+// it ignores which month the #ef-duedate value itself was entered in — so a
+// day number has to fit within the current month's actual length or the
+// offset can't be represented at all this month (a hardcoded cap, e.g. 27,
+// broke silently once dayOfMonth passed it: Math.min(27, dayOfMonth + 3)
+// could land ON OR BEFORE today, producing a past-due day instead of
+// due-soon). null means no valid due-soon day exists this month (today is
+// at or past the month's last 3 days) — callers must test.skip.
+const daysInMonth = new Date(thisYear, today.getMonth() + 1, 0).getDate();
+const DUE_SOON_BILL_DAY: number | null = dayOfMonth + 3 <= daysInMonth ? dayOfMonth + 3 : null;
 
 // Past-due card: 4 days ago (min day 1, must differ from bill)
 const PAST_DUE_CARD_DAY = Math.max(1, dayOfMonth - 4);
-// Due-soon card: 5 days from now (max day 28)
-const DUE_SOON_CARD_DAY = Math.min(28, dayOfMonth + 5);
 
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
@@ -88,13 +95,14 @@ test('adds a past-due recurring bill', async () => {
 });
 
 test('adds a due-soon recurring bill', async () => {
+  test.skip(DUE_SOON_BILL_DAY === null, 'No due-soon day available in the current month');
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await page.fill('#ef-desc', 'Phone Bill');
   await page.fill('#ef-amount', '80');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_BILL_DAY));
+  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_BILL_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Phone Bill' })).toBeVisible();
 });
@@ -144,7 +152,9 @@ test('reminder rows are sorted with past-due items first', async () => {
 
 test('past-due items appear before due-soon items', async () => {
   const rows = page.locator('[data-testid="payment-reminder-row"]');
-  await expect(rows).toHaveCount(3); // 1 past-due bill + 1 past-due card + 1 due-soon bill
+  // 1 past-due bill + 1 past-due card, plus the due-soon bill unless this
+  // month had no valid due-soon day to create it with (see DUE_SOON_BILL_DAY).
+  await expect(rows).toHaveCount(DUE_SOON_BILL_DAY === null ? 2 : 3);
 
   // All past-due rows should precede all due-soon rows
   const severities: string[] = [];

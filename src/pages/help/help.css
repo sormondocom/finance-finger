@@ -55,7 +55,7 @@
 }
 
 .help-tab.active {
-  color: var(--ff-navy);
+  color: var(--color-accent);
   border-bottom-color: var(--ff-gold);
 }
 

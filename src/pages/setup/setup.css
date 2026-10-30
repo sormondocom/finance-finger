@@ -12,7 +12,7 @@
 
 .setup-header h1 {
   font-size: var(--text-3xl);
-  color: var(--ff-navy);
+  color: var(--color-accent);
   margin-bottom: var(--space-2);
 }
 
@@ -89,7 +89,7 @@
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-  color: var(--ff-navy);
+  color: var(--color-accent);
 }
 
 .mascot-option-desc {
@@ -152,7 +152,7 @@
 }
 
 .tab-btn.active {
-  color: var(--ff-navy);
+  color: var(--color-accent);
   border-bottom-color: var(--ff-gold);
 }
 
@@ -219,7 +219,7 @@
 .household-header h3 {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--ff-navy);
+  color: var(--color-accent);
   margin: 0;
 }
 
@@ -321,7 +321,7 @@
   border-color: var(--ff-gold);
   background: rgba(201, 168, 76, 0.06);
   box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
-  color: var(--ff-navy);
+  color: var(--color-accent);
 }
 
 .adder-type-avatar {

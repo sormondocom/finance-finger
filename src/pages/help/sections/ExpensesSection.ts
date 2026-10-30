@@ -45,9 +45,9 @@ function cardBillTracking(): HTMLElement {
       <p>A recurring expense becomes a <strong>tracked bill</strong> when you set a due day (1–28). The extension monitors its payment status automatically each month:</p>
     </div>
     <div class="help-status-grid">
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-green)"></span><div><strong>✓ Paid</strong> — marked paid this calendar month (green left border)</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:#f59e0b"></span><div><strong>⏰ Due Soon</strong> — due within 7 days (amber left border)</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>⚠ Past Due</strong> — due day passed without payment — pulsing red border</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-paid)"></span><div><strong>✓ Paid</strong> — marked paid this calendar month (green left border)</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-due-soon)"></span><div><strong>⏰ Due Soon</strong> — due within 7 days (amber left border)</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-past-due)"></span><div><strong>⚠ Past Due</strong> — due day passed without payment — pulsing red border</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-gold)"></span><div><strong>⚡ Threshold</strong> — bill has a monthly cost target set (variable-rate bills only)</div></div>
       <div class="help-status-row"><span class="help-status-dot" style="background:rgba(99,102,241,0.5)"></span><div><strong>📌 Fixed rate</strong> — amount never varies; payment pre-fills automatically (shown on non-auto-pay fixed bills)</div></div>
     </div>

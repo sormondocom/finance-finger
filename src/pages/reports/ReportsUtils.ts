@@ -47,7 +47,68 @@ export function makeReportCard(title: string, subtitle?: string): HTMLElement {
       ${subtitle ? `<p class="text-xs text-muted">${subtitle}</p>` : ''}
     </div>
   `;
+  addCardPrintButton(el);
   return el;
+}
+
+// Appends a per-card "print just this one" button into a card's header.
+// Every report built via makeReportCard() gets this automatically; cards
+// with a custom header (Leaky Bucket) call it directly with where to put
+// the button.
+export function addCardPrintButton(card: HTMLElement, header?: HTMLElement): void {
+  const target = header ?? card.querySelector<HTMLElement>('.reports-card-header');
+  if (!target) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-secondary btn-sm no-print reports-card-print-btn';
+  btn.textContent = '🖨 Print';
+  btn.setAttribute('data-testid', 'reports-card-print-btn');
+  btn.addEventListener('click', () => printOnlyCard(card));
+  target.appendChild(btn);
+}
+
+// Prints a single report card without the rest of the page: walks up from
+// the card to the Reports page root, hiding every other top-level section
+// along the way — and, for a section that's a wrapper around the card (the
+// two-column rows some cards share), hiding only its other children rather
+// than the whole wrapper. Restores visibility once the print dialog closes.
+// No per-card "is this printable" marker needed — isolation is purely
+// structural (does this ancestor contain the target card or not).
+export function printOnlyCard(card: HTMLElement): void {
+  const page = card.closest<HTMLElement>('.reports-page');
+  if (!page) { window.print(); return; }
+
+  const hidden: HTMLElement[] = [];
+  const hide = (el: HTMLElement): void => { el.classList.add('print-isolate-hide'); hidden.push(el); };
+
+  Array.from(page.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) return;
+    if (child === card) return;
+    if (child.contains(card)) {
+      Array.from(child.children).forEach((grandchild) => {
+        if (grandchild instanceof HTMLElement && grandchild !== card && !grandchild.contains(card)) {
+          hide(grandchild);
+        }
+      });
+      return;
+    }
+    hide(child);
+  });
+
+  // The whole-page print puts every report section on its own page (see
+  // reports.css), using nth-child position to decide what counts as "not
+  // the front page". That positional rule doesn't know the card is now the
+  // only visible thing — left alone it'd force a blank leading page here.
+  // Suppress it while isolated.
+  page.classList.add('reports-page--isolate');
+
+  const cleanup = (): void => {
+    page.classList.remove('reports-page--isolate');
+    hidden.forEach((el) => el.classList.remove('print-isolate-hide'));
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
 }
 
 export function makeReportEmpty(msg: string): HTMLElement {

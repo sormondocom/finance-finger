@@ -270,7 +270,7 @@ export class SettingsPage {
         removeBtn.className = 'btn btn-secondary';
         removeBtn.setAttribute('data-testid', 'settings-member-remove');
         removeBtn.setAttribute('data-member-id', m.id);
-        removeBtn.style.cssText = 'font-size:var(--text-xs);color:var(--color-danger);margin-left:auto';
+        removeBtn.style.cssText = 'font-size:var(--text-xs);color:var(--status-past-due);margin-left:auto';
         removeBtn.textContent = 'Remove';
         removeBtn.addEventListener('click', async () => {
           if (!await openConfirmDialog({ message: `Remove "${m.name}"? Their income sources will also be removed.`, confirmLabel: 'Remove' })) return;
@@ -607,7 +607,7 @@ export class SettingsPage {
         <span class="setting-row-desc">The vault stays open for the full browser session. Closing all tabs locks it automatically.</span>
       </div>
       <div class="setting-row-control" style="display:flex;align-items:center;gap:var(--space-3)">
-        <span style="font-size:var(--text-sm);font-weight:700;color:${open ? 'var(--ff-green)' : 'var(--color-danger)'}">
+        <span style="font-size:var(--text-sm);font-weight:700;color:${open ? 'var(--status-paid)' : 'var(--status-past-due)'}">
           ${open ? '🔓 Unlocked' : '🔒 Locked'}
         </span>
       </div>
@@ -616,7 +616,7 @@ export class SettingsPage {
     if (open) {
       const lockBtn = document.createElement('button');
       lockBtn.className = 'btn btn-secondary';
-      lockBtn.style.cssText = 'color:var(--color-danger);border-color:rgba(239,68,68,0.4);font-size:var(--text-xs)';
+      lockBtn.style.cssText = 'color:var(--status-past-due);border-color:rgba(239,68,68,0.4);font-size:var(--text-xs)';
       lockBtn.textContent = '🔒 Lock Vault';
       lockBtn.addEventListener('click', () => {
         closeVault();

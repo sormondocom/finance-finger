@@ -65,10 +65,13 @@ A forensic examination of your browser's storage will find:
 | `chrome.storage.local` — `theme` | Light/dark preference (`"light"` \| `"dark"`) | ❌ No — non-financial UI preference |
 | `chrome.storage.local` — `currency` | Selected currency code (e.g. `"USD"`) | ❌ No — display setting only |
 | `chrome.storage.local` — `lastSnapshotError` | Error message from last failed auto-snapshot, if any | ❌ No — error text only, no financial data |
-| `chrome.storage.local` — `pendingPaydayCheck` | Flag set by background service worker; cleared on next app open | ❌ No — boolean flag, no financial data |
-| `chrome.storage.local` — `missedPaydayPromptDays` | ISO date strings of missed paydays already shown to the user | ❌ No — dates only, no amounts or account names |
+| `chrome.storage.local` — `lastOpenedAt` | Timestamp of the last real launch | ❌ No — a timestamp, nothing financial |
+| `chrome.storage.local` — `catchUpWindowDays` | How many days back the reopen catch-up check looks for missed paydays/bills/debt payments | ❌ No — a number, no financial data |
+| `chrome.storage.local` — `catchUpDeclinedCycles` | Map of correlation ID → decline timestamp, for lapsed debt/bill cycles the user dismissed | ❌ No — correlation IDs and timestamps only; no amounts or account names |
+| `chrome.storage.local` — `staleReminderDays` | Days of inactivity before the background "come back" notification fires | ❌ No — a number, no financial data |
+| `chrome.storage.local` — `lastStaleNudgeAt` | Timestamp of the last stale-reminder notification, for dedup | ❌ No — a timestamp, nothing financial |
 | `chrome.storage.local` — `accountResetTimestamps` | Map of account ID → last reset timestamp | ❌ No — timestamps only; account IDs are random UUIDs |
-| `chrome.storage.local` — `breakGlassLog` | Audit log entries from the Break Glass admin tool | ❌ No — contains store names and record counts, not financial figures |
+| `chrome.storage.local` — `bgAuditLog` | Audit log entries from the Break Glass admin tool | ❌ No — contains store names and record counts, not financial figures |
 
 **In practice:** someone with physical access to your browser profile can see *when* you took snapshots and what you named them. They cannot see your income, balances, debts, or any financial figures.
 

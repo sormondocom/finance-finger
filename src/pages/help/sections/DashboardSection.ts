@@ -71,7 +71,7 @@ function cardMascot(): HTMLElement {
     <div class="help-steps">
       <div class="help-step"><span class="help-step-num">🚪</span><div class="help-step-body">Dismissing leaves a small <strong>closed door</strong> behind in the same corner. Click it to bring the mascot back out — no page reload needed.</div></div>
       <div class="help-step"><span class="help-step-num">🔁</span><div class="help-step-body">If a debt or bill was still <strong>past due or due soon</strong> when you dismissed the briefing, clicking the door brings that same briefing back with whatever's still outstanding — dismissing the mascot never makes a real warning go away.</div></div>
-      <div class="help-step"><span class="help-step-num">📍</span><div class="help-step-body">The door only stays on the page where you dismissed the mascot — navigating elsewhere clears it, so it won't end up sitting on top of a button on a different page.</div></div>
+      <div class="help-step"><span class="help-step-num">📍</span><div class="help-step-body">The door follows you — it stays put as you move between pages, so it's always reachable, not just on the page where you first dismissed the mascot. The one exception is Break Glass: its own controls share that same corner, so the door is briefly hidden there and reappears right where it was once you leave.</div></div>
     </div>
   `;
   return card;

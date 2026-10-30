@@ -23,7 +23,7 @@ export class UnlockPage {
       </div>
 
       <div class="form-group">
-        <label class="form-label">Private key</label>
+        <label class="form-label" for="unlock-key">Private key</label>
         <div class="file-input-row">
           <button type="button" class="btn btn-secondary btn-sm" id="unlock-key-pick" data-testid="unlock-choose-file-btn">Choose file…</button>
           <input id="unlock-key-file" type="file" accept=".asc,.txt,.key" style="display:none" data-testid="unlock-key-file-input" />
@@ -52,6 +52,20 @@ export class UnlockPage {
         <summary style="cursor:pointer">Public key fingerprint</summary>
         <div class="unlock-fingerprint" id="unlock-fingerprint" style="margin-top:var(--space-2)" data-testid="unlock-fingerprint">
           Loading...
+        </div>
+      </details>
+
+      <details style="font-size:var(--text-sm);color:var(--color-text-muted)" data-testid="unlock-lost-key-details">
+        <summary style="cursor:pointer">Lost your private key?</summary>
+        <div class="unlock-key-warning" style="margin-top:var(--space-2)">
+          <span class="unlock-key-warning-icon">⚠️</span>
+          <div>
+            <strong>If it's truly gone, this vault's data can't be recovered.</strong><br>
+            We never stored it and have no way to retrieve it for you — same as when you
+            first saved it in Setup. Double-check for paste errors (extra whitespace,
+            a truncated copy) and that you're using the right passphrase first; those
+            are the most common causes of a failed unlock, not a lost key.
+          </div>
         </div>
       </details>
     `;
@@ -97,7 +111,8 @@ export class UnlockPage {
         this.onUnlocked();
       } catch {
         errEl.textContent =
-          'Could not unlock vault. Check your private key and passphrase.';
+          'Could not unlock vault. Check your private key and passphrase — a pasted key with extra whitespace or a truncated copy is the most common cause. ' +
+          'If you believe your key is genuinely lost, see "Lost your private key?" below.';
         errEl.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Unlock vault →';

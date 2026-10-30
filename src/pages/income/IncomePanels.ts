@@ -205,7 +205,7 @@ export function buildSourcesCard(ctx: IncomePanelContext): HTMLElement {
     groupHeader.className = 'source-group-header';
     groupHeader.innerHTML = `
       <span>${escapeHtml(member.name)}</span>
-      <span style="color:var(--ff-green)">${memberOneTime > 0 ? fmt.format(memberTotal) : totalLabel}</span>
+      <span style="color:var(--status-paid)">${memberOneTime > 0 ? fmt.format(memberTotal) : totalLabel}</span>
     `;
     group.appendChild(groupHeader);
 

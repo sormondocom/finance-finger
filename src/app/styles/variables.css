@@ -32,6 +32,31 @@
   --color-warning:     var(--ff-rust);
   --color-border:      #DDD0B8;
 
+  /* Status colors — semantically distinct from the brand palette above
+     even though they share hues with it in light mode. Status badges
+     (paid/past-due/due-soon/upcoming/payday — calendar chips, expense/debt
+     badges, mascot alerts, report badges) should always reference these,
+     never --ff-green/--color-danger/--ff-rust/--ff-sage directly, so they
+     can be re-tuned per theme independently of brand identity colors like
+     the navy sidebar. Light-mode values equal the original brand colors
+     (already good contrast on a cream surface); dark mode redefines them
+     below — see that block for why. */
+  --status-paid:            var(--ff-green);
+  --status-paid-fill:       rgba(45, 90, 39, 0.08);
+  --status-past-due:        var(--color-danger);
+  --status-past-due-fill:   rgba(220, 38, 38, 0.08);
+  --status-due-soon:        var(--ff-rust);
+  --status-due-soon-fill:   rgba(180, 83, 9, 0.08);
+  --status-ok:              var(--ff-sage);
+  --status-ok-fill:         rgba(107, 127, 94, 0.08);
+  /* Theme-aware, unlike the other four: --ff-gold reads well on a dark
+     surface (7.29:1) but fails even the 3:1 UI-boundary minimum on a light
+     one (2.29:1); --ff-gold-dark is the inverse (5.09:1 light, 3.27:1
+     dark — under the 4.5:1 text minimum). Neither single value works in
+     both themes, so --status-payday resolves to whichever one does. */
+  --status-payday:          var(--ff-gold-dark);
+  --status-payday-fill:     rgba(201, 168, 76, 0.1);
+
   /* Typography */
   --font-body:    'Georgia', 'Times New Roman', serif;
   --font-ui:      system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -91,6 +116,54 @@
     --color-text:        #F0E8D4;
     --color-text-muted:  #A89878;
     --color-border:      #3A2E1E;
+
+    /* The brand-color status values above (greens/reds/rust tuned for a
+       cream surface) measured well under WCAG's 3:1 UI-component minimum
+       against this dark surface — e.g. --ff-green's border/text contrast
+       dropped to 2.06:1, with the fill nearly indistinguishable from the
+       cell behind it (1.05:1). These are lightened variants of the same
+       hues, re-verified to clear 4.5:1 against --color-bg-elevated
+       (#241D14). --status-payday switches from --ff-gold-dark to --ff-gold
+       here too — gold-dark (chosen for light-mode text) only reaches
+       3.27:1 on this dark surface; plain gold reaches 7.29:1. */
+    --status-paid:            #46973C;
+    --status-paid-fill:       rgba(70, 151, 60, 0.16);
+    --status-past-due:        #EB4F4F;
+    --status-past-due-fill:   rgba(235, 79, 79, 0.16);
+    --status-due-soon:        #E06101;
+    --status-due-soon-fill:   rgba(224, 97, 1, 0.16);
+    --status-ok:              #748D65;
+    --status-ok-fill:         rgba(116, 141, 101, 0.16);
+    --status-payday:          var(--ff-gold);
+
+    /* --ff-navy (#1B2A4A) is near-black and unreadable as heading/accent
+       text on this dark surface (1.3:1). --color-accent is the semantic
+       UI layer built on top of it for exactly this use, so it gets its
+       own dark-mode value here rather than altering the brand hex itself
+       — a lightened navy that keeps the same cool-blue identity distinct
+       from the gold accent family, re-verified at 7.54:1 against
+       --color-bg and 6.93:1 against --color-bg-elevated. */
+    --color-accent:           #8FA8D6;
+
+    /* Same fix as --color-accent above: --color-success wraps --ff-green
+       directly and never got a dark-mode value, so Ledger's "good" amounts
+       and dots rendered in the same unreadable dim green. Reuses the
+       already-verified --status-paid dark green for consistency. */
+    --color-success:          #46973C;
+
+    /* --color-warning (--ff-rust, #B45309) is the same gap: its one text
+       usage measured only 3.61:1 against this surface, below the 4.5:1
+       text minimum. Reuses the already-verified --status-due-soon dark
+       value for consistency.
+       --color-danger is NOT given the same treatment here — unlike
+       --color-accent/--color-success/--color-warning, it's also used as
+       a SOLID background with white text on top (.btn-danger, the error
+       toast), and brightening it for text contrast would drop that white
+       text to 3.64:1. Its ~30 TEXT usages are migrated instead to
+       --status-past-due (identical to --color-danger in light mode,
+       already correctly brightened to #EB4F4F in dark mode), leaving
+       --color-danger itself untouched for its background/border uses. */
+    --color-warning:          #E06101;
   }
 }
 
@@ -102,6 +175,19 @@
   --color-text:        #F0E8D4;
   --color-text-muted:  #A89878;
   --color-border:      #3A2E1E;
+
+  --status-paid:            #46973C;
+  --status-paid-fill:       rgba(70, 151, 60, 0.16);
+  --status-past-due:        #EB4F4F;
+  --status-past-due-fill:   rgba(235, 79, 79, 0.16);
+  --status-due-soon:        #E06101;
+  --status-due-soon-fill:   rgba(224, 97, 1, 0.16);
+  --status-ok:              #748D65;
+  --status-ok-fill:         rgba(116, 141, 101, 0.16);
+  --status-payday:          var(--ff-gold);
+  --color-accent:           #8FA8D6;
+  --color-success:          #46973C;
+  --color-warning:          #E06101;
 }
 
 /* Manual light override (beats system dark) */
@@ -112,4 +198,6 @@
   --color-text:        #2C2416;
   --color-text-muted:  #7A6A52;
   --color-border:      #DDD0B8;
+  --color-accent:      var(--ff-navy);
+  --color-success:     var(--ff-green);
 }

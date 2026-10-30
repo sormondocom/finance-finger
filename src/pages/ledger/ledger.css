@@ -145,7 +145,7 @@ mark.ledger-highlight {
 }
 
 .ledger-page-btn:hover:not(:disabled) {
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-sunken);
 }
 
 .ledger-page-btn:disabled {
@@ -222,7 +222,7 @@ mark.ledger-highlight {
 /* ── Amount colours ── */
 
 .ledger-amount--good   { color: var(--color-success); }
-.ledger-amount--bad    { color: var(--color-danger);  }
+.ledger-amount--bad    { color: var(--status-past-due);  }
 .ledger-amount--voided { color: var(--color-muted); font-style: italic; }
 
 /* ── Feed ── */
@@ -344,7 +344,7 @@ mark.ledger-highlight {
 }
 
 .ledger-coin-dot--bank    { background: #3b82f6; }
-.ledger-coin-dot--debt    { background: var(--color-danger); }
+.ledger-coin-dot--debt    { background: var(--status-past-due); }
 .ledger-coin-dot--expense { background: var(--color-success); }
 
 [data-theme="dark"] .ledger-coin-dot--bank { background: #60a5fa; }
@@ -475,7 +475,7 @@ mark.ledger-highlight {
 
 .ledger-charge-amount {
   font-weight: 700;
-  color: var(--color-danger);
+  color: var(--status-past-due);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   text-align: right;

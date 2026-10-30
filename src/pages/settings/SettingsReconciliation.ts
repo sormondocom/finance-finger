@@ -2,6 +2,7 @@ import { getDebtAccounts, getBankAccounts } from '@/db';
 import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { openConfirmDialog } from '@/components/ConfirmDialog';
 import type { DebtAccount, BankAccount } from '@/types';
 
 export function buildReconciliationSection(
@@ -85,11 +86,21 @@ async function loadAndRender(
   for (const group of groups) {
     if (group.accounts.length === 0) continue;
 
-    const groupLabel = document.createElement('div');
+    const groupHeader = document.createElement('div');
+    groupHeader.style.cssText =
+      'padding:var(--space-2) var(--space-5) var(--space-1);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)';
+
+    const groupLabel = document.createElement('span');
     groupLabel.style.cssText =
-      'padding:var(--space-2) var(--space-5) var(--space-1);font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-muted)';
+      'font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-muted)';
     groupLabel.textContent = group.label;
-    list.appendChild(groupLabel);
+    groupHeader.appendChild(groupLabel);
+
+    groupHeader.appendChild(
+      buildResetAllToZeroButton(group.label, group.accounts, group.type, list, updateFade, showToast),
+    );
+
+    list.appendChild(groupHeader);
 
     for (const account of group.accounts) {
       const balance = balanceMap.get(account.id) ?? 0;
@@ -98,6 +109,61 @@ async function loadAndRender(
   }
 
   requestAnimationFrame(updateFade);
+}
+
+// Bulk-reconciles every account in one group (all debt accounts, or all
+// bank accounts) to a $0 balance in one shared ledger entry per account —
+// the practical choice for a bulk action, since asking for each account's
+// individual statement balance isn't something a single click can do.
+// Preserves all existing history; only a per-account correction entry is
+// added, same as the single-account "Set Balance" flow above.
+function buildResetAllToZeroButton(
+  groupLabel: string,
+  accounts: Array<DebtAccount | BankAccount>,
+  accountType: 'debt' | 'bank',
+  list: HTMLElement,
+  updateFade: () => void,
+  showToast: (msg: string) => void,
+): HTMLElement {
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-secondary btn-sm';
+  btn.setAttribute('data-testid', `settings-recon-reset-all-${accountType}`);
+  btn.style.cssText = 'flex-shrink:0;font-size:var(--text-xs);padding:2px var(--space-2)';
+  btn.textContent = `Reset All to $0 (${accounts.length})`;
+
+  btn.addEventListener('click', async () => {
+    const confirmed = await openConfirmDialog({
+      title: `Reset all ${groupLabel.toLowerCase()} to $0?`,
+      message:
+        `This sets the balance of all ${accounts.length} ${groupLabel.toLowerCase()} to $0.00 via a ` +
+        `reconciliation entry on each:\n\n${accounts.map((a) => `• ${a.name}`).join('\n')}\n\n` +
+        `All existing transaction history is preserved — this only adds a correction entry to each account.`,
+      confirmLabel: 'Reset All to $0',
+    });
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Resetting…';
+
+    try {
+      await accounting.batchReconcile(
+        accounts.map((account) => ({
+          accountId: account.id,
+          accountType,
+          targetBalance: 0,
+          note: 'Bulk reset to $0',
+        })),
+      );
+      showToast(`All ${accounts.length} ${groupLabel.toLowerCase()} reset to $0.00.`);
+      void loadAndRender(list, updateFade, showToast);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = `Reset All to $0 (${accounts.length})`;
+      showToast('Reset failed — please try again.');
+    }
+  });
+
+  return btn;
 }
 
 function buildAccountRow(
@@ -162,7 +228,7 @@ function buildAccountRow(
 
   // Error line sits inside the wrapper so it's reachable via wrapper's testid locator
   const errEl = document.createElement('div');
-  errEl.style.cssText = 'padding:0 var(--space-5) var(--space-2);font-size:var(--text-xs);color:var(--color-danger);display:none';
+  errEl.style.cssText = 'padding:0 var(--space-5) var(--space-2);font-size:var(--text-xs);color:var(--status-past-due);display:none';
   errEl.setAttribute('data-testid', 'settings-recon-error');
   wrapper.appendChild(errEl);
 

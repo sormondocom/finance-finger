@@ -104,9 +104,10 @@ function cardReconciliation(): HTMLElement {
       <div class="help-step"><span class="help-step-num">📥</span><div class="help-step-body"><strong>Post-import reconciliation</strong> — after importing a bank statement CSV, use reconciliation to confirm the ending balance matches your actual statement. This closes the loop and prevents future drift if the import missed a row.</div></div>
       <div class="help-step"><span class="help-step-num">🏁</span><div class="help-step-body"><strong>Opening balance correction</strong> — if you added an account without a starting balance or entered the wrong one, reconciliation lets you set the correct value at any time. The reconciliation entry marks the point from which the running balance rebuilds.</div></div>
       <div class="help-step"><span class="help-step-num">✅</span><div class="help-step-body"><strong>Zeroing a paid-off account</strong> — once a debt is fully paid, reconcile it to $0 with a memo like "Paid in full — Jul 2026" to close the balance cleanly, even if rounding left a few cents behind.</div></div>
+      <div class="help-step"><span class="help-step-num">⚡</span><div class="help-step-body"><strong>Reset All to $0</strong> — the button above each group (Debt accounts / Bank accounts) zeroes every account in that group at once, the same way as the per-account control above, instead of one at a time. Useful right after a big payoff event that clears several cards together.</div></div>
     </div>
     <div class="help-callout">
-      <strong>The memo is required.</strong> It is written permanently into the Ledger alongside the reconciliation entry so you — or a future you — can understand why the balance was manually adjusted. "Sep 2026 statement" is far more useful than "reconcile" — be specific.
+      <strong>The memo is required.</strong> It is written permanently into the Ledger alongside the reconciliation entry so you — or a future you — can understand why the balance was manually adjusted. "Sep 2026 statement" is far more useful than "reconcile" — be specific. The bulk "Reset All to $0" button fills this in automatically.
     </div>
   `;
   return card;
@@ -125,10 +126,18 @@ function cardBreakGlass(): HTMLElement {
       <div class="help-step"><span class="help-step-num">🔎</span><div class="help-step-body"><strong>Query</strong> — search every store at once by text (payee name, description, UUID) or by dollar amount. Use the <strong>± wiggle room</strong> field to find amounts within a dollar range — enter <em>5</em> to match anything within $5 of the target. Results are grouped by store; click <strong>View in Browser →</strong> on any result to jump directly to that record. Paste a record ID (UUID) into the text field to instantly find all records that reference it — the fastest way to trace a broken link or a mystery balance.</div></div>
     </div>
     <div class="edu-card-voice">
-      <p><strong>Danger Zone</strong> at the bottom of Settings contains the vault wipe button — this permanently deletes all data and returns the extension to the first-run setup wizard. There is no undo.</p>
+      <p><strong>Danger Zone</strong> is at the bottom of Settings. It has two separate tools — one scoped to a single account, one that wipes everything:</p>
+    </div>
+    <div class="help-steps">
+      <div class="help-step"><span class="help-step-num">🗑️</span><div class="help-step-body"><strong>Reset account history</strong> — removes all transactions, charges, payments, and transfers for one debt or bank account, restarting it at a $0 balance. The account itself, its name, and its settings are kept — this is for starting an account's history over, not deleting the account. Type the account's exact name to confirm.</div></div>
+      <div class="help-step"><span class="help-step-num">⚡</span><div class="help-step-body"><strong>Reset All</strong> — the button above each group (Debt accounts / Bank accounts) applies the same history wipe to every account in that group at once. A modal lists every account that will be affected; type the confirmation phrase it shows (e.g. "RESET ALL BANK ACCOUNTS") to proceed.</div></div>
+      <div class="help-step"><span class="help-step-num">💥</span><div class="help-step-body"><strong>Reset vault configuration</strong> — the separate button below the account list. This permanently deletes everything: all accounts, all data, and the vault configuration, returning the extension to the first-run setup wizard.</div></div>
     </div>
     <div class="help-callout">
-      Use Break Glass for data corrections that the normal UI can't make. There is no undo after saving a record — proceed carefully.
+      All three are permanent — <strong>none can be undone.</strong> Resetting a single account's history is far less drastic than the vault wipe, but still cannot be reversed; take a snapshot first if there's any doubt (Settings → Snapshots).
+    </div>
+    <div class="edu-card-voice">
+      <p>Use Break Glass for data corrections that the normal UI can't make. There is no undo after saving a record there either — proceed carefully.</p>
     </div>
   `;
   return card;

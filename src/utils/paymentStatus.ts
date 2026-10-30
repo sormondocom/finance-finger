@@ -50,11 +50,18 @@ export function computeMinPayment(a: DebtAccount): number | undefined {
   return Math.max(a.balance * a.minimumPaymentValue / 100, 25);
 }
 
-export function advanceByCycle(date: Date, cycle: PaymentCycle): Date {
+// anchorDay (the account's originally-configured due day, DebtAccount.dueDay)
+// should always be passed for the 'monthly' case when advancing repeatedly
+// (e.g. in a loop). Without it, targetDay falls back to the input date's own
+// day-of-month — fine for a single advance, but wrong when chained: a due
+// day of 31 clamped to 28 while stepping through February would otherwise
+// become the new "target" for March, permanently losing 3 days every time a
+// short month is crossed instead of self-correcting back to 31.
+export function advanceByCycle(date: Date, cycle: PaymentCycle, anchorDay?: number): Date {
   const d = new Date(date);
   switch (cycle) {
     case 'monthly': {
-      const targetDay = d.getDate();
+      const targetDay = anchorDay ?? d.getDate();
       let year  = d.getFullYear();
       let month = d.getMonth() + 1;
       if (month > 11) { year += 1; month = 0; }
@@ -89,7 +96,7 @@ export function computePaymentStatus(
     let candidate = new Date(account.nextDueDateMs);
     const currentMonthStart = new Date(year, month, 1);
     while (candidate < currentMonthStart) {
-      candidate = advanceByCycle(candidate, account.paymentCycle);
+      candidate = advanceByCycle(candidate, account.paymentCycle, account.dueDay);
     }
     effectiveDueDate = candidate;
   } else if (account.dueDay) {

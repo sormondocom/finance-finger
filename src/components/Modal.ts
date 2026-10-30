@@ -1,4 +1,5 @@
 import './modal.css';
+import { showToast } from '@/utils/errorUI';
 
 export interface ModalOptions {
   title: string;
@@ -139,6 +140,15 @@ export function openFormModal(opts: {
     submitBtn.innerHTML = '<span class="spinner"></span>';
     try {
       await opts.onSubmit(close);
+    } catch (err) {
+      // Expected validation failures are handled inline by onSubmit itself
+      // (it shows a field error and returns without calling close()) — this
+      // catch is for genuinely unexpected failures (an IDB write error, a
+      // crypto/encrypt error, a bug). Without it, the rejection vanished
+      // silently: no toast, no visible error, button just re-enabled with
+      // no explanation of whether the save actually went through.
+      console.error('Form submit failed:', err);
+      showToast('Something went wrong saving this. Please try again.', 'error');
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = original;

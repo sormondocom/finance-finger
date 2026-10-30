@@ -56,7 +56,16 @@ export function buildMilestoneCard(
     const pctPaid = estimatedOriginal > 0 ? paidSoFar / estimatedOriginal : 0;
     const barColor = idx === 0 ? 'var(--ff-gold)' : 'var(--ff-green)';
     const icon = DEBT_TYPE_ICONS[account.type];
-    const dateStr = result.debtFreeDate.toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
+    // No minimum payment configured means calcMinPayment() returns 0, so the
+    // amortization engine runs the full 100-year cap at $0/period — a real,
+    // mathematically-correct extrapolation of "never pay anything," but
+    // displaying its trillion-dollar-interest, decades-out result reads as a
+    // broken app rather than an unset field. Show the same prompt the debt
+    // list's "Needs payment info" badge already points the user at instead.
+    const needsSetup = account.minimumPaymentValue == null;
+    const dateStr = needsSetup
+      ? null
+      : result.debtFreeDate.toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
 
     const row = document.createElement('div');
     row.className = 'milestone-row';
@@ -72,12 +81,13 @@ export function buildMilestoneCard(
         <div class="milestone-meta">
           ${fmtCents.format(account.balance)} remaining
           · ${Math.round(pctPaid * 100)}% paid
-          · <strong>${fmtCents.format(result.totalInterest)}</strong> est. interest
+          ${needsSetup ? '' : `· <strong>${fmtCents.format(result.totalInterest)}</strong> est. interest`}
         </div>
       </div>
       <div class="milestone-date" data-testid="milestone-date">
-        <span class="milestone-date-label">Paid off</span>
-        <span class="milestone-date-value">${dateStr}</span>
+        ${needsSetup
+          ? '<span class="milestone-date-label text-muted">Add a minimum payment to see a payoff estimate</span>'
+          : `<span class="milestone-date-label">Paid off</span><span class="milestone-date-value">${dateStr}</span>`}
       </div>
     `;
     timeline.appendChild(row);
@@ -85,30 +95,45 @@ export function buildMilestoneCard(
 
   card.appendChild(timeline);
 
-  const multiResult = amortizeMultiCard(active, strategy, extraPayment);
-  const freedomDate = multiResult.debtFreeDate
+  // The combined projection is only meaningful once every active account has
+  // payment info — one unset account would otherwise drag the whole payoff
+  // schedule out to the same 100-year cap as the per-account case above.
+  const anyNeedsSetup = active.some((a) => a.minimumPaymentValue == null);
+
+  const multiResult = anyNeedsSetup ? null : amortizeMultiCard(active, strategy, extraPayment);
+  const freedomDate = multiResult?.debtFreeDate
     ? multiResult.debtFreeDate.toLocaleDateString(userLocale, { month: 'long', year: 'numeric' })
     : '—';
 
   const freedomBanner = document.createElement('div');
   freedomBanner.className = 'milestone-freedom-banner';
   freedomBanner.setAttribute('data-testid', 'milestone-freedom-banner');
-  freedomBanner.innerHTML = `
-    <span class="milestone-freedom-icon">🎯</span>
-    <div>
-      <div class="milestone-freedom-label">Complete debt freedom</div>
-      <div class="milestone-freedom-date" data-testid="milestone-freedom-date">${freedomDate}</div>
-    </div>
-    <div class="milestone-freedom-stats">
-      <div class="milestone-freedom-stat">
-        <span class="text-muted text-xs">Total interest at current pace</span>
-        <span class="milestone-freedom-stat-val">${fmtCents.format(multiResult.totalInterest)}</span>
+  freedomBanner.innerHTML = anyNeedsSetup
+    ? `
+      <span class="milestone-freedom-icon">🎯</span>
+      <div>
+        <div class="milestone-freedom-label">Complete debt freedom</div>
+        <div class="milestone-freedom-date text-muted" data-testid="milestone-freedom-date" style="font-size:var(--text-sm)">
+          Add a minimum payment to every debt above to see your debt-free date
+        </div>
       </div>
-    </div>
-  `;
+    `
+    : `
+      <span class="milestone-freedom-icon">🎯</span>
+      <div>
+        <div class="milestone-freedom-label">Complete debt freedom</div>
+        <div class="milestone-freedom-date" data-testid="milestone-freedom-date">${freedomDate}</div>
+      </div>
+      <div class="milestone-freedom-stats">
+        <div class="milestone-freedom-stat">
+          <span class="text-muted text-xs">Total interest at current pace</span>
+          <span class="milestone-freedom-stat-val">${fmtCents.format(multiResult!.totalInterest)}</span>
+        </div>
+      </div>
+    `;
   card.appendChild(freedomBanner);
 
-  if (extraPayment === 0) {
+  if (extraPayment === 0 && multiResult) {
     const nudge = amortizeMultiCard(active, strategy, 50);
     const monthsSaved = multiResult.monthly.length - nudge.monthly.length;
     const interestSaved = multiResult.totalInterest - nudge.totalInterest;

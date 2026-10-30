@@ -34,8 +34,8 @@ function cardDebtStrategies(): HTMLElement {
       <p>Switch tabs above the card list to change the payoff order — this changes which card receives the extra rollover payment when one is paid off:</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-3)">
-      <div class="calc-result good" style="border-left-color:var(--ff-navy)">
-        <div style="font-weight:700;color:var(--ff-navy);margin-bottom:4px">🧊 Avalanche</div>
+      <div class="calc-result good" style="border-left-color:var(--color-accent)">
+        <div style="font-weight:700;color:var(--color-accent);margin-bottom:4px">🧊 Avalanche</div>
         <div class="text-xs text-muted">Highest APR first. Saves the most money overall.</div>
       </div>
       <div class="calc-result good" style="border-left-color:var(--ff-green)">

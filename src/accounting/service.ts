@@ -55,6 +55,15 @@ import type {
 
 // Derive balance by replaying ledger entries in chronological order.
 // Reconciliation entries act as a hard reset to targetBalance.
+//
+// Rounded to the nearest cent before returning: repeated floating-point
+// addition over many entries (every payment on a debt paid off over months)
+// reliably leaves residue like 2.27e-13 instead of an exact 0. Every piece
+// of money entering this replay is already cent-resolution, so any residue
+// finer than a cent is pure float noise, not a real balance — but plenty of
+// call sites downstream (debtCatchUp, paymentStatus, DebtList's "paid off"
+// styling, dashboard/notifier/calendar "still active" filters) compare the
+// result to exactly 0, and that noise silently defeats every one of them.
 export function deriveBalance(entries: LedgerEntry[]): number {
   let balance = 0;
   for (const entry of entries) {
@@ -64,7 +73,7 @@ export function deriveBalance(entries: LedgerEntry[]): number {
       balance += entry.signedAmount;
     }
   }
-  return balance;
+  return Math.round(balance * 100) / 100;
 }
 
 export class AccountingService implements IAccountingService {
@@ -210,13 +219,24 @@ export class AccountingService implements IAccountingService {
     if (!charge) return;
 
     const now = Date.now();
+    // Dated to now, not charge.date: deriveBalance() replays strictly in date
+    // order, and a reconciliation entry hard-resets the running balance. If
+    // this reversal were dated to the original charge's (earlier) date, a
+    // reconciliation recorded any time after the charge but before this void
+    // would replay AFTER the charge+reversal pair and wipe out its effect —
+    // the void would silently fail to change the current balance even though
+    // the UI shows the charge as voided. Dating it to now guarantees it
+    // replays after every reconciliation that exists at void time. The Ledger
+    // UI doesn't use this date for display/grouping — void entries are
+    // paired with their original via sourceId (see voidChargeMap in
+    // src/pages/ledger/Ledger.ts) and shown with their own createdAt.
     const reversal = createLedgerEntry(
       'charge',
       charge.accountId,
       'debt',
       -charge.amount,  // reversal: negative = owe less
       `Void: ${charge.merchant}`,
-      charge.date,
+      now,
       { sourceId: chargeId, sourceType: 'card-charge' },
     );
 
@@ -362,13 +382,17 @@ export class AccountingService implements IAccountingService {
     if (!payment) return;
 
     const now = Date.now();
+    // Dated to now, not payment.date — see the matching comment in
+    // deleteCharge() above: a reversal dated to the original (earlier)
+    // business date can replay before a later reconciliation and have its
+    // effect silently wiped out by that reconciliation's hard reset.
     const reversal = createLedgerEntry(
       'payment',
       payment.accountId,
       'debt',
       payment.amount,  // reversal: positive = owe more again
       `Void payment`,
-      payment.date,    // same business date so the reversal sorts near the original
+      now,
       { sourceId: paymentId, sourceType: 'debt-payment' },
     );
 
@@ -387,13 +411,15 @@ export class AccountingService implements IAccountingService {
         (e) => e.sourceId === paymentId && e.type === 'bank-debit',
       );
       if (bankDebitEntry) {
+        // Dated to now, not payment.date — same reconciliation-ordering
+        // reasoning as the debt-side reversal above.
         const bankReversal = createLedgerEntry(
           'bank-credit',
           bankDebitEntry.accountId,
           'bank',
           -bankDebitEntry.signedAmount,
           `Void: ${bankDebitEntry.description}`,
-          payment.date,
+          now,
           { sourceId: paymentId, sourceType: 'debt-payment' },
         );
         await Promise.all([
@@ -480,13 +506,15 @@ export class AccountingService implements IAccountingService {
         (e) => e.sourceId === record.id && e.type === 'bank-debit' && e.sourceType === 'expense-payment',
       );
       if (bankDebit) {
+        // Dated to now, not bankDebit.date — same reconciliation-ordering
+        // reasoning as deleteCharge()'s reversal above.
         const reversal = createLedgerEntry(
           'bank-credit',
           bankDebit.accountId,
           'bank',
           -bankDebit.signedAmount,  // bankDebit.signedAmount is negative; reversal is positive
           `Void: ${bankDebit.description}`,
-          bankDebit.date,  // same business date as the original so the reversal sorts in the same day group
+          now,
           { sourceId: record.id, sourceType: 'expense-payment' },
         );
         await Promise.all([
@@ -881,13 +909,18 @@ export class AccountingService implements IAccountingService {
       );
       if (original) {
         const now = Date.now();
+        // Dated to now, not original.date — same reconciliation-ordering
+        // reasoning as the void reversals above: a reversal dated to the
+        // original (earlier) business date can replay before a later
+        // reconciliation and have its effect silently wiped out by that
+        // reconciliation's hard reset.
         const reversal = createLedgerEntry(
           'bank-debit',
           source.bankAccountId,
           'bank',
           -source.amount,
           `Refund: ${source.name}`,
-          original.date,  // same business date as the income — reversal stays in the same day group
+          now,
         );
         await Promise.all([
           saveLedgerEntry(reversal),

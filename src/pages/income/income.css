@@ -74,7 +74,7 @@
   font-family: var(--font-body);
   font-size: var(--text-3xl);
   font-weight: var(--weight-bold);
-  color: var(--ff-green);
+  color: var(--status-paid);
 }
 
 /* ── Recurring + one-time breakdown ─────────────────────────────────────── */
@@ -105,7 +105,7 @@
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-  color: var(--ff-green);
+  color: var(--status-paid);
   min-width: 110px;
   text-align: right;
 }
@@ -165,7 +165,7 @@
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
-  color: var(--ff-green);
+  color: var(--status-paid);
 }
 
 .income-ytd-sub {
@@ -264,7 +264,7 @@
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--ff-green);
+  color: var(--status-paid);
   white-space: nowrap;
 }
 
@@ -299,7 +299,7 @@
 }
 
 .icon-btn:hover { background: var(--color-bg-sunken); color: var(--color-text); }
-.icon-btn.danger:hover { background: rgba(220,38,38,0.08); color: var(--color-danger); }
+.icon-btn.danger:hover { background: rgba(220,38,38,0.08); color: var(--status-past-due); }
 
 /* ── Source form ────────────────────────────────────────────────────────── */
 

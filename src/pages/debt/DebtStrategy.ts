@@ -62,7 +62,7 @@ function renderStrategyResults(
       </div>
       <div class="whatif-stat">
         <span class="whatif-stat-label">Debt-free</span>
-        <span class="whatif-stat-value" style="color:var(--ff-green)">${fmtDate(withExtra.debtFreeDate)}</span>
+        <span class="whatif-stat-value" style="color:var(--status-paid)">${fmtDate(withExtra.debtFreeDate)}</span>
       </div>
       <div class="whatif-stat">
         <span class="whatif-stat-label">Total interest</span>

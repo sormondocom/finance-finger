@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import {
   getExpenses, getCategories, getCardCharges, getIncomeSources,
-  getDebtAccounts, getDebtPayments, getExpensePaidRecords,
+  getDebtAccounts, getDebtPayments, getExpensePaidRecords, getBankAccounts,
 } from '@/db';
 import { fmtCents, sourceMonthly } from '@/utils/finance';
 import { buildLeakyBucketCard } from './LeakyBucket';
@@ -25,13 +25,16 @@ import {
   buildBiggestTransactions, buildSpendingByWeekOfMonth, buildRecurringVsOneTime,
 } from './ReportsBreakdowns';
 import { buildOverageOffenders } from './ReportsOffenders';
+import { buildAccountsSummary } from './ReportsAccountsSummary';
 import type {
   Expense, ExpenseCategory, CardCharge, IncomeSource, DebtAccount, DebtPayment, ExpensePaidRecord,
-  MascotGender,
+  BankAccount, MascotGender,
 } from '@/types';
 import { userLocale } from '@/utils/locale';
 import { getPaydaysInMonth } from '@/utils/paydays';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { downloadCsv } from '@/utils/csvExport';
+import { timestampToDateInput } from '@/utils/dateInput';
 
 Chart.register(
   BarController, BarElement, ArcElement, DoughnutController,
@@ -87,6 +90,7 @@ export class ReportsPage {
   private charges: CardCharge[] = [];
   private incomeSources: IncomeSource[] = [];
   private accounts: DebtAccount[] = [];
+  private bankAccounts: BankAccount[] = [];
   private payments: DebtPayment[] = [];
   private paidRecords: ExpensePaidRecord[] = [];
   private mascotGender: MascotGender = 'buck';
@@ -110,12 +114,12 @@ export class ReportsPage {
       const [configResult, ...rest] = await Promise.all([
         browser.storage.local.get('vaultConfig'),
         getExpenses(), getCategories(), getCardCharges(),
-        getIncomeSources(), getDebtAccounts(), getDebtPayments(), getExpensePaidRecords(),
+        getIncomeSources(), getDebtAccounts(), getDebtPayments(), getExpensePaidRecords(), getBankAccounts(),
       ]);
       const cfg = (configResult as Record<string, unknown>)['vaultConfig'] as { mascotGender?: MascotGender } | undefined;
       this.mascotGender = cfg?.mascotGender ?? 'buck';
-      [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords] = rest as [
-        Expense[], ExpenseCategory[], CardCharge[], IncomeSource[], DebtAccount[], DebtPayment[], ExpensePaidRecord[]
+      [this.expenses, this.categories, this.charges, this.incomeSources, this.accounts, this.payments, this.paidRecords, this.bankAccounts] = rest as [
+        Expense[], ExpenseCategory[], CardCharge[], IncomeSource[], DebtAccount[], DebtPayment[], ExpensePaidRecord[], BankAccount[]
       ];
       this.paint();
     } catch (err) {
@@ -136,6 +140,11 @@ export class ReportsPage {
 
     this.container.appendChild(this.buildRangePicker());
     this.container.appendChild(this.buildKpis(expenses, charges, startTs, endTs));
+
+    // Accounts are a point-in-time snapshot, not filtered by the report date
+    // range above — they always reflect current balances regardless of which
+    // period is selected.
+    this.container.appendChild(buildAccountsSummary(this.bankAccounts, this.accounts));
 
     const mascotSvg = this.mascotGender === 'buck' ? BUCK_SVG : PENNY_SVG;
     this.container.appendChild(buildLeakyBucketCard({
@@ -180,6 +189,45 @@ export class ReportsPage {
     this.container.appendChild(buildPayeeSchedule(this.expenses, this.accounts));
   }
 
+  // Mirrors buildSpendingDetail()'s row set (same date range, same four
+  // sources) as flat CSV rows instead of an expandable on-screen list.
+  private exportTransactionsCsv(): void {
+    const startTs = this.rangeStart.getTime();
+    const endTs = this.rangeEnd.getTime() + 86_400_000;
+
+    const rows: Array<{ date: number; name: string; amount: number; kind: string }> = [];
+
+    this.expenses
+      .filter((e) => !e.recurring && e.date >= startTs && e.date < endTs)
+      .forEach((e) => rows.push({ date: e.date, name: e.description, amount: e.amount, kind: 'expense' }));
+
+    this.charges
+      .filter((c) => c.date >= startTs && c.date < endTs)
+      .forEach((c) => rows.push({ date: c.date, name: c.merchant, amount: c.amount, kind: 'charge' }));
+
+    this.paidRecords
+      .filter((r) => r.date >= startTs && r.date < endTs)
+      .forEach((r) => {
+        const ex = this.expenses.find((e) => e.id === r.expenseId);
+        rows.push({ date: r.date, name: ex?.description ?? 'Bill payment', amount: r.amount, kind: 'bill' });
+      });
+
+    this.payments
+      .filter((p) => p.date >= startTs && p.date < endTs)
+      .forEach((p) => {
+        const acct = this.accounts.find((a) => a.id === p.accountId);
+        rows.push({ date: p.date, name: acct?.name ?? 'Debt payment', amount: p.amount, kind: 'debt payment' });
+      });
+
+    rows.sort((a, b) => a.date - b.date);
+
+    const csvRows = rows.map((r): Array<string | number> => [
+      timestampToDateInput(r.date), r.name, r.kind, r.amount.toFixed(2),
+    ]);
+    const filename = `financial-finger-transactions-${timestampToDateInput(this.rangeStart.getTime())}-to-${timestampToDateInput(this.rangeEnd.getTime())}.csv`;
+    downloadCsv(filename, ['Date', 'Description', 'Type', 'Amount'], csvRows);
+  }
+
   // ── Range picker ───────────────────────────────────────────────────────────
 
   private buildRangePicker(): HTMLElement {
@@ -192,8 +240,16 @@ export class ReportsPage {
         <h1 class="font-serif" style="font-size:var(--text-2xl)">Reports</h1>
         <p class="text-muted text-sm">Analyze spending patterns, income trends, and debt progress.</p>
       </div>
+      <div class="reports-actions no-print">
+        <button type="button" class="btn btn-secondary btn-sm" data-testid="reports-print-btn">🖨 Print Report</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-testid="reports-export-csv-btn">⬇ Export Transactions CSV</button>
+      </div>
     `;
     wrap.querySelector('h1')?.appendChild(makeHelpBtn('reports'));
+    wrap.querySelector<HTMLButtonElement>('[data-testid="reports-print-btn"]')!
+      .addEventListener('click', () => window.print());
+    wrap.querySelector<HTMLButtonElement>('[data-testid="reports-export-csv-btn"]')!
+      .addEventListener('click', () => this.exportTransactionsCsv());
 
     const presets = document.createElement('div');
     presets.className = 'reports-presets';
@@ -347,7 +403,7 @@ export class ReportsPage {
     const netChip = document.createElement('div');
     netChip.className = 'reports-kpi';
     netChip.dataset['testid'] = 'reports-kpi-net';
-    const netColor = !hasIncome ? 'var(--color-text-muted)' : net >= 0 ? 'var(--ff-green)' : 'var(--color-danger)';
+    const netColor = !hasIncome ? 'var(--color-text-muted)' : net >= 0 ? 'var(--ff-green)' : 'var(--status-past-due)';
     netChip.innerHTML = `
       <span class="reports-kpi-label">Net Cash Flow</span>
       <span class="reports-kpi-value" style="color:${netColor}">${hasIncome ? (net >= 0 ? '+' : '') + USD.format(net) : '—'}</span>
@@ -360,11 +416,11 @@ export class ReportsPage {
     srChip.className = 'reports-kpi';
     srChip.dataset['testid'] = 'reports-kpi-savings';
     const srColor = hasIncome
-      ? (savingsRate >= 20 ? 'var(--ff-green)' : savingsRate < 0 ? 'var(--color-danger)' : 'var(--ff-gold-dark)')
+      ? (savingsRate >= 20 ? 'var(--status-paid)' : savingsRate < 0 ? 'var(--status-past-due)' : 'var(--status-due-soon)')
       : 'var(--color-text)';
     srChip.innerHTML = `
       <span class="reports-kpi-label">${hasIncome ? 'Savings Rate' : 'Top Category'}</span>
-      <span class="reports-kpi-value" style="color:${srColor}">${hasIncome ? savingsRate.toFixed(1) + '%' : topCatName}</span>
+      <span class="reports-kpi-value" style="color:${srColor}">${hasIncome ? savingsRate.toFixed(1) + '%' : escapeHtml(topCatName)}</span>
       ${hasIncome ? `<span class="reports-kpi-sub">${savingsRate >= 20 ? '✓ On track' : savingsRate < 0 ? 'Spending exceeds income' : 'Below 20% target'}</span>` : ''}
     `;
     grid.appendChild(srChip);

@@ -32,7 +32,7 @@ function cardClassroom(): HTMLElement {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
       <div>
-        <div style="font-weight:700;margin-bottom:var(--space-2);color:var(--ff-navy)">Teacher Setup</div>
+        <div style="font-weight:700;margin-bottom:var(--space-2);color:var(--color-accent)">Teacher Setup</div>
         <div class="help-steps">
           <div class="help-step"><span class="help-step-num">1️⃣</span><div class="help-step-body">Complete the six-step setup wizard. Name the household something like "Dollar Farm — Teacher".</div></div>
           <div class="help-step"><span class="help-step-num">2️⃣</span><div class="help-step-body">Create the <strong>expense categories</strong> all students will use (Housing, Food, Transportation, etc.).</div></div>

@@ -2,6 +2,7 @@ import { sourceMonthly, fmtCents } from '@/utils/finance';
 import { getPaydaysInMonth } from '@/utils/paydays';
 import type { Expense, CardCharge, IncomeSource, ExpensePaidRecord, DebtPayment, DebtAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
+import { addCardPrintButton } from './ReportsUtils';
 
 // ── Bucket interior geometry (SVG viewBox coordinates) ───────────────────────
 const INT_TOP = 68;
@@ -150,6 +151,7 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
       <div class="lb-ticks" id="lb-ticks"></div>
     </div>
   `;
+  addCardPrintButton(card, card.querySelector<HTMLElement>('.lb-controls')!);
 
   // ── Element refs ──────────────────────────────────────────────────────────
 
@@ -281,7 +283,7 @@ export function buildLeakyBucketCard(opts: LeakyBucketOpts): HTMLElement {
     balVal.className     = `lb-balance-val${ratio < 0.15 ? ' lb-danger' : ratio < 0.35 ? ' lb-warning' : ''}`;
 
     // Calendar date widget
-    const calColor = ratio > 0.35 ? 'var(--ff-green)' : ratio > 0.15 ? 'var(--ff-gold-dark)' : 'var(--color-danger)';
+    const calColor = ratio > 0.35 ? 'var(--status-paid)' : ratio > 0.15 ? 'var(--status-due-soon)' : 'var(--status-past-due)';
     if (!data) {
       calWdEl.textContent  = new Date(year, month, 1).toLocaleDateString(userLocale, { month: 'long' });
       calDayEl.textContent = '—';

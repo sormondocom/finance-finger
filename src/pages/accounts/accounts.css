@@ -70,7 +70,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-sunken);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 1px 6px;
@@ -81,7 +81,7 @@
   font-weight: var(--weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--color-accent);
+  color: var(--status-payday);
   background: rgba(201, 168, 76, 0.12);
   border: 1px solid rgba(201, 168, 76, 0.3);
   border-radius: var(--radius-sm);
@@ -91,7 +91,7 @@
 .account-row-balance {
   font-size: var(--text-lg);
   font-variant-numeric: tabular-nums;
-  color: var(--ff-green);
+  color: var(--status-paid);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
@@ -102,7 +102,7 @@
 }
 
 .account-row-balance--negative {
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .account-row-balance-hint {
@@ -132,6 +132,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  color: var(--color-text);
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -154,7 +155,7 @@
 .account-income-item-amount {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--ff-green);
+  color: var(--status-paid);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -190,7 +191,7 @@
 }
 
 .account-ledger-panel {
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-sunken);
   border-top: 1px solid var(--color-border);
   padding: var(--space-2) var(--space-4) var(--space-3);
 }
@@ -252,11 +253,11 @@
 }
 
 .account-ledger-amount--debit {
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .account-ledger-amount--credit {
-  color: var(--ff-green);
+  color: var(--status-paid);
 }
 
 .account-ledger-balance {
@@ -267,7 +268,7 @@
 }
 
 .account-ledger-balance--negative {
-  color: var(--color-danger);
+  color: var(--status-past-due);
 }
 
 .account-ledger-actual-balance {
@@ -304,8 +305,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.account-ledger-actual-balance-value--positive { color: var(--ff-green); }
-.account-ledger-actual-balance-value--negative { color: var(--color-danger); }
+.account-ledger-actual-balance-value--positive { color: var(--status-paid); }
+.account-ledger-actual-balance-value--negative { color: var(--status-past-due); }
 
 .account-ledger-opening-row {
   color: var(--color-text-muted);

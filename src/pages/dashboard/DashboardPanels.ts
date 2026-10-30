@@ -28,9 +28,9 @@ export function buildFinancialHealthRow(
   const dti = hasDTI ? (monthlyMinPayments / monthlyIncome) * 100 : null;
   const util = hasUtil ? (totalCardBalance / totalCardLimit) * 100 : null;
 
-  const dtiColor = dti == null ? '' : dti < 36 ? 'var(--ff-green)' : dti < 43 ? 'var(--ff-rust)' : 'var(--color-danger)';
+  const dtiColor = dti == null ? '' : dti < 36 ? 'var(--status-paid)' : dti < 43 ? 'var(--status-due-soon)' : 'var(--status-past-due)';
   const dtiLabel = dti == null ? '' : dti < 36 ? 'Healthy' : dti < 43 ? 'Elevated' : 'High';
-  const utilColor = util == null ? '' : util < 30 ? 'var(--ff-green)' : util < 50 ? 'var(--ff-rust)' : 'var(--color-danger)';
+  const utilColor = util == null ? '' : util < 30 ? 'var(--status-paid)' : util < 50 ? 'var(--status-due-soon)' : 'var(--status-past-due)';
   const utilLabel = util == null ? '' : util < 30 ? 'Good' : util < 50 ? 'Fair' : 'High';
 
   const row = document.createElement('div');
@@ -142,7 +142,7 @@ export function buildIncomeByAccountCard(
 
     const amtCol = document.createElement('div');
     amtCol.style.cssText = 'text-align:right';
-    amtCol.innerHTML = `<span class="text-sm font-bold" style="color:var(--ff-green)">${fmt.format(data.monthlyRecurring)}<span class="text-xs text-muted">/mo</span></span>`;
+    amtCol.innerHTML = `<span class="text-sm font-bold" style="color:var(--status-paid)">${fmt.format(data.monthlyRecurring)}<span class="text-xs text-muted">/mo</span></span>`;
     if (data.oneTimeThisMonth > 0) {
       const ot = document.createElement('span');
       ot.className = 'text-xs text-muted';
@@ -209,7 +209,7 @@ export function renderIncomePanel(
             <span class="text-sm">${escapeHtml(s.name)}</span>
             ${dateStr ? `<span class="text-xs text-muted" style="display:block">${dateStr}</span>` : ''}
           </div>
-          <span class="text-sm font-bold" style="color:var(--ff-green)">+${fmt.format(s.amount)}</span>
+          <span class="text-sm font-bold" style="color:var(--status-paid)">+${fmt.format(s.amount)}</span>
         </div>
       `;
     }).join('');
@@ -238,7 +238,7 @@ export function renderDebtPanel(cards: DebtAccount[]): string {
           <span class="text-sm font-bold">${escapeHtml(c.name)}</span>
           <span class="text-xs text-muted" style="display:block">${c.apr}% APR</span>
         </div>
-        <span class="text-sm" style="color:${c.balance <= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${fmtCents.format(c.balance)}</span>
+        <span class="text-sm" style="color:${c.balance <= 0 ? 'var(--status-paid)' : 'var(--status-past-due)'}">${fmtCents.format(c.balance)}</span>
       </div>
     `,
     )

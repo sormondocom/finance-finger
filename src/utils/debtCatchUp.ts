@@ -41,7 +41,7 @@ export function enumerateLapsedDebtCycles(
   let candidate = new Date(account.nextDueDateMs);
   // Fast-forward to the first cycle at or after windowStart.
   while (candidate < windowStart) {
-    candidate = advanceByCycle(candidate, account.paymentCycle);
+    candidate = advanceByCycle(candidate, account.paymentCycle, account.dueDay);
   }
 
   while (candidate < now) {
@@ -54,7 +54,7 @@ export function enumerateLapsedDebtCycles(
         correlationId: debtCycleCorrelationId(account.id, candidate),
       });
     }
-    candidate = advanceByCycle(candidate, account.paymentCycle);
+    candidate = advanceByCycle(candidate, account.paymentCycle, account.dueDay);
   }
 
   return results;

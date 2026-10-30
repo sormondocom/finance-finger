@@ -435,7 +435,7 @@ export function buildLinkedRemindersSection(
       delBtn.style.cssText = 'flex-shrink:0;background:none;border:none;cursor:pointer;font-size:var(--text-sm);color:var(--color-text-muted);padding:2px 4px;line-height:1;opacity:0.6';
       delBtn.title = 'Delete reminder';
       delBtn.textContent = '✕';
-      delBtn.addEventListener('mouseenter', () => { delBtn.style.opacity = '1'; delBtn.style.color = 'var(--color-danger)'; });
+      delBtn.addEventListener('mouseenter', () => { delBtn.style.opacity = '1'; delBtn.style.color = 'var(--status-past-due)'; });
       delBtn.addEventListener('mouseleave', () => { delBtn.style.opacity = '0.6'; delBtn.style.color = 'var(--color-text-muted)'; });
       delBtn.addEventListener('click', async () => {
         if (deferred) {

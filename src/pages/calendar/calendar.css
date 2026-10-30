@@ -106,7 +106,14 @@
 .calendar-cell {
   display: flex;
   flex-direction: column;
-  min-height: 100px;
+  /* var(), not a hardcoded 100px: printCalendar() (Calendar.ts) temporarily
+     sets this to the print value (80px, matching the @media print rule
+     below) while pre-measuring the grid at a forced print-equivalent width,
+     so the measurement it uses to decide how much to shrink the grid by
+     reflects real print-time cell sizing instead of the taller on-screen
+     default. Unset, this falls back to the original 100px — no behavior
+     change outside that measurement. */
+  min-height: var(--cal-cell-min-h, 100px);
   padding: var(--space-2);
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
@@ -175,26 +182,26 @@
 }
 
 .calendar-bill-chip--paid {
-  background: rgba(45, 90, 39, 0.08);
-  border-color: var(--ff-green);
-  color: var(--ff-green);
+  background: var(--status-paid-fill);
+  border-color: var(--status-paid);
+  color: var(--status-paid);
 }
 
 .calendar-bill-chip--past-due {
-  background: rgba(220, 38, 38, 0.08);
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  background: var(--status-past-due-fill);
+  border-color: var(--status-past-due);
+  color: var(--status-past-due);
 }
 
 .calendar-bill-chip--due-soon {
-  background: rgba(180, 83, 9, 0.08);
-  border-color: var(--ff-rust);
-  color: var(--ff-rust);
+  background: var(--status-due-soon-fill);
+  border-color: var(--status-due-soon);
+  color: var(--status-due-soon);
 }
 
 .calendar-bill-chip--ok {
-  background: rgba(107, 127, 94, 0.08);
-  border-color: var(--ff-sage);
+  background: var(--status-ok-fill);
+  border-color: var(--status-ok);
   color: var(--color-text-muted);
 }
 
@@ -208,9 +215,13 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   line-height: 1.4;
-  border-left: 3px solid var(--ff-gold);
-  background: rgba(201, 168, 76, 0.1);
-  color: var(--ff-gold-dark, var(--ff-gold));
+  border-left: 3px solid var(--status-payday);
+  background: var(--status-payday-fill);
+  /* --ff-gold-dark (tuned for text on a light surface) only hits 3.27:1 on
+     the dark cell background — var(--status-payday) resolves to the
+     brighter --ff-gold in both themes, which clears 4.5:1 in dark mode
+     and still reads fine on light (7.29 / reasonable respectively). */
+  color: var(--status-payday);
   cursor: default;
 }
 
@@ -334,18 +345,18 @@
   padding: 3px var(--space-2);
   font-size: 0.6rem;
   font-weight: var(--weight-semibold);
-  background: rgba(45, 90, 39, 0.12);
-  border: 1px solid rgba(45, 90, 39, 0.3);
+  background: var(--status-paid-fill);
+  border: 1px solid var(--status-paid);
   border-top: none;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  color: var(--ff-green);
+  color: var(--status-paid);
   cursor: pointer;
   transition: background var(--ease-default);
   text-align: center;
 }
 
 .calendar-mark-paid-btn:hover {
-  background: rgba(45, 90, 39, 0.22);
+  background: color-mix(in srgb, var(--status-paid) 22%, transparent);
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
@@ -381,21 +392,21 @@
 }
 
 .calendar-summary-chip--past-due {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--color-danger);
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: var(--status-past-due-fill);
+  color: var(--status-past-due);
+  border: 1px solid var(--status-past-due);
 }
 
 .calendar-summary-chip--due-soon {
-  background: rgba(180, 83, 9, 0.1);
-  color: var(--ff-rust);
-  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: var(--status-due-soon-fill);
+  color: var(--status-due-soon);
+  border: 1px solid var(--status-due-soon);
 }
 
 .calendar-summary-chip--paid {
-  background: rgba(45, 90, 39, 0.1);
-  color: var(--ff-green);
-  border: 1px solid rgba(45, 90, 39, 0.25);
+  background: var(--status-paid-fill);
+  color: var(--status-paid);
+  border: 1px solid var(--status-paid);
 }
 
 .calendar-summary-chip--ok {
@@ -514,8 +525,8 @@
 
 .paint-clear-btn:hover {
   background: rgba(220, 38, 38, 0.08);
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  border-color: var(--status-past-due);
+  color: var(--status-past-due);
 }
 
 /* ── Painted day cells ───────────────────────────────────────────────────── */
@@ -530,9 +541,9 @@
   box-shadow: 0 0 0 2px currentColor;
 }
 
-/* ok chips use --color-text-muted for currentColor; use the actual sage instead */
+/* ok chips use --color-text-muted for currentColor; use the status color instead */
 .calendar-bill-chip--ok.cal-chip-filter-match {
-  box-shadow: 0 0 0 2px var(--ff-sage);
+  box-shadow: 0 0 0 2px var(--status-ok);
 }
 
 .calendar-grid--paint-mode {
@@ -681,7 +692,7 @@
 .cal-memo-delete-btn {
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
-  color: var(--color-danger);
+  color: var(--status-past-due);
   background: none;
   border: none;
   cursor: pointer;
@@ -698,4 +709,39 @@
   border: none;
   border-top: 1px solid var(--color-border);
   margin: 0;
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────
+   @page can't be scoped to one page's print job — once this stylesheet has
+   loaded (any visit to the Calendar page this session), an @page rule here
+   would apply to every later print from every other page too, since the
+   router only swaps #app-content and never unloads previously-imported page
+   CSS. The orientation (whichever of portrait/landscape needs less
+   shrinking to fit the current month's week-row count on one page) and a
+   shrink-to-fit scale on just the grid are computed and injected/applied
+   around the print() call instead — see printCalendar() in Calendar.ts.
+   Nav arrows, the mark-days toolbar, and the mascot/memo widgets are
+   screen-only interactions — the legend stays since it explains the dot
+   colors with no tooltip to hover on paper. */
+@media print {
+  .calendar-page {
+    gap: var(--space-3);
+  }
+
+  .calendar-grid-wrap {
+    overflow: visible;
+  }
+
+  .calendar-grid {
+    min-width: 0;
+  }
+
+  .calendar-cell {
+    min-height: 80px;
+    break-inside: avoid;
+  }
+
+  .calendar-summary-chip {
+    cursor: default;
+  }
 }

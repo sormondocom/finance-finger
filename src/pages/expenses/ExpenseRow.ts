@@ -32,11 +32,11 @@ export type ExpenseRowContext = {
 
 
 function overageColor(actual: number, threshold: number): string {
-  if (actual <= threshold) return 'var(--ff-green)';
+  if (actual <= threshold) return 'var(--status-paid)';
   const pct = (actual - threshold) / threshold;
   if (pct < 0.10) return '#f87171';
   if (pct < 0.25) return '#ef4444';
-  return 'var(--color-danger)';
+  return 'var(--status-past-due)';
 }
 
 function openRecordPaymentForm(
@@ -236,7 +236,7 @@ function openLogActualForm(
     if (!isNaN(val) && val > expense.amount) {
       const over = val - expense.amount;
       overageMsg.textContent = `⚠ Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by ${fmtCents.format(over)}`;
-      overageMsg.style.cssText = 'display:block;color:var(--color-danger);font-size:var(--text-xs);margin-top:var(--space-1)';
+      overageMsg.style.cssText = 'display:block;color:var(--status-past-due);font-size:var(--text-xs);margin-top:var(--space-1)';
     } else {
       overageMsg.style.display = 'none';
     }

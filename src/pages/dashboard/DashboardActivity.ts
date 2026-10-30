@@ -455,7 +455,7 @@ export function buildSummarySection(
   `;
   section.appendChild(expCard);
 
-  const netColor = net >= 0 ? 'var(--ff-green)' : 'var(--color-danger)';
+  const netColor = net >= 0 ? 'var(--status-paid)' : 'var(--status-past-due)';
   const netStr = totalIncome > 0 || totalExpenses > 0
     ? `${net >= 0 ? '+' : '−'}${fmt.format(Math.abs(net))}` : '—';
   const netCard = document.createElement('div');

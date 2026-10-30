@@ -13,10 +13,10 @@ function cardCalendarGrid(): HTMLElement {
       <p>The Calendar page shows all tracked bills (recurring expenses with a due day) laid out on a monthly grid. Bills with due days on days 29–31 clamp to the last day of shorter months.</p>
     </div>
     <div class="help-status-grid">
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>Red chip</strong> — Past Due</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:#f59e0b"></span><div><strong>Amber chip</strong> — Due Soon (within 7 days)</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-green)"></span><div><strong>Green chip</strong> — Paid this calendar month</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-sage)"></span><div><strong>Sage chip</strong> — Upcoming (due later in the month)</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-past-due)"></span><div><strong>Red chip</strong> — Past Due</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-due-soon)"></span><div><strong>Amber chip</strong> — Due Soon (within 7 days)</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-paid)"></span><div><strong>Green chip</strong> — Paid this calendar month</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--status-ok)"></span><div><strong>Sage chip</strong> — Upcoming (due later in the month)</div></div>
     </div>
     <div class="edu-card-voice">
       <p>The summary bar above the grid shows a count for each status. Click <strong>✓ Mark Paid</strong> below any unpaid chip — the same payment dialog as the Expenses page opens.</p>

@@ -169,12 +169,12 @@ export function renderCashFlow(income: number, expenses: number, surplus: number
   card.appendChild(h3);
 
   const bars: { label: string; value: number; color: string; pct: number }[] = [
-    { label: 'Income', value: income, color: 'var(--ff-green)', pct: 100 },
+    { label: 'Income', value: income, color: 'var(--status-paid)', pct: 100 },
     { label: 'Expenses', value: expenses, color: 'var(--ff-rust)', pct: income > 0 ? Math.min(Math.round(expenses / income * 100), 100) : 0 },
     {
       label: surplus >= 0 ? 'Surplus' : 'Shortfall',
       value: Math.abs(surplus),
-      color: surplus >= 0 ? 'var(--ff-gold)' : 'var(--color-danger)',
+      color: surplus >= 0 ? 'var(--status-payday)' : 'var(--status-past-due)',
       pct: income > 0 ? Math.min(Math.round(Math.abs(surplus) / income * 100), 100) : 0,
     },
   ];

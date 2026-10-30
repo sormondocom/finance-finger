@@ -75,7 +75,7 @@ function showEntryWarning(mascotGender: MascotGender | null | undefined, onConfi
 export function buildBreakGlassSection(mascotGender: MascotGender | null | undefined): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'settings-group';
-  wrap.innerHTML = `<div class="settings-group-title" style="color:var(--color-danger)">Break Glass</div>`;
+  wrap.innerHTML = `<div class="settings-group-title" style="color:var(--status-past-due)">Break Glass</div>`;
 
   const row = document.createElement('div');
   row.className = 'setting-row settings-danger';
