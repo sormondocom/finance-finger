@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { openFormModal } from '@/components/Modal';
-import { getDebtAccounts, getBankAccounts, getIncomeSources } from '@/db';
+import { getDebtAccounts, getBankAccounts, getIncomeSources, clearAllStores } from '@/db';
 import { accounting } from '@/accounting';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { fmtCents } from '@/utils/finance';
@@ -458,6 +458,15 @@ function buildResetRow(
 
 async function doReset(): Promise<void> {
   await browser.storage.local.clear();
-  indexedDB.deleteDatabase('financial-finger');
+
+  // Clears every object store in place rather than deleting and recreating
+  // the whole database — see clearAllStores()'s doc comment in schema.ts.
+  // Earlier attempts tried to delete the database outright and ran into a
+  // cross-context connection race (this page, other tabs, the background
+  // service worker) that kept leaving stale pre-reset records behind,
+  // surfacing as "runCatchUp failed: OperationError" when the new vault's
+  // key couldn't decrypt them.
+  await clearAllStores();
+
   location.reload();
 }

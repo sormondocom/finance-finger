@@ -88,6 +88,25 @@ export type AppDB = IDBPDatabase<FinancialFingerDB>;
 
 let db: AppDB | null = null;
 
+// Wipes every record from every object store, in place, without deleting
+// and recreating the database (see doReset() in SettingsDanger.ts). An
+// earlier version of reset called indexedDB.deleteDatabase() instead, but
+// that blocks until EVERY open connection to this database name closes
+// first — this page, any other open tab, and the background service
+// worker's own separate connection (opened by takeSnapshot() in its own JS
+// realm) — and the delete can otherwise stay queued in the background,
+// free to land at an arbitrary later point, including after a reload has
+// already started writing a fresh vault into a newly-recreated database of
+// the same name. Clearing stores in place only touches the connection this
+// function already has, so there's no cross-context race to get wrong.
+export async function clearAllStores(): Promise<void> {
+  const database = await getDB();
+  const storeNames = Array.from(database.objectStoreNames);
+  const tx = database.transaction(storeNames, 'readwrite');
+  await Promise.all(storeNames.map((name) => tx.objectStore(name).clear()));
+  await tx.done;
+}
+
 export async function getDB(): Promise<AppDB> {
   if (db) return db;
 

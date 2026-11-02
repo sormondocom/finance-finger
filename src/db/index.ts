@@ -1,4 +1,6 @@
-import { getDB } from './schema';
+import { getDB, clearAllStores } from './schema';
+
+export { clearAllStores };
 import { encryptRecord, decryptRecord } from '@/crypto/vault';
 import type { RawSnapshot } from '@/types';
 import type {
