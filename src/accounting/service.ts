@@ -11,6 +11,7 @@ import {
   deleteDebtAccount as dbDeleteDebtAccount,
   getBankAccounts,
   saveBankAccount,
+  deleteBankAccount as dbDeleteBankAccount,
   deleteDebtPayment as dbDeleteDebtPayment,
   createDebtPayment,
   saveAccountTransfer,
@@ -35,6 +36,7 @@ import {
   getCategories,
   saveCategory,
   getIncomeSources,
+  saveIncomeSource,
   deleteIncomeSource as deleteIncomeSourceRecord,
 } from '@/db';
 import type {
@@ -895,6 +897,27 @@ export class AccountingService implements IAccountingService {
       ...allPaidRecords.filter((r) => r.cardId === accountId).map(({ cardId: _, ...r }) => saveExpensePaidRecord(r)),
     ]);
     await dbDeleteDebtAccount(accountId);
+  }
+
+  // ── Bank account deletion ─────────────────────────────────────────────────
+
+  async deleteBankAccount(accountId: string): Promise<void> {
+    const [sources, allExpenses, allPaidRecords, allPayments] = await Promise.all([
+      getIncomeSources(),
+      getExpenses(),
+      getExpensePaidRecords(),
+      getDebtPayments(),
+    ]);
+
+    await Promise.all([
+      ...sources.filter((s) => s.bankAccountId === accountId).map(({ bankAccountId: _, ...s }) => saveIncomeSource(s)),
+      ...allExpenses.filter((e) => e.bankAccountId === accountId).map(({ bankAccountId: _, ...e }) => saveExpense(e)),
+      ...allPaidRecords.filter((r) => r.bankAccountId === accountId).map(({ bankAccountId: _, ...r }) => saveExpensePaidRecord(r)),
+      ...allPayments.filter((p) => p.bankAccountId === accountId).map(({ bankAccountId: _, ...p }) => saveDebtPayment(p)),
+      deleteBankTransactionsByAccount(accountId),
+      deleteLedgerEntriesForAccount(accountId),
+    ]);
+    await dbDeleteBankAccount(accountId);
   }
 
   // ── Income source deletion ─────────────────────────────────────────────────

@@ -156,6 +156,9 @@ export interface IAccountingService {
   // Debt account deletion (hard delete cascade — charges, payments, ledger, FK unlinks)
   deleteDebtAccount(accountId: string): Promise<void>;
 
+  // Bank account deletion (hard delete cascade — transactions, ledger, FK unlinks)
+  deleteBankAccount(accountId: string): Promise<void>;
+
   // Income source deletion (void + delete — keeps audit trail)
   deleteIncomeSource(source: IncomeSource): Promise<void>;
 }

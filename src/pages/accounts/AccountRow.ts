@@ -5,12 +5,7 @@ import { getPaydaysInMonth } from '@/utils/paydays';
 import { openImportWizard } from '@/components/ImportWizard';
 import { openAddNotificationModal } from '@/utils/notificationModal';
 import { navigate } from '@/app/router';
-import {
-  getIncomeSources, getExpenses, getExpensePaidRecords, getDebtPayments,
-  saveIncomeSource, saveExpense, saveExpensePaidRecord, saveDebtPayment,
-  deleteBankAccount, deleteBankTransactionsByAccount,
-  deleteLedgerEntriesForAccount,
-} from '@/db';
+import { accounting } from '@/accounting';
 import { buildAccountLedgerPanel } from './AccountLedger';
 import { openAccountForm, openTransferModal } from './AccountForm';
 import type {
@@ -341,18 +336,7 @@ export function buildAccountRow(account: BankAccount, ctx: AccountRowContext): H
   deleteBtn.textContent = '🗑️';
   deleteBtn.addEventListener('click', async () => {
     if (!await openConfirmDialog({ message: `Delete "${account.name}"?` })) return;
-    const [sources, exps, paid, debtPmts] = await Promise.all([
-      getIncomeSources(), getExpenses(), getExpensePaidRecords(), getDebtPayments(),
-    ]);
-    await Promise.all([
-      ...sources.filter((s) => s.bankAccountId === account.id).map(({ bankAccountId: _, ...s }) => saveIncomeSource(s)),
-      ...exps.filter((e) => e.bankAccountId === account.id).map(({ bankAccountId: _, ...e }) => saveExpense(e)),
-      ...paid.filter((r) => r.bankAccountId === account.id).map(({ bankAccountId: _, ...r }) => saveExpensePaidRecord(r)),
-      ...debtPmts.filter((p) => p.bankAccountId === account.id).map(({ bankAccountId: _, ...p }) => saveDebtPayment(p)),
-      deleteBankTransactionsByAccount(account.id),
-      deleteLedgerEntriesForAccount(account.id),
-    ]);
-    await deleteBankAccount(account.id);
+    await accounting.deleteBankAccount(account.id);
     await onLoad();
   });
   actionsCell.appendChild(deleteBtn);
