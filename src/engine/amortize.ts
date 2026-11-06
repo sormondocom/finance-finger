@@ -148,12 +148,19 @@ export function amortizeSingleCard(
     if (balance <= ZERO_THRESHOLD) break;
   }
 
+  // balance > ZERO_THRESHOLD here means the loop only stopped because it hit
+  // maxPeriods, not because the debt was actually paid off (the minimum-payment
+  // trap: interest ≥ payment, so Δ is negative and the balance never shrinks to
+  // zero). Reporting a specific "debt-free" date in that case would show a
+  // confidently-wrong decades-out figure instead of surfacing the trap.
+  const paidOff = balance <= ZERO_THRESHOLD;
+
   return {
     schedule,
     totalInterest,
     totalPaid: originalBalance + totalInterest,
     originalBalance,
-    debtFreeDate: schedule[schedule.length - 1]?.date ?? startDate,
+    debtFreeDate: paidOff ? (schedule[schedule.length - 1]?.date ?? startDate) : null,
     periodsToPayoff: schedule.length,
   };
 }

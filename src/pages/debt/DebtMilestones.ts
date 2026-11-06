@@ -14,12 +14,33 @@ export function buildMilestoneCard(
   strategy: DebtStrategy,
   extraPayment: number,
 ): HTMLElement | null {
+  if (accounts.length === 0) return null;
+
   const active = accounts.filter((a) => a.balance > 0);
-  if (active.length === 0) return null;
 
   const card = document.createElement('div');
   card.className = 'card';
   card.setAttribute('data-testid', 'milestone-card');
+
+  // Every debt is paid off. This is the actual "graduation" moment the rest
+  // of the app points toward — show a lasting summary instead of silently
+  // dropping the card the instant the goal is reached.
+  if (active.length === 0) {
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    card.innerHTML = `
+      <h3 class="font-serif" style="font-size:var(--text-xl);margin-bottom:var(--space-2)">🏆 Payoff Milestones</h3>
+      <div class="milestone-freedom-banner" data-testid="milestone-debt-free-banner" style="margin-top:var(--space-3)">
+        <span class="milestone-freedom-icon">🎉</span>
+        <div>
+          <div class="milestone-freedom-label">You're completely debt-free!</div>
+          <div class="milestone-freedom-date text-muted" style="font-size:var(--text-sm)">
+            Every account above is paid off${totalPaid > 0 ? ` — ${fmtCents.format(totalPaid)} paid toward debt along the way` : ''}.
+          </div>
+        </div>
+      </div>
+    `;
+    return card;
+  }
 
   const h3 = document.createElement('h3');
   h3.className = 'font-serif';
@@ -39,7 +60,9 @@ export function buildMilestoneCard(
 
   const perAccountResults = active
     .map((a) => ({ account: a, result: amortizeSingleCard(a, extraPayment / active.length) }))
-    .sort((a, b) => a.result.debtFreeDate.getTime() - b.result.debtFreeDate.getTime());
+    // Accounts that never pay off (null debtFreeDate — see amortize.ts) sort last.
+    .sort((a, b) =>
+      (a.result.debtFreeDate?.getTime() ?? Infinity) - (b.result.debtFreeDate?.getTime() ?? Infinity));
 
   const totalPaidPerAccount = new Map<string, number>();
   payments.forEach((p) => {
@@ -63,9 +86,13 @@ export function buildMilestoneCard(
     // broken app rather than an unset field. Show the same prompt the debt
     // list's "Needs payment info" badge already points the user at instead.
     const needsSetup = account.minimumPaymentValue == null;
-    const dateStr = needsSetup
+    // The minimum payment is configured but doesn't even cover accruing interest
+    // (Δ negative every period — see amortize.ts) — the balance grows forever
+    // rather than reaching zero, so there is no payoff date to show.
+    const neverPaysOff = !needsSetup && result.debtFreeDate == null;
+    const dateStr = needsSetup || neverPaysOff
       ? null
-      : result.debtFreeDate.toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
+      : result.debtFreeDate!.toLocaleDateString(userLocale, { month: 'short', year: 'numeric' });
 
     const row = document.createElement('div');
     row.className = 'milestone-row';
@@ -81,13 +108,15 @@ export function buildMilestoneCard(
         <div class="milestone-meta">
           ${fmtCents.format(account.balance)} remaining
           · ${Math.round(pctPaid * 100)}% paid
-          ${needsSetup ? '' : `· <strong>${fmtCents.format(result.totalInterest)}</strong> est. interest`}
+          ${needsSetup || neverPaysOff ? '' : `· <strong>${fmtCents.format(result.totalInterest)}</strong> est. interest`}
         </div>
       </div>
       <div class="milestone-date" data-testid="milestone-date">
         ${needsSetup
           ? '<span class="milestone-date-label text-muted">Add a minimum payment to see a payoff estimate</span>'
-          : `<span class="milestone-date-label">Paid off</span><span class="milestone-date-value">${dateStr}</span>`}
+          : neverPaysOff
+            ? '<span class="milestone-date-label text-muted">Minimum payment won’t cover interest — add extra to make progress</span>'
+            : `<span class="milestone-date-label">Paid off</span><span class="milestone-date-value">${dateStr}</span>`}
       </div>
     `;
     timeline.appendChild(row);
@@ -101,9 +130,13 @@ export function buildMilestoneCard(
   const anyNeedsSetup = active.some((a) => a.minimumPaymentValue == null);
 
   const multiResult = anyNeedsSetup ? null : amortizeMultiCard(active, strategy, extraPayment);
+  // multiResult.debtFreeDate is null when the combined minimums never outpace
+  // combined interest within the 100-year simulation — a real trap, not a
+  // missing-data gap, so it gets its own message rather than a bare dash.
+  const neverPaysOffCombined = multiResult != null && multiResult.debtFreeDate == null;
   const freedomDate = multiResult?.debtFreeDate
     ? multiResult.debtFreeDate.toLocaleDateString(userLocale, { month: 'long', year: 'numeric' })
-    : '—';
+    : null;
 
   const freedomBanner = document.createElement('div');
   freedomBanner.className = 'milestone-freedom-banner';
@@ -122,7 +155,11 @@ export function buildMilestoneCard(
       <span class="milestone-freedom-icon">🎯</span>
       <div>
         <div class="milestone-freedom-label">Complete debt freedom</div>
-        <div class="milestone-freedom-date" data-testid="milestone-freedom-date">${freedomDate}</div>
+        ${neverPaysOffCombined
+          ? `<div class="milestone-freedom-date text-muted" data-testid="milestone-freedom-date" style="font-size:var(--text-sm)">
+              Not reached at current minimums — add an extra payment to make progress
+            </div>`
+          : `<div class="milestone-freedom-date" data-testid="milestone-freedom-date">${freedomDate}</div>`}
       </div>
       <div class="milestone-freedom-stats">
         <div class="milestone-freedom-stat">

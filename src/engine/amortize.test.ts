@@ -113,7 +113,21 @@ describe('amortizeSingleCard', () => {
     const result = amortizeSingleCard(card, 0, START);
     const lastDate = result.schedule[result.schedule.length - 1]!.date;
 
-    expect(result.debtFreeDate.getTime()).toBe(lastDate.getTime());
+    expect(result.debtFreeDate!.getTime()).toBe(lastDate.getTime());
+  });
+
+  it('returns a null debt-free date when the minimum payment never covers interest', () => {
+    // 60% APR monthly => 5% periodic interest on $1000 = $50/period, which a
+    // $40 fixed minimum can never cover (Δ negative every period) — the
+    // balance grows forever instead of reaching zero.
+    const card = makeCard({
+      balance: 1000, apr: 60,
+      minimumPaymentType: 'fixed', minimumPaymentValue: 40,
+    });
+    const result = amortizeSingleCard(card, 0, START);
+
+    expect(result.debtFreeDate).toBeNull();
+    expect(result.schedule[result.schedule.length - 1]!.remainingBalance).toBeGreaterThan(card.balance);
   });
 });
 
