@@ -15,7 +15,6 @@ import {
   getDebtAccounts, saveDebtAccount, createDebtAccount,
   getBankAccounts,
   saveCategory,
-  createExpensePaidRecord, saveExpensePaidRecord,
   getTransactionRules, saveTransactionRule,
   getSetting,
 } from '@/db';
@@ -1649,9 +1648,19 @@ export function openImportWizard(opts: ImportWizardOptions): void {
         if (!dec || dec.type === 'skip' || dec.type === 'income' || dec.type === 'category') continue;
 
         if (dec.type === 'expense') {
-          const record = createExpensePaidRecord(dec.expenseId, Math.abs(r.amount!), r.date!);
-          record.bankAccountId = opts.targetId;
-          await saveExpensePaidRecord(record);
+          // Routed through accounting.recordExpensePayment (like the debt-payment and
+          // transfer branches below) rather than saved directly — the raw BankTransaction
+          // saved above is just the import's own record for dedup/display, not a ledger
+          // entry. Bypassing the service here used to mean an imported expense payment
+          // had bankAccountId set but no matching bank-debit ledger entry, so it silently
+          // never reduced the account's derived balance or showed up on the Ledger page.
+          await accounting.recordExpensePayment({
+            expenseId: dec.expenseId,
+            description: r.description || 'Imported expense payment',
+            amount: Math.abs(r.amount!),
+            date: r.date!,
+            bankAccountId: opts.targetId,
+          });
         }
 
         if (dec.type === 'debt-payment') {
