@@ -3,12 +3,12 @@ import {
   findChargeByExpenseId,
 } from '@/db';
 import { accounting } from '@/accounting';
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { navigate } from '@/app/router';
 import { FREQUENCY_OPTIONS, freqThresholdLabel, freqInterval } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { computeNextDue } from '@/utils/billStatus';
-import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
+import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import { refreshNotifier } from '@/utils/notifier';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { ExpenseCategory, Expense, IncomeFrequency, HouseholdMember, DebtAccount, BankAccount } from '@/types';
@@ -397,13 +397,7 @@ export function openExpenseForm(
       if (!description)                missing.push('Description');
       if (isNaN(amount) || amount < 0) missing.push('Amount');
       if (!dateStr)                    missing.push('Start Date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
       if (recurring && dueDateStr && dateStr) {
         const firstDue = new Date(dueDateStr + 'T00:00:00');
@@ -417,7 +411,7 @@ export function openExpenseForm(
 
       let dueDay: number | undefined = undefined;
       let firstDueTimestamp: number | undefined;
-      let date = new Date(dateStr + 'T00:00:00').getTime();
+      let date = dateInputToTimestamp(dateStr);
       if (recurring && dueDateStr) {
         const firstDue = new Date(dueDateStr + 'T00:00:00');
         dueDay = firstDue.getDate();
@@ -450,7 +444,7 @@ export function openExpenseForm(
       else delete expense.dueDay;
 
       // Persist the informational start date independently of the billing anchor.
-      expense.startDate = new Date(dateStr + 'T00:00:00').getTime();
+      expense.startDate = dateInputToTimestamp(dateStr);
 
       if (firstDueTimestamp != null) expense.firstDueDate = firstDueTimestamp;
       else delete expense.firstDueDate;

@@ -1,8 +1,9 @@
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import { saveBankAccount, createBankAccount } from '@/db';
 import { accounting } from '@/accounting';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { todayDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import type { BankAccount, BankAccountType, BankAccountOwnership, HouseholdMember } from '@/types';
 
 const SERIES_COLORS = [
@@ -120,17 +121,10 @@ export function openAccountForm(
       const color = body.querySelector<HTMLInputElement>('#ba-color')!.value || undefined;
       const errEl = body.querySelector<HTMLElement>('#ba-error')!;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (!name) missing.push('Account name');
       if (ownership === 'individual' && !memberId) missing.push('Account owner');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
       const account: BankAccount = existing
         ? { ...existing, name, accountType, ownership, updatedAt: Date.now() }
@@ -180,8 +174,7 @@ export function openTransferModal(
   const body = document.createElement('div');
   body.className = 'account-form';
 
-  const _now = new Date();
-  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+  const todayStr = todayDateInput();
 
   const otherAccounts = accounts.filter((a) => a.id !== fromAccount.id);
   const toOptions = otherAccounts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
@@ -234,8 +227,7 @@ export function openTransferModal(
         errEl.style.display = 'block';
         return;
       }
-      const dateParts = dateStr.split('-').map(Number);
-      const date = new Date(dateParts[0]!, dateParts[1]! - 1, dateParts[2]!).getTime();
+      const date = dateInputToTimestamp(dateStr);
 
       await accounting.recordTransfer({
         fromAccountId: fromAccount.id,

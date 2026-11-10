@@ -15,6 +15,7 @@ import { getDailyTip } from '@/mascot/messages';
 import { navigate } from '@/app/router';
 import { toMonthly, sourceMonthly } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { timestampToDateInput } from '@/utils/dateInput';
 import { buildSummarySection, buildActivitySection, type MonthBucket } from './DashboardActivity';
 import { buildPaymentRemindersCard } from './DashboardReminders';
 import { buildFinancialHealthRow, buildIncomeByAccountCard, renderIncomePanel, renderDebtPanel } from './DashboardPanels';
@@ -387,9 +388,6 @@ export class Dashboard {
       wrap.appendChild(customBtn);
 
     } else {
-      const toISO = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
       const rangeWrap = document.createElement('div');
       rangeWrap.className = 'range-inputs';
 
@@ -397,7 +395,7 @@ export class Dashboard {
       startInput.type = 'date';
       startInput.id = 'range-start';
       startInput.setAttribute('data-testid', 'range-start');
-      startInput.value = this.rangeStart ? toISO(this.rangeStart) : '';
+      startInput.value = this.rangeStart ? timestampToDateInput(this.rangeStart.getTime()) : '';
 
       const sep = document.createElement('span');
       sep.className = 'range-sep';
@@ -407,7 +405,7 @@ export class Dashboard {
       endInput.type = 'date';
       endInput.id = 'range-end';
       endInput.setAttribute('data-testid', 'range-end');
-      endInput.value = this.rangeEnd ? toISO(this.rangeEnd) : '';
+      endInput.value = this.rangeEnd ? timestampToDateInput(this.rangeEnd.getTime()) : '';
 
       const applyBtn = document.createElement('button');
       applyBtn.className = 'btn btn-primary btn-sm';

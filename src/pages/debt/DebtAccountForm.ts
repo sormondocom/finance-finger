@@ -2,8 +2,8 @@ import { saveDebtAccount, createDebtAccount } from '@/db';
 import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { timestampToDateInput } from '@/utils/dateInput';
-import { openFormModal } from '@/components/Modal';
+import { timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import type { DebtAccount, DebtAccountType, PaymentCycle } from '@/types';
 
@@ -50,11 +50,11 @@ export function openDebtForm(
       const curMaxDay = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate();
       const clamped = Math.min(day, curMaxDay);
       if (n.getDate() < clamped) {
-        return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(clamped).padStart(2, '0')}`;
+        return timestampToDateInput(new Date(n.getFullYear(), n.getMonth(), clamped).getTime());
       }
       const next = new Date(n.getFullYear(), n.getMonth() + 1, 1);
       const nextMaxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(Math.min(day, nextMaxDay)).padStart(2, '0')}`;
+      return timestampToDateInput(new Date(next.getFullYear(), next.getMonth(), Math.min(day, nextMaxDay)).getTime());
     }
     return '';
   })();
@@ -312,7 +312,7 @@ export function openDebtForm(
       const cycleEl = body.querySelector<HTMLSelectElement>('#da-cycle');
       const paymentCycle = ((cycleEl?.value ?? 'monthly') as PaymentCycle);
       const dueDateVal = body.querySelector<HTMLInputElement>('#da-duedate')?.value ?? '';
-      const dueDateMs = dueDateVal ? new Date(dueDateVal + 'T00:00:00').getTime() : undefined;
+      const dueDateMs = dueDateVal ? dateInputToTimestamp(dueDateVal) : undefined;
       const dueDay = dueDateVal ? parseInt(dueDateVal.split('-')[2]!, 10) : undefined;
       const nextDueDateMs = dueDateMs && !isNaN(dueDateMs) ? dueDateMs : undefined;
 
@@ -342,13 +342,7 @@ export function openDebtForm(
       if (isNaN(apr) || (!isMedical && apr <= 0))  missing.push('APR');
       if (showMinPayment && isCard && minValue == null) missing.push('Minimum payment');
       if (introChecked && !introEndStr)             missing.push('Intro APR end date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
       const now = Date.now();
       const { introAprEndDate: _prevIntro, ...existingBase } = existing ?? {} as DebtAccount;

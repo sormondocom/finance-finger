@@ -22,6 +22,7 @@ import { accounting } from '@/accounting';
 import { normalizePattern, toRuleAction } from '@/utils/importRules';
 import { inferActionType } from '@/utils/importSuggest';
 import { fmt, fmtCents } from '@/utils/finance';
+import { timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import type {
   BankTransaction, ExpenseCategory, ImportRecord,
   Expense,
@@ -897,8 +898,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       editDateInput.className = 'iw-review-edit-input';
       editDateInput.setAttribute('data-testid', 'iw-review-edit-date');
       if (row.date) {
-        const dd = new Date(row.date);
-        editDateInput.value = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}-${String(dd.getDate()).padStart(2, '0')}`;
+        editDateInput.value = timestampToDateInput(row.date);
       }
 
       const editDescInput = document.createElement('input');
@@ -954,8 +954,7 @@ export function openImportWizard(opts: ImportWizardOptions): void {
       applyBtn.addEventListener('click', () => {
         const newDateStr = editDateInput.value;
         if (!newDateStr) { editDateInput.focus(); return; }
-        const parts = newDateStr.split('-').map(Number);
-        const newDate = new Date(parts[0]!, parts[1]! - 1, parts[2]!).getTime();
+        const newDate = dateInputToTimestamp(newDateStr);
         if (isNaN(newDate)) { editDateInput.focus(); return; }
 
         const newDesc = editDescInput.value.trim();

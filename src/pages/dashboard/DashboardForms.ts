@@ -2,13 +2,14 @@ import { createIncomeSource, saveIncomeSource } from '@/db';
 import { createExpense, saveExpense } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { escapeHtml } from '@/utils/escapeHtml';
+import { timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import { accounting } from '@/accounting';
 import type { ExpenseCategory, HouseholdMember, IncomeSource, Expense, BankAccount } from '@/types';
 
 type MonthBucket = { year: number; month: number };
 
 function toLocalDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return timestampToDateInput(d.getTime());
 }
 
 export function openOneTimeIncomeForm(
@@ -80,7 +81,7 @@ export function openOneTimeIncomeForm(
       if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
       if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
 
-      const date = new Date(dateStr + 'T00:00:00').getTime();
+      const date = dateInputToTimestamp(dateStr);
       const src = createIncomeSource(memberId || (members[0]?.id ?? ''), name, amount, 'once');
       src.date = date;
       if (bankAccountId) src.bankAccountId = bankAccountId;
@@ -159,7 +160,7 @@ export function openOneTimeExpenseForm(
       if (isNaN(amount) || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
       if (!dateStr) { errEl.textContent = 'Date is required.'; errEl.style.display = 'block'; return; }
 
-      const date = new Date(dateStr + 'T00:00:00').getTime();
+      const date = dateInputToTimestamp(dateStr);
       const expense = createExpense(categoryId, description, amount, date, null);
       await saveExpense(expense);
       close();

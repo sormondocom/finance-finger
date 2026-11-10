@@ -1,11 +1,11 @@
 import { accounting } from '@/accounting';
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { fmtCents } from '@/utils/finance';
 import type { DebtAccount, CardCharge, ExpenseCategory } from '@/types';
 import { userLocale } from '@/utils/locale';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { todayDateInput } from '@/utils/dateInput';
+import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 
 type ChargesState = { page: number; pageSize: number; sortAsc: boolean };
 
@@ -25,8 +25,7 @@ function openEditChargeModal(
   expenseCategories: ExpenseCategory[],
   onSaved: (accountId: string) => Promise<void>,
 ): void {
-  const d = new Date(ch.date);
-  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const dateStr = timestampToDateInput(ch.date);
   const catOptions = expenseCategories
     .filter((c) => c.parentId === null)
     .map((c) => `<option value="${c.id}"${c.id === ch.categoryId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`)
@@ -75,20 +74,13 @@ function openEditChargeModal(
       const note       = body.querySelector<HTMLInputElement>('#ch-note')!.value.trim() || null;
       const errEl      = body.querySelector<HTMLElement>('#ch-error')!;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (!merchant)                    missing.push('Merchant / Vendor');
       if (isNaN(amount) || amount <= 0) missing.push('Amount');
       if (!dateVal)                     missing.push('Date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
-      const date = new Date(dateVal + 'T00:00:00').getTime();
+      const date = dateInputToTimestamp(dateVal);
       await accounting.updateCharge({ chargeId: ch.id, amount, date, description: merchant, categoryId, note });
       close();
       await onSaved(a.id);
@@ -150,20 +142,13 @@ function openAddChargeModal(
       const note       = body.querySelector<HTMLInputElement>('#ch-note')!.value.trim() || undefined;
       const errEl      = body.querySelector<HTMLElement>('#ch-error')!;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (!merchant)                    missing.push('Merchant / Vendor');
       if (isNaN(amount) || amount <= 0) missing.push('Amount');
       if (!dateStr)                     missing.push('Date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
-      const date = new Date(dateStr + 'T00:00:00').getTime();
+      const date = dateInputToTimestamp(dateStr);
       await accounting.recordCharge({ accountId: a.id, description: merchant, amount, date, ...(categoryId ? { categoryId } : {}), ...(note ? { note } : {}) });
       close();
       await onSaved(a.id);

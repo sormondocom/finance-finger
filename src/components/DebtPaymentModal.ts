@@ -1,11 +1,11 @@
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { navigate } from '@/app/router';
 import { accounting } from '@/accounting';
 import { fmtCents } from '@/utils/finance';
 import { computeMinPayment } from '@/utils/paymentStatus';
 import { refreshNotifier } from '@/utils/notifier';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
+import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import type { DebtAccount, BankAccount } from '@/types';
 
 export interface DebtPaymentModalOptions {
@@ -131,19 +131,12 @@ export function openDebtPaymentModal({ account: a, bankAccounts, onSave, onPayof
       const bankAccountId = body.querySelector<HTMLSelectElement>('#pay-bank')!.value || undefined;
       const errEl = body.querySelector<HTMLElement>('#pay-error')!;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (isNaN(amountRaw) || amountRaw <= 0) missing.push('Payment amount');
       if (!dateStr)                            missing.push('Payment date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
-      const date = new Date(dateStr + 'T00:00:00').getTime();
+      const date = dateInputToTimestamp(dateStr);
       await accounting.recordDebtPayment({
         accountId: a.id,
         amount: amountRaw,

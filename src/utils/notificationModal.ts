@@ -1,6 +1,8 @@
 import { openFormModal } from '@/components/Modal';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { saveCustomNotification, createCustomNotification, deleteCustomNotification, getCustomNotifications, getExpenses } from '@/db';
+import { dateInputToTimestamp } from '@/utils/dateInput';
+import { showToast } from '@/utils/errorUI';
 import type { CustomNotification, NotificationTriggerType, NotifLinkedItemType, Expense } from '@/types';
 
 export interface NotifModalCtx {
@@ -11,22 +13,6 @@ export interface NotifModalCtx {
   linkedItemType?: NotifLinkedItemType;
   /** When true, skip saving to DB — caller receives the built notif via onSaved and flushes later. */
   deferSave?: boolean;
-}
-
-function showToast(msg: string): void {
-  const t = document.createElement('div');
-  t.style.cssText = `
-    position:fixed;bottom:var(--space-6);right:var(--space-6);
-    padding:var(--space-3) var(--space-5);
-    background:var(--ff-navy);color:#fff;
-    border-radius:var(--radius-lg);
-    font-size:var(--text-sm);font-weight:700;
-    box-shadow:var(--shadow-lg);z-index:9999;
-    animation:fade-in 0.2s ease;
-  `;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
 }
 
 function describeTrigger(n: CustomNotification, expenses: Expense[]): string {
@@ -296,7 +282,7 @@ export function openAddNotificationModal(
           errMsg.style.display = '';
           return;
         }
-        triggerDate = new Date(dtInp.value + 'T00:00:00').getTime();
+        triggerDate = dateInputToTimestamp(dtInp.value);
       }
 
       const notif = createCustomNotification(label, triggerType);
@@ -314,7 +300,7 @@ export function openAddNotificationModal(
       if (!ctx.deferSave) {
         await saveCustomNotification(notif);
         close();
-        showToast('Reminder added! Manage all reminders in Settings → Reminders.');
+        showToast('Reminder added! Manage all reminders in Settings → Reminders.', 'success');
       } else {
         close();
       }

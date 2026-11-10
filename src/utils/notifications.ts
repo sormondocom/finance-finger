@@ -1,11 +1,7 @@
 import { getCustomNotifications, saveCustomNotification, getExpenses } from '@/db';
 import { showBellNotification } from '@/mascot/Mascot';
+import { todayDateInput } from '@/utils/dateInput';
 import type { CustomNotification, Expense } from '@/types';
-
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -80,7 +76,7 @@ export async function checkAndFireNotifications(): Promise<void> {
       getExpenses(),
     ]);
 
-    const today = todayStr();
+    const today = todayDateInput();
 
     const toFire = notifications.filter((n) => {
       if (!n.active) return false;

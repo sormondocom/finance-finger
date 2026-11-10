@@ -1,6 +1,7 @@
 import { saveCustomNotification, deleteCustomNotification, createCustomNotification } from '@/db';
 import { openFormModal } from '@/components/Modal';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
+import { timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import type { CustomNotification, NotificationTriggerType, Expense } from '@/types';
 
 export function buildNotificationsSection(
@@ -285,8 +286,7 @@ function openNotifModal(
     dtInput.type = 'date';
     dtInput.style.cssText = 'width:180px';
     if (existing?.triggerDate) {
-      const d = new Date(existing.triggerDate);
-      dtInput.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      dtInput.value = timestampToDateInput(existing.triggerDate);
     }
     wrap.appendChild(dtInput);
 
@@ -394,7 +394,7 @@ function openNotifModal(
           errMsg.style.display = '';
           return;
         }
-        triggerDate = new Date(dtInp.value + 'T00:00:00').getTime();
+        triggerDate = dateInputToTimestamp(dtInp.value);
       }
 
       const base = existing ?? createCustomNotification(label, triggerType);

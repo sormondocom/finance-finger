@@ -1,11 +1,11 @@
 import { navigate } from '@/app/router';
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { createIncomeSource, saveIncomeSource, deleteLedgerEntriesByCorrelation } from '@/db';
 import { fmtCents, FREQUENCY_OPTIONS, MONTHLY_FACTORS } from '@/utils/finance';
 import { showMascot } from '@/mascot/Mascot';
 import { buildLinkedRemindersSection } from '@/utils/notificationModal';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { todayDateInput, timestampToDateInput } from '@/utils/dateInput';
+import { todayDateInput, timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 import { accounting } from '@/accounting';
 import type { HouseholdMember, IncomeSource, IncomeFrequency, BankAccount } from '@/types';
 
@@ -299,7 +299,6 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
       const errEl     = body.querySelector<HTMLElement>('#sf-error')!;
       const isUnequal = frequency === 'semimonthly' && payType === 'salary' && unequalCheck.checked;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (!name)                            missing.push('Source name');
       if (frequency === 'once' && !dateStr) missing.push('Date received');
@@ -323,20 +322,14 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
         if (isNaN(amount2) || amount2 < 0) missing.push('2nd paycheck amount');
       }
 
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
       const source: IncomeSource = existing
         ? { ...existing, memberId, name, amount, frequency, active, updatedAt: Date.now() }
         : { ...createIncomeSource(memberId, name, amount, frequency), active };
 
       if (frequency === 'once') {
-        source.date = new Date(dateStr + 'T00:00:00').getTime();
+        source.date = dateInputToTimestamp(dateStr);
         delete source.payType;
       } else {
         delete source.date;
@@ -357,7 +350,7 @@ export function openSourceForm(existing: IncomeSource | undefined, ctx: IncomeFo
         delete source.semimonthlySchedule;
         const paydayStr = body.querySelector<HTMLInputElement>('#sf-payday')!.value;
         if (frequency !== 'once' && paydayStr) {
-          source.paydayRef = new Date(paydayStr + 'T00:00:00').getTime();
+          source.paydayRef = dateInputToTimestamp(paydayStr);
         } else {
           delete source.paydayRef;
         }

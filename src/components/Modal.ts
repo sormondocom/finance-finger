@@ -80,6 +80,24 @@ export function openModal(opts: ModalOptions): { close: () => void } {
   return { close };
 }
 
+/**
+ * Shows a "X is required" / "Fill in all required fields: ..." error in
+ * errEl when `missing` is non-empty, and returns whether it did — so a form's
+ * onSubmit can write `if (showMissingFieldsError(errEl, missing)) return;`
+ * instead of reimplementing this same singular/plural message each time.
+ */
+export function showMissingFieldsError(errEl: HTMLElement, missing: string[]): boolean {
+  if (missing.length === 0) {
+    errEl.style.display = 'none';
+    return false;
+  }
+  errEl.textContent = missing.length === 1
+    ? `${missing[0]} is required.`
+    : `Fill in all required fields: ${missing.join(', ')}.`;
+  errEl.style.display = 'block';
+  return true;
+}
+
 /** Convenience wrapper: modal with a pre-built footer row */
 export function openFormModal(opts: {
   title: string;

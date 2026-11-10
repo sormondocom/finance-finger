@@ -42,10 +42,6 @@ Chart.register(
   Tooltip, Legend,
 );
 
-function localStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 type PresetKey = 'this-week' | 'this-month' | 'last-month' | 'last-3' | 'last-6' | 'this-year' | 'last-year' | 'all-time' | 'custom';
 
 const PRESETS: { key: PresetKey; label: string }[] = [
@@ -286,7 +282,7 @@ export class ReportsPage {
 
     const startInput = document.createElement('input');
     startInput.type = 'date';
-    startInput.value = this.customStartStr || localStr(this.rangeStart);
+    startInput.value = this.customStartStr || timestampToDateInput(this.rangeStart.getTime());
     startInput.dataset['testid'] = 'reports-custom-start';
 
     const arrow = document.createElement('span');
@@ -295,7 +291,7 @@ export class ReportsPage {
 
     const endInput = document.createElement('input');
     endInput.type = 'date';
-    endInput.value = this.customEndStr || localStr(this.rangeEnd);
+    endInput.value = this.customEndStr || timestampToDateInput(this.rangeEnd.getTime());
     endInput.dataset['testid'] = 'reports-custom-end';
 
     const apply = document.createElement('button');

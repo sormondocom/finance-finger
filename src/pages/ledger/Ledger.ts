@@ -6,6 +6,7 @@ import { getDebtAccounts, getBankAccounts } from '@/db';
 import { fmtCents } from '@/utils/finance';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { userLocale } from '@/utils/locale';
+import { dateInputToTimestamp } from '@/utils/dateInput';
 import type { LedgerEntry, LedgerEntryType, DebtPayment, DebtAccount, BankAccount } from '@/types';
 
 // Normalize a timestamp to midnight of its local calendar day.
@@ -1024,7 +1025,7 @@ export class LedgerPage {
     if (this.filterAccount) visible = visible.filter((e) => e.accountId === this.filterAccount);
     if (this.filterType) visible = visible.filter((e) => e.type === this.filterType);
     if (this.filterFrom) {
-      const ts = new Date(this.filterFrom + 'T00:00:00').getTime();
+      const ts = dateInputToTimestamp(this.filterFrom);
       visible = visible.filter((e) => e.date >= ts);
     }
     if (this.filterTo) {

@@ -1,5 +1,5 @@
 import { accounting } from '@/accounting';
-import { openFormModal } from '@/components/Modal';
+import { openFormModal, showMissingFieldsError } from '@/components/Modal';
 import { openConfirmDialog } from '@/components/ConfirmDialog';
 import { openDebtPaymentModal } from '@/components/DebtPaymentModal';
 import { computePaymentStatus } from '@/utils/paymentStatus';
@@ -9,7 +9,7 @@ import { showAllDebtFreeCelebration, showDebtPayoffCelebration } from '@/mascot/
 import type { DebtAccount, DebtPayment, BankAccount } from '@/types';
 import { userLocale } from '@/utils/locale';
 import { escapeHtml } from '@/utils/escapeHtml';
-import { timestampToDateInput } from '@/utils/dateInput';
+import { timestampToDateInput, dateInputToTimestamp } from '@/utils/dateInput';
 
 function openEditPaymentModal(
   a: DebtAccount,
@@ -72,22 +72,15 @@ function openEditPaymentModal(
       const bankAccountId = body.querySelector<HTMLSelectElement>('#ep-bank')!.value || null;
       const errEl         = body.querySelector<HTMLElement>('#ep-error')!;
 
-      errEl.style.display = 'none';
       const missing: string[] = [];
       if (isNaN(newAmount) || newAmount <= 0) missing.push('Payment amount');
       if (!dateStr)                           missing.push('Payment date');
-      if (missing.length > 0) {
-        errEl.textContent = missing.length === 1
-          ? `${missing[0]} is required.`
-          : `Fill in all required fields: ${missing.join(', ')}.`;
-        errEl.style.display = 'block';
-        return;
-      }
+      if (showMissingFieldsError(errEl, missing)) return;
 
       await accounting.updateDebtPayment({
         paymentId: p.id,
         amount: newAmount,
-        date: new Date(dateStr + 'T00:00:00').getTime(),
+        date: dateInputToTimestamp(dateStr),
         type: typeVal,
         note,
         bankAccountId,
