@@ -266,7 +266,7 @@ type DebtAccountType = 'card' | 'mortgage' | 'medical' | 'loan' | 'vehicle'
 | `totalInterest` | `number` |  |
 | `totalPaid` | `number` |  |
 | `originalBalance` | `number` |  |
-| `debtFreeDate` | `Date` |  |
+| `debtFreeDate` | `Date \| null` | null when the balance never reaches zero within the simulated horizon |
 | `periodsToPayoff` | `number` |  |
 
 ### `MultiCardMonthly`
