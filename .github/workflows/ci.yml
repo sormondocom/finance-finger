@@ -219,7 +219,38 @@ jobs:
           path: tests/screenshots/
           retention-days: 14
 
-  # ── 6. Data-model docs freshness check ───────────────────────────────────────
+  # ── 6. Extension packaging readiness (web-ext lint) ──────────────────────────
+  # web-ext lint is the actual tool addons.mozilla.org runs against every
+  # submission — this catches a manifest regression (like a missing required
+  # field) before it ships in a release, not after AMO rejects it. There's no
+  # equivalent public linter for the Chrome Web Store, and web-ext's own
+  # Firefox-centric checks produce false-positive "errors" against Chrome's
+  # service_worker-only background field, so this only runs against Firefox.
+  validate-firefox:
+    name: Validate Firefox extension (web-ext lint)
+    runs-on: ubuntu-latest
+    needs: build-firefox
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Firefox build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-firefox
+          path: dist/firefox/
+
+      - name: Lint Firefox build
+        run: npx web-ext lint -s dist/firefox
+
+  # ── 7. Data-model docs freshness check ───────────────────────────────────────
   docs:
     name: Data model docs
     runs-on: ubuntu-latest
@@ -246,11 +277,11 @@ jobs:
             exit 1
           fi
 
-  # ── 7. Package distributable zips — only after all tests and docs pass ────────
+  # ── 8. Package distributable zips — only after all tests and docs pass ────────
   package:
     name: Package
     runs-on: ubuntu-latest
-    needs: [lint, unit, e2e-chrome, e2e-firefox, docs]
+    needs: [lint, unit, e2e-chrome, e2e-firefox, validate-firefox, docs]
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -284,6 +315,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           mv artifacts/chrome/*.zip "artifacts/chrome/financial-finger-${VERSION}-chrome.zip"
           mv artifacts/firefox/*.zip "artifacts/firefox/financial-finger-${VERSION}-firefox.zip"
+          mv artifacts/financial-finger-source.zip "artifacts/financial-finger-${VERSION}-source.zip"
 
       - name: Upload Chrome zip
         uses: actions/upload-artifact@v4
@@ -301,7 +333,20 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  # ── 8. SLSA build-provenance attestation (tags only) ─────────────────────────
+      # Mozilla requires source code disclosure for review when the submitted
+      # build is minified/bundled (which Vite's output always is) — this is
+      # the matching clean-source archive for that submission, built from the
+      # exact same checkout as the zips above, generated on every push (not
+      # just tags) so it's always current.
+      - name: Upload source zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: financial-finger-source
+          path: artifacts/financial-finger-*-source.zip
+          if-no-files-found: error
+          retention-days: 90
+
+  # ── 9. SLSA build-provenance attestation (tags only) ─────────────────────────
   attest:
     name: Attest build provenance
     runs-on: ubuntu-latest
@@ -324,6 +369,12 @@ jobs:
           name: financial-finger-firefox
           path: release/firefox/
 
+      - name: Download source zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-source
+          path: release/source/
+
       - name: Attest Chrome build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -334,7 +385,12 @@ jobs:
         with:
           subject-path: release/firefox/*.zip
 
-  # ── 9. GitHub Release (tags only, after attestation) ─────────────────────────
+      - name: Attest source archive provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/source/*.zip
+
+  # ── 10. GitHub Release (tags only, after attestation) ────────────────────────
   release:
     name: GitHub Release
     runs-on: ubuntu-latest
@@ -355,6 +411,12 @@ jobs:
           name: financial-finger-firefox
           path: release/
 
+      - name: Download source zip
+        uses: actions/download-artifact@v4
+        with:
+          name: financial-finger-source
+          path: release/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -362,3 +424,13 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            ⚠️ **Unsigned build.** These zips are built directly from this
+            tag's source by GitHub Actions — not downloaded from an official
+            browser extension store, and not signed by Mozilla or Google.
+            Loading an unsigned extension means your browser can't vouch for
+            who built it; you're trusting this repository instead. Verify a
+            zip's provenance before installing (see
+            [CONTRIBUTING.md](https://github.com/sormondocom/finance-finger/blob/main/CONTRIBUTING.md#verifying-a-release-zips-provenance)),
+            and see the [Quick start](https://github.com/sormondocom/finance-finger#quick-start)
+            section for per-browser "load unpacked" instructions.

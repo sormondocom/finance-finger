@@ -178,14 +178,15 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `
 lint ──────────────────────────────────────────────────────────────────────────┐
 unit ──────────────────────────────────────────────────────────────────────────┤
 build-chrome ──────────────────────────────────────────────────────────────────┤
-build-firefox ─────────────────────────────────────────────────────────────────┤  → e2e-chrome → package
-e2e-chrome ────────────────────────────────────────────────────────────────────┤  → e2e-firefox → package
-e2e-firefox ───────────────────────────────────────────────────────────────────┘
-docs ──────────────────────────────────────────────────────────────────────────→ package
-                                                                                   ↓
-                                                                              attest (tags)
-                                                                                   ↓
-                                                                              release (tags)
+build-firefox ─────────────────────────────────────────────────────────────────┤  → e2e-chrome ────────────┐
+e2e-chrome ────────────────────────────────────────────────────────────────────┤  → e2e-firefox ───────────┤
+e2e-firefox ───────────────────────────────────────────────────────────────────┤  → validate-firefox ──────┤
+validate-firefox ──────────────────────────────────────────────────────────────┘                           │
+docs ──────────────────────────────────────────────────────────────────────────────────────────────→ package
+                                                                                                          ↓
+                                                                                                    attest (tags)
+                                                                                                          ↓
+                                                                                                    release (tags)
 ```
 
 | Job | Needs | What it does |
@@ -196,10 +197,11 @@ docs ─────────────────────────
 | **build-firefox** | lint | `npm run build:firefox`; uploads `dist-firefox` artifact |
 | **e2e-chrome** | build-chrome | Downloads `dist-chrome`, installs Playwright Chromium, runs `npm run test:e2e` |
 | **e2e-firefox** | build-firefox | Downloads `dist-firefox`, installs Playwright Firefox, runs `npm run test:e2e:firefox` |
+| **validate-firefox** | build-firefox | Downloads `dist-firefox`, runs `web-ext lint` — the same tool addons.mozilla.org runs against every submission, so a manifest regression (e.g. a missing required field) fails CI before it ships in a release |
 | **docs** | — | Runs `npm run docs` and fails if `docs/data-model.md` is stale |
-| **package** | lint + unit + e2e-chrome + e2e-firefox + docs | Zips both dist artifacts; names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
+| **package** | lint + unit + e2e-chrome + e2e-firefox + validate-firefox + docs | Zips both dist artifacts; names them `financial-finger-{version}-chrome.zip` / `…-firefox.zip` |
 | **attest** | package (tags only) | SLSA Build Level 2 provenance via `actions/attest-build-provenance@v2` |
-| **release** | attest (tags only) | Creates a GitHub Release; marks pre-release if tag contains a hyphen |
+| **release** | attest (tags only) | Creates a GitHub Release (marked **unsigned build** in the release notes, with a link to verify provenance); marks pre-release if tag contains a hyphen |
 
 **Creating a release:**
 

@@ -139,17 +139,19 @@ Financial Finger targets both **Chromium** (Chrome, Edge, Brave, Arc) and **Fire
 
 ## Quick start
 
-Download the latest release from the [Releases page](https://github.com/sormondocom/finance-finger/releases). Each release includes two zip files: one for Chrome/Chromium and one for Firefox.
+Download the latest release from the [Releases page](https://github.com/sormondocom/finance-finger/releases). Each release includes a zip for Chrome/Chromium, one for Firefox, and a clean source-code archive. **These release zips are unsigned** — built directly from the tagged commit by GitHub Actions, not downloaded from an official store, with [SLSA build provenance](CONTRIBUTING.md#verifying-a-release-zips-provenance) attached so you can verify a zip actually came from this repository before installing it.
 
-### Load in Chrome / Chromium
+### Load in Chrome, Edge, Brave, Vivaldi, Opera, or any other Chromium browser
 
 1. Unzip `financial-finger-*-chrome.zip`
-2. Open `chrome://extensions`
+2. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`, etc. — every Chromium browser uses the same extensions page under its own URL scheme)
 3. Enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked**
 5. Select the unzipped folder
 
 Click the Financial Finger icon in your toolbar to open the app.
+
+> **Official store listings (Chrome Web Store, Microsoft Edge Add-ons) are planned but not live yet** — Chrome Web Store review in particular has had long, unpredictable delays for new submissions industry-wide. Until a store listing exists, loading the unpacked zip above is the supported path for every Chromium-based browser.
 
 ### Load in Firefox
 
