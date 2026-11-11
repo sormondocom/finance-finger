@@ -139,11 +139,21 @@ Financial Finger targets both **Chromium** (Chrome, Edge, Brave, Arc) and **Fire
 
 ## Quick start
 
-Download the latest release from the [Releases page](https://github.com/sormondocom/finance-finger/releases). Each release includes a zip for Chrome/Chromium, one for Firefox, and a clean source-code archive. **These release zips are unsigned** — built directly from the tagged commit by GitHub Actions, not downloaded from an official store, with [SLSA build provenance](CONTRIBUTING.md#verifying-a-release-zips-provenance) attached so you can verify a zip actually came from this repository before installing it.
+**Direct downloads (always the latest release):**
+
+| | |
+|---|---|
+| 🧩 Chrome / Chromium | [financial-finger-chrome.zip](https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-chrome.zip) |
+| 🦊 Firefox | [financial-finger-firefox.zip](https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-firefox.zip) |
+| 📄 Source code | [financial-finger-source.zip](https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-source.zip) |
+
+These links always point at whatever release is currently tagged "Latest" — no need to go find a version number. Prefer to browse versions, release notes, or checksums first? See the [Releases page](https://github.com/sormondocom/finance-finger/releases) instead.
+
+**These release zips are unsigned** — built directly from the tagged commit by GitHub Actions, not downloaded from an official store, with [SLSA build provenance](CONTRIBUTING.md#verifying-a-release-zips-provenance) attached so you can verify a zip actually came from this repository before installing it.
 
 ### Load in Chrome, Edge, Brave, Vivaldi, Opera, or any other Chromium browser
 
-1. Unzip `financial-finger-*-chrome.zip`
+1. Unzip `financial-finger-chrome.zip`
 2. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`, etc. — every Chromium browser uses the same extensions page under its own URL scheme)
 3. Enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked**
@@ -155,7 +165,7 @@ Click the Financial Finger icon in your toolbar to open the app.
 
 ### Load in Firefox
 
-1. Unzip `financial-finger-*-firefox.zip`
+1. Unzip `financial-finger-firefox.zip`
 2. Open `about:debugging#/runtime/this-firefox`
 3. Click **Load Temporary Add-on**
 4. Select `manifest.json` inside the unzipped folder
