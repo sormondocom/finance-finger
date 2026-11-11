@@ -14,6 +14,22 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-chrome.zip">
+    <img src="https://img.shields.io/badge/Download-Chrome%2FChromium-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download for Chrome/Chromium" />
+  </a>
+  &nbsp;
+  <a href="https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-firefox.zip">
+    <img src="https://img.shields.io/badge/Download-Firefox-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white" alt="Download for Firefox" />
+  </a>
+  &nbsp;
+  <a href="https://github.com/sormondocom/finance-finger/releases/latest/download/financial-finger-source.zip">
+    <img src="https://img.shields.io/badge/Download-Source-181717?style=for-the-badge&logo=github&logoColor=white" alt="Download source code" />
+  </a>
+</p>
+
+<p align="center"><sub>Always the latest release · unsigned, build-provenance-attested · see <a href="#quick-start">Quick start</a> for install steps</sub></p>
+
 > *Figurin' out your finances — offline, encrypted, and yours.*
 
 <p align="center">
