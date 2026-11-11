@@ -309,13 +309,23 @@ jobs:
       - name: Create distribution zips
         run: npm run zip
 
-      - name: Rename zips with browser suffix
+      # Each zip gets both a versioned name (financial-finger-1.2.3-chrome.zip,
+      # for the historical record on this specific release) and a stable,
+      # version-less copy (financial-finger-chrome.zip). The stable name is
+      # what README links target via GitHub's releases/latest/download/<name>
+      # URL scheme, which always resolves to whatever release is currently
+      # marked "Latest" — so those links never need editing on a future
+      # release, as long as the version-less filename stays exactly this.
+      - name: Rename zips with browser suffix, and add stable version-less copies
         shell: bash
         run: |
           VERSION=$(node -p "require('./package.json').version")
           mv artifacts/chrome/*.zip "artifacts/chrome/financial-finger-${VERSION}-chrome.zip"
           mv artifacts/firefox/*.zip "artifacts/firefox/financial-finger-${VERSION}-firefox.zip"
           mv artifacts/financial-finger-source.zip "artifacts/financial-finger-${VERSION}-source.zip"
+          cp "artifacts/chrome/financial-finger-${VERSION}-chrome.zip" artifacts/chrome/financial-finger-chrome.zip
+          cp "artifacts/firefox/financial-finger-${VERSION}-firefox.zip" artifacts/firefox/financial-finger-firefox.zip
+          cp "artifacts/financial-finger-${VERSION}-source.zip" artifacts/financial-finger-source.zip
 
       - name: Upload Chrome zip
         uses: actions/upload-artifact@v4
@@ -342,7 +352,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: financial-finger-source
-          path: artifacts/financial-finger-*-source.zip
+          path: artifacts/financial-finger-*source.zip
           if-no-files-found: error
           retention-days: 90
 
