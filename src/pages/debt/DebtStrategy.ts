@@ -76,7 +76,16 @@ function renderStrategyResults(
   `;
   container.appendChild(grid);
 
-  if (extraPayment > 0 && interestSaved > 0) {
+  // interestSaved alone isn't enough to claim "debt-free sooner" — if the
+  // extra payment still doesn't actually pay the debt off within the chosen
+  // horizon (withExtra.debtFreeDate null), there's no real payoff event to
+  // celebrate, even though it genuinely accrued less interest over the same
+  // truncated window. Without this, fmtDate()'s "Not paid off within..."
+  // fallback string was getting substituted straight into the mascot's
+  // {date} placeholder — "you're clear by Not paid off within 2-year
+  // horizon." — and the banner was claiming "be debt-free sooner" when the
+  // account never reaches debt-free at all within the shown horizon.
+  if (extraPayment > 0 && interestSaved > 0 && withExtra.debtFreeDate != null) {
     const yrs = Math.floor(monthsSaved / 12);
     const mos = monthsSaved % 12;
     const timeStr = [yrs > 0 ? `${yrs} yr` : '', mos > 0 ? `${mos} mo` : ''].filter(Boolean).join(' ');
