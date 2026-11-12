@@ -6,7 +6,7 @@ import { createMember, saveMember, deleteMember } from '@/db';
 import { escapeHtml } from '@/utils/escapeHtml';
 import { downloadFile } from '@/utils/download';
 import type { AvatarType, MascotGender, VaultConfig } from '@/types';
-import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG, PUG_SVG, CAT_SVG } from '@/mascot/svgs';
+import { BUCK_SVG, PENNY_SVG, BABY_BOY_SVG, BABY_GIRL_SVG, CHILD_BOY_SVG, CHILD_GIRL_SVG, TEEN_BOY_SVG, TEEN_GIRL_SVG, PUG_SVG, CAT_SVG, FAMILY_SVG } from '@/mascot/svgs';
 
 export function avatarTypeToSvg(type: AvatarType): string {
   switch (type) {
@@ -134,7 +134,7 @@ export class SetupWizard {
         so you can start figurin' out your finances.</p>
       </div>
       <div class="card" style="text-align:center;padding:var(--space-8)">
-        <p style="font-size:4rem;margin-bottom:var(--space-4)">🐷</p>
+        <div class="setup-welcome-logo">${FAMILY_SVG}</div>
         <p>Everything you enter stays right here on your device,<br>
         encrypted and private. We don't have a server to send it to,<br>
         and that's exactly the point.</p>

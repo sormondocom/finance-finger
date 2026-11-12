@@ -6,6 +6,17 @@
   gap: var(--space-8);
 }
 
+.setup-welcome-logo {
+  margin: 0 auto var(--space-4);
+}
+
+.setup-welcome-logo svg {
+  display: block;
+  width: 140px;
+  height: auto;
+  margin: 0 auto;
+}
+
 .setup-header {
   text-align: center;
 }

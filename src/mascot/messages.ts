@@ -242,6 +242,22 @@ export function getDailyTip(gender: 'buck' | 'penny'): string[] {
   return tip;
 }
 
+// A placeholder substituted with the literal string "0" almost always means
+// the variant using it will read as broken rather than positive — e.g.
+// "debt-free a whole 0 months sooner" when an extra payment saves real
+// interest but doesn't happen to shave off a full month. Rather than fix
+// this one call site, skip any variant that would render a "0" for *any*
+// trigger — a content edit elsewhere that reuses a count-like placeholder
+// without checking for the zero case gets the same protection for free.
+// Falls back to the full, unfiltered pool if every variant would be
+// filtered out, so a future content mistake degrades to "picks something"
+// rather than "shows nothing."
+function hasZeroPlaceholder(lines: string[], substitutions: Record<string, string>): boolean {
+  return lines.some((line) =>
+    Array.from(line.matchAll(/\{(\w+)\}/g)).some(([, key]) => substitutions[key!] === '0'),
+  );
+}
+
 export function getLines(
   trigger: MascotTrigger,
   gender: 'buck' | 'penny',
@@ -249,7 +265,9 @@ export function getLines(
 ): string[] {
   const bank = gender === 'buck' ? BUCK_LINES : PENNY_LINES;
   const options = bank[trigger];
-  const chosen = options[Math.floor(Math.random() * options.length)] ?? options[0] ?? ['Howdy!'];
+  const safeOptions = options.filter((lines) => !hasZeroPlaceholder(lines, substitutions));
+  const pool = safeOptions.length > 0 ? safeOptions : options;
+  const chosen = pool[Math.floor(Math.random() * pool.length)] ?? pool[0] ?? ['Howdy!'];
 
   return chosen.map((line) =>
     line.replace(/\{(\w+)\}/g, (_, key) => substitutions[key] ?? `{${key}}`),
