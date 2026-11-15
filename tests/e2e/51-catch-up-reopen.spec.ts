@@ -35,7 +35,6 @@ const today = new Date();
 const eightDaysAgo = new Date(today);
 eightDaysAgo.setDate(today.getDate() - 8);
 const eightDaysAgoStr = `${eightDaysAgo.getFullYear()}-${String(eightDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(eightDaysAgo.getDate()).padStart(2, '0')}`;
-const aYearAgoStr = `${today.getFullYear() - 1}-01-15`;
 
 async function seedLastOpenedAtDaysAgo(days: number): Promise<void> {
   const ts = Date.now() - days * 86_400_000;
@@ -118,9 +117,8 @@ test('setup: add a recurring bill due 8 days ago', async () => {
   await page.click('[data-testid="add-expense-btn"]');
   await page.fill('#ef-desc', 'Catch-up Bill');
   await page.fill('#ef-amount', '75');
-  await page.fill('#ef-date', aYearAgoStr); // billing anchor far in the past
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', eightDaysAgoStr);
+  await page.fill('#ef-date', eightDaysAgoStr); // First Due Date — 8 days ago, never paid
   // Not fixed-amount, not auto-pay — a plain manually-paid recurring bill.
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();

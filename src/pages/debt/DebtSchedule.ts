@@ -70,7 +70,9 @@ export function buildSchedulePanel(
   accounts: DebtAccount[],
   selectedAccountId: string | null,
   horizonYears: number,
+  extraPayment: number,
   onAccountChange: (accountId: string) => void,
+  onExtraPaymentChange: (extra: number) => void,
 ): HTMLElement {
   const panel = document.createElement('div');
   panel.className = 'card';
@@ -86,7 +88,6 @@ export function buildSchedulePanel(
 
   const select = document.createElement('select');
   select.id = 'schedule-select';
-  select.style.cssText = 'width:auto;max-width:220px';
   accounts.forEach((a) => {
     const opt = document.createElement('option');
     opt.value = a.id;
@@ -97,11 +98,26 @@ export function buildSchedulePanel(
 
   const extraLabel = document.createElement('span');
   extraLabel.className = 'text-xs text-muted';
-  extraLabel.textContent = 'Showing minimum payments only. Extra payment applies in the multi-account strategy above.';
+  extraLabel.textContent = 'Add an extra payment below to see its effect on this account\'s schedule.';
 
   controls.appendChild(select);
   controls.appendChild(extraLabel);
   panel.appendChild(controls);
+
+  let currentExtra = extraPayment;
+
+  const extraRow = document.createElement('div');
+  extraRow.className = 'extra-payment-row';
+  extraRow.innerHTML = `
+    <label for="schedule-extra-payment">Extra payment</label>
+    <input id="schedule-extra-payment" type="number" min="0" step="10"
+      value="${currentExtra || ''}" placeholder="0" />
+    <span class="extra-payment-desc">Added to the minimum payment every period, for this account only.</span>
+  `;
+  panel.appendChild(extraRow);
+
+  const summaryWrap = document.createElement('div');
+  panel.appendChild(summaryWrap);
 
   const tableWrap = document.createElement('div');
   tableWrap.className = 'schedule-table-wrap';
@@ -111,8 +127,31 @@ export function buildSchedulePanel(
     const a = accounts.find((x) => x.id === accountId);
     if (!a) return;
     const maxPeriods = horizonYears * PERIODS_PER_YEAR_MAP[a.paymentCycle];
-    const result = amortizeSingleCard(a, 0, new Date(), maxPeriods);
+    const result = amortizeSingleCard(a, currentExtra, new Date(), maxPeriods);
     const truncated = result.schedule.length >= maxPeriods && (result.schedule[result.schedule.length - 1]?.remainingBalance ?? 0) > 0;
+
+    summaryWrap.innerHTML = '';
+    if (currentExtra > 0) {
+      const baseline = amortizeSingleCard(a, 0, new Date(), maxPeriods);
+      if (baseline.debtFreeDate != null && result.debtFreeDate != null) {
+        const periodsSaved = baseline.periodsToPayoff - result.periodsToPayoff;
+        const interestSaved = baseline.totalInterest - result.totalInterest;
+        if (interestSaved > 0) {
+          const banner = document.createElement('div');
+          banner.className = 'savings-banner';
+          banner.style.marginBottom = 'var(--space-4)';
+          banner.innerHTML = `
+            <span class="savings-banner-icon">🎉</span>
+            <div>
+              <strong>You'd save ${fmtCents.format(interestSaved)} in interest</strong>
+              ${periodsSaved > 0 ? ` and pay this off <strong>${periodsSaved} payment${periodsSaved === 1 ? '' : 's'} sooner</strong>` : ''}.
+            </div>
+          `;
+          summaryWrap.appendChild(banner);
+        }
+      }
+    }
+
     tableWrap.innerHTML = '';
     if (truncated) {
       const note = document.createElement('p');
@@ -125,6 +164,12 @@ export function buildSchedulePanel(
 
   select.addEventListener('change', () => {
     onAccountChange(select.value);
+    renderTable(select.value);
+  });
+
+  extraRow.querySelector<HTMLInputElement>('#schedule-extra-payment')!.addEventListener('input', (e) => {
+    currentExtra = parseFloat((e.target as HTMLInputElement).value) || 0;
+    onExtraPaymentChange(currentExtra);
     renderTable(select.value);
   });
 

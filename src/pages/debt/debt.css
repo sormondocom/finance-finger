@@ -1107,7 +1107,11 @@
   margin-bottom: var(--space-4);
 }
 
-.schedule-controls select { width: auto; }
+.schedule-controls select {
+  width: auto;
+  max-width: 340px;
+  text-overflow: ellipsis;
+}
 
 .schedule-table-wrap {
   overflow-x: auto;

@@ -117,12 +117,12 @@ function cardReportsOverage(): HTMLElement {
   const card = makeCard('🔥', 'Common Overage Offenders');
   card.innerHTML += `
     <div class="edu-card-voice">
-      <p>This card appears when you've set a <strong>monthly threshold</strong> on at least one recurring expense. It's always all-time data (independent of the date range), because seasonal patterns need multiple months of history to be meaningful.</p>
+      <p>This card appears whenever you have at least one recurring expense. It's always all-time data (independent of the date range), because seasonal patterns need multiple months of history to be meaningful.</p>
       <p>Each bill shows a grid of colored month cells:</p>
     </div>
     <div class="help-status-grid">
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-green)"></span><div><strong>Green ✓</strong> — actual payment was under threshold</div></div>
-      <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>Red (overage $)</strong> — actual payment exceeded threshold</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--ff-green)"></span><div><strong>Green ✓</strong> — actual payment was at or under the expected amount</div></div>
+      <div class="help-status-row"><span class="help-status-dot" style="background:var(--color-danger)"></span><div><strong>Red (overage $)</strong> — actual payment exceeded the expected amount</div></div>
     </div>
     <div class="edu-card-voice">
       <p>Bills with 3 or more overages get a 🔥 marker. If 2+ overages cluster in the same season (summer, winter, spring, or fall), a callout appears: "☀️ tends to spike in summer — plan ahead."</p>

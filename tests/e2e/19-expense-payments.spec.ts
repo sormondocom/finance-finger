@@ -46,18 +46,10 @@ const thisYear = today.getFullYear();
 const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 const PAST_DUE_DAY = Math.max(1, today.getDate() - 4);
 const ONE_TIME_DAY = Math.max(1, today.getDate() - 2);
-// A date in next month — used for the ghost-paid regression test.
-// When a bill has a next-month due date the form's prevPeriod lands in the current
-// month, which the old (bug) code would treat as "already paid".
+// A date in next month — used for the ghost-paid regression test, so the
+// bill's First Due Date (and hence notYetBilled) is still ahead of today.
 const NEXT_MONTH_DATE = (() => {
   const d = new Date(today.getFullYear(), today.getMonth() + 1, 15);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
-})();
-
-// A date in the previous month — expense.date must be outside the 14-day
-// cycle window so computeBillStatus returns 'past-due' (not 'paid').
-const PREV_MONTH_DATE = (() => {
-  const d = new Date(today.getFullYear(), today.getMonth() - 1, 15);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
 })();
 
@@ -119,8 +111,7 @@ test('setup: adds Electric Bill (variable, no flags)', async () => {
   await page.fill('#ef-amount', '95');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -137,8 +128,7 @@ test('setup: adds Cable Bill (isFixedAmount = true)', async () => {
   await page.fill('#ef-amount', '89');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-fixed-amount');
 
   await page.click('[data-testid="modal-submit"]');
@@ -157,8 +147,7 @@ test('setup: adds Netflix (isAutoPay = true)', async () => {
   await page.fill('#ef-amount', '18');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 
   await page.click('[data-testid="modal-submit"]');
@@ -185,16 +174,16 @@ test('setup: adds Vet Bill one-time expense this month', async () => {
 
 // ── Test 1: Amount label changes based on recurring/frequency ────────────────
 
-test('expense form amount label is "Estimated Amount" by default and "Monthly Threshold" when recurring is checked', async () => {
+test('expense form amount label is "Estimated Amount" by default and "Monthly Amount" when recurring is checked', async () => {
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
   // Before checking recurring: label is generic
   await expect(page.locator('label[for="ef-amount"]')).toContainText('Estimated Amount');
 
-  // After checking recurring (default freq = monthly): label becomes "Monthly Threshold"
+  // After checking recurring (default freq = monthly): label becomes "Monthly Amount"
   await page.check('#ef-recurring');
-  await expect(page.locator('label[for="ef-amount"]')).toContainText('Monthly Threshold');
+  await expect(page.locator('label[for="ef-amount"]')).toContainText('Monthly Amount');
 
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -266,7 +255,7 @@ test('clicking Log Actual on Netflix opens a dialog with amount and date fields'
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
   await expect(page.locator('#la-amount')).toBeVisible();
   await expect(page.locator('#la-date')).toBeVisible();
-  await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('Monthly Threshold');
+  await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('Monthly Amount');
   await page.screenshot({ path: 'tests/screenshots/exp-pay-05c-log-actual-dialog.png' });
 });
 
@@ -299,8 +288,8 @@ test('Record Payment dialog pre-fills the actual amount with the estimated amoun
   expect(parseFloat(val)).toBeCloseTo(95, 0);
 });
 
-test('Record Payment dialog shows the monthly threshold as a hint', async () => {
-  await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('Monthly Threshold');
+test('Record Payment dialog shows the monthly amount as a hint', async () => {
+  await expect(page.locator('[data-testid="modal-dialog"]')).toContainText('Monthly Amount');
 });
 
 test('Record Payment dialog has a date picker', async () => {
@@ -434,10 +423,10 @@ test('dashboard reminders do not include the auto-pay Netflix bill', async () =>
 // ── Test: ghost-paid regression guard ────────────────────────────────────────
 
 test('new recurring bill with a next-month due date is NOT auto-marked paid', async () => {
-  // A bill whose first due date is in the next month gets expense.date = current month
-  // (the form's prevPeriod calculation).  The old code would read expense.date and
-  // falsely mark the bill as paid.  The current code requires an explicit
-  // ExpensePaidRecord — so no badge should appear.
+  // A bill whose First Due Date is next month gets expense.notYetBilled = true
+  // and expense.date = that future date. Billing status/auto-pay/catch-up must
+  // all suppress until that date actually arrives — this requires an explicit
+  // ExpensePaidRecord either way, so no "Paid" badge should appear.
   await navigateTo(page, 'expenses');
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -446,7 +435,7 @@ test('new recurring bill with a next-month due date is NOT auto-marked paid', as
   await page.fill('#ef-amount', '25');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', NEXT_MONTH_DATE);
+  await page.fill('#ef-date', NEXT_MONTH_DATE);
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -473,8 +462,7 @@ test('auto-pay bill with an overdue date shows no Past Due or Due-soon badge', a
   await page.fill('#ef-amount', '10');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 
   await page.click('[data-testid="modal-submit"]');
@@ -491,22 +479,22 @@ test('auto-pay bill with an overdue date shows no Past Due or Due-soon badge', a
 
 // ── Test: Record Payment overage warning ──────────────────────────────────────
 
-test('Record Payment dialog shows overage warning when amount exceeds the monthly threshold', async () => {
+test('Record Payment dialog shows overage warning when amount exceeds the monthly amount', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  // Electric Bill threshold is $95 — enter $120 to trigger the overage warning
+  // Electric Bill's amount is $95 — enter $120 to trigger the overage warning
   await page.fill('[data-testid="expense-pay-amount"]', '120');
   await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toBeVisible();
-  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly threshold');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly amount');
   await page.screenshot({ path: 'tests/screenshots/exp-pay-14-record-overage.png' });
 
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 });
 
-test('Record Payment overage warning disappears when amount drops back below the threshold', async () => {
+test('Record Payment overage warning disappears when amount drops back to the expected amount', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' });
   await row.locator('[data-testid="expense-record-payment"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
@@ -540,15 +528,15 @@ test('Update Actual dialog pre-fills the amount with the previously logged value
 
 // ── Test: Log Actual overage warning ─────────────────────────────────────────
 
-test('Log Actual dialog shows overage warning when amount exceeds the monthly threshold', async () => {
+test('Log Actual dialog shows overage warning when amount exceeds the monthly amount', async () => {
   const row = page.locator('[data-testid="expense-row"]').filter({ hasText: 'Netflix' });
   await row.locator('[data-testid="expense-log-actual"]').click();
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  // Netflix threshold is $18 — enter $25 to trigger the overage warning
+  // Netflix's amount is $18 — enter $25 to trigger the overage warning
   await page.fill('#la-amount', '25');
   await expect(page.locator('#la-overage-msg')).toBeVisible();
-  await expect(page.locator('#la-overage-msg')).toContainText('Over monthly threshold');
+  await expect(page.locator('#la-overage-msg')).toContainText('Over monthly amount');
   await page.screenshot({ path: 'tests/screenshots/exp-pay-16-log-actual-overage.png' });
 
   await page.keyboard.press('Escape');

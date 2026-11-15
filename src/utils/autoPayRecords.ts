@@ -46,16 +46,30 @@ export async function autoRecordAutoPay(windowStart: Date | null): Promise<AutoP
   const now = Date.now();
 
   for (const expense of fixedAutoPayBills) {
+    // Billing hasn't started yet — expense.date is the real first due date the
+    // user chose (possibly months out), not a prior cycle. Skip entirely until
+    // it actually arrives. enumerateLapsedExpenseCycles() guards the same way
+    // for non-fixed-amount bills.
+    if (expense.notYetBilled && now < expense.date) continue;
+
     const interval = billInterval(expense.recurringFrequency);
 
-    // Walk forward from the anchor, collecting every cycle due before now.
+    // Walk forward, collecting every cycle due before now. If billing hasn't
+    // started yet (notYetBilled, and the guard above already confirmed
+    // expense.date <= now), expense.date IS the first unpaid cycle itself —
+    // not "already paid, find next after it" — so it's the first candidate
+    // directly; computeNextDue only applies to cycles after that one. For an
+    // ongoing bill (notYetBilled unset), expense.date really is the last paid
+    // date, so every candidate — including the first — comes from computeNextDue.
     const dueDates: number[] = [];
     let cursor = expense.date;
-    for (;;) {
-      const dueDateTs = computeNextDue(new Date(cursor), expense.dueDay!, interval).getTime();
-      if (dueDateTs >= now) break;
-      dueDates.push(dueDateTs);
-      cursor = dueDateTs;
+    let candidate = expense.notYetBilled
+      ? cursor
+      : computeNextDue(new Date(cursor), expense.dueDay!, interval).getTime();
+    while (candidate < now) {
+      dueDates.push(candidate);
+      cursor = candidate;
+      candidate = computeNextDue(new Date(cursor), expense.dueDay!, interval).getTime();
     }
     if (dueDates.length === 0) continue;
 
@@ -98,9 +112,13 @@ export async function autoRecordAutoPay(windowStart: Date | null): Promise<AutoP
     }
 
     // Single write per expense, advancing all the way to the most recent
-    // cycle regardless of how many were actually recorded vs. skipped.
-    if (mostRecent !== expense.date) {
-      await saveExpense({ ...expense, date: mostRecent });
+    // cycle regardless of how many were actually recorded vs. skipped, and
+    // clearing notYetBilled now that the first real cycle has been handled
+    // (even if mostRecent happens to equal expense.date itself).
+    if (mostRecent !== expense.date || expense.notYetBilled) {
+      const updated = { ...expense, date: mostRecent };
+      delete updated.notYetBilled;
+      await saveExpense(updated);
     }
   }
 

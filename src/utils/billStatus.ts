@@ -39,22 +39,20 @@ export function billInterval(freq: string | null | undefined): number {
   return 1;
 }
 
-// ── Expense billing state — three-field invariant ──────────────────────────────
+// ── Expense billing state — two-field invariant ─────────────────────────────────
 //
-// expense.date      Billing anchor / last-paid tracker. Starts as the Start Date
-//                   the user entered. After every recorded payment it is advanced
-//                   to the payment timestamp. computeBillStatus reads this as
-//                   "lastPaid" to decide whether the current cycle has been paid.
+// expense.date         The First Due Date the user entered — always required, for
+//                       recurring and one-time expenses alike. Once a payment is
+//                       recorded it's advanced to the payment timestamp, at which
+//                       point computeBillStatus reads it as "lastPaid" to decide
+//                       whether the current cycle has been paid.
 //
-// expense.startDate Informational only — the date the user says the service began.
-//                   Never used for billing status computation.
-//
-// expense.firstDueDate  Guard for not-yet-started billing. Present only if the
-//                       user entered a First Due Date that is in the future at
-//                       creation time. While today < firstDueDate the status is
-//                       suppressed (returns 'ok' or 'due-soon' at most). Cleared
-//                       implicitly once a payment is recorded (saveExpense advances
-//                       expense.date and ExpenseForm deletes firstDueDate on save).
+// expense.notYetBilled  Guard for not-yet-started billing. Present only while
+//                       `date` is a future due date that hasn't been billed yet.
+//                       While set and today < date, status is suppressed (returns
+//                       'ok' or 'due-soon' at most). Cleared implicitly once a
+//                       payment is recorded (saveExpense advances expense.date and
+//                       every recording path deletes notYetBilled on save).
 //
 // Files that write expense.date: ExpenseForm.ts (anchor setup), ExpensePaymentModal.ts
 // (payment recorded), autoPayRecords.ts (auto-pay recorded).
@@ -64,20 +62,34 @@ export function computeBillStatus(expense: Expense, now = new Date()): BillPayme
     return { status: 'ok', dueDayThisMonth: null };
   }
 
-  // Billing hasn't started yet — suppress past-due until first due date arrives.
-  // If firstDueDate is within 7 days, surface as due-soon so user isn't surprised.
-  if (expense.firstDueDate) {
+  // Nothing has ever been paid against this bill yet — expense.date is the
+  // first due date itself (possibly in the past, today, or the future), not
+  // a real prior payment. Handle it before the normal "paid within the last
+  // 14 days" check below, which would otherwise misread a never-paid date
+  // that happens to fall inside that lookback window as "already paid."
+  if (expense.notYetBilled) {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (todayStart < expense.firstDueDate) {
-      const daysUntilFirstDue = Math.floor((expense.firstDueDate - todayStart) / 86_400_000);
+    if (todayStart < expense.date) {
+      // Future first due: suppress past-due until it arrives. If it's within
+      // 7 days, surface as due-soon so the user isn't surprised.
+      const daysUntilFirstDue = Math.floor((expense.date - todayStart) / 86_400_000);
       if (daysUntilFirstDue > 7) {
         return { status: 'ok', dueDayThisMonth: null };
       }
-      const firstDue = new Date(expense.firstDueDate);
+      const firstDue = new Date(expense.date);
       const maxDay = new Date(firstDue.getFullYear(), firstDue.getMonth() + 1, 0).getDate();
       const clampedDay = Math.min(firstDue.getDate(), maxDay);
       return { status: 'due-soon', dueDayThisMonth: new Date(firstDue.getFullYear(), firstDue.getMonth(), clampedDay) };
     }
+    // Due today or already passed, and never paid — this first cycle is
+    // simply past-due (today counts as past-due, same as the ongoing-bill
+    // convention below: daysUntilDue <= 0). dueDayThisMonth mirrors this
+    // month's occurrence of the due day, same convention as the ongoing path.
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const maxDay = new Date(year, month + 1, 0).getDate();
+    const dueDayThisMonth = new Date(year, month, Math.min(expense.dueDay, maxDay));
+    return { status: 'past-due', dueDayThisMonth };
   }
 
   const year  = now.getFullYear();

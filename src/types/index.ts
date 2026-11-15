@@ -94,14 +94,12 @@ export interface Expense {
   categoryId: string;
   memberId: string | null;
   description: string;
-  amount: number;          // monthly threshold / expected amount — the primary budget figure for this expense
-  date: number;            // billing cycle anchor — last recorded payment date; used by computeBillStatus to determine cycle status
-  startDate?: number;      // informational: when this expense/service started; NOT used for billing; shown as "Start Date" in the form
-  firstDueDate?: number;   // full timestamp of the first billing due date; while today < firstDueDate, computeBillStatus returns 'ok' (not yet billing)
+  amount: number;          // the amount due — the one figure for this expense; no separate per-expense threshold
+  date: number;            // the First Due Date the user entered, always required; becomes "lastPaid" once a payment is recorded (see billStatus.ts)
+  notYetBilled?: true;     // present only while `date` is a future due date that hasn't been billed yet; cleared the instant any payment is recorded
   recurring: boolean;
   recurringFrequency: IncomeFrequency | null;
   dueDay?: number;         // day of month this bill is due (1–31); recurring bills only; clamped to month length at display/compute time
-  threshold?: number;      // optional alert cap — when set, overage warnings fire against this rather than amount
   linkedCardId?: string;   // card-type DebtAccount that auto-receives a charge when this expense is saved
   isFixedAmount?: boolean;  // actual payment always equals estimated; fixed-amount auto-pay bills are silently auto-recorded by `autoRecordAutoPay()`; pre-fills amount in Record Payment dialog
   isAutoPay?: boolean;      // automatically charged; fixed-amount bills are silently recorded on each app open; variable-amount bills surface a toast prompt to log the actual charge

@@ -34,11 +34,6 @@ const DUE_SOON_DAY: number | null = dayOfMonth < daysInMonth ? dayOfMonth + 1 : 
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
-// A date in the previous month — used to place expense.date outside the
-// 14-day cycle window so computeBillStatus returns 'past-due' (not 'paid').
-const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
-const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
-
 // -----------------------------------------------------------------------------
 
 test.beforeAll(async () => {
@@ -67,15 +62,16 @@ test('adds a Utilities category for bill testing', async () => {
 
 // ── Adding bills with due days ────────────────────────────────────────────────
 
-test('due-day field appears when recurring is checked', async () => {
+test('the First Due Date field is visible before and after checking recurring', async () => {
   await page.click('[data-testid="add-expense-btn"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).toBeVisible();
 
-  // Due date picker should be hidden before checking recurring
-  await expect(page.locator('#ef-duedate')).not.toBeVisible();
+  // First Due Date is the one always-required date field — for one-time and
+  // recurring expenses alike — not gated behind the Recurring checkbox.
+  await expect(page.locator('#ef-date')).toBeVisible();
 
   await page.check('#ef-recurring');
-  await expect(page.locator('#ef-duedate')).toBeVisible();
+  await expect(page.locator('#ef-date')).toBeVisible();
 
   // Close without saving
   await page.keyboard.press('Escape');
@@ -91,8 +87,7 @@ test('adds a past-due recurring bill (Electric Bill)', async () => {
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
@@ -110,7 +105,7 @@ test('adds a due-soon recurring bill (Water Bill)', async () => {
   await page.selectOption('#ef-cat', { label: 'Utilities' });
 
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY!));
+  await page.fill('#ef-date', thisMonthDate(DUE_SOON_DAY!));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();

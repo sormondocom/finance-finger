@@ -53,7 +53,7 @@ A fully offline browser extension for household budgeting, debt management, and 
   - [Accounts](#accounts)
   - [Expenses](#expenses)
   - [Bill tracking](#bill-tracking)
-  - [Bill cost thresholds](#bill-cost-thresholds)
+  - [Fixed-rate vs. variable-rate bills](#fixed-rate-vs-variable-rate-bills)
   - [Budget](#budget)
   - [Debt](#debt)
   - [Ledger](#ledger)
@@ -301,7 +301,7 @@ Both are visible at a glance on the account row. The Actual balance turns red wh
 
 **One-time expenses** — Record any single transaction: a new appliance, a vet bill, a vacation. Assigned to a category and optionally to a specific member.
 
-**Recurring expenses** — Mark any expense as recurring and set its frequency (weekly, biweekly, semi-monthly, monthly, quarterly, or annual). These feed the monthly total calculation and the Budget page. Recurring expenses can optionally carry a **due day** to become tracked bills.
+**Recurring expenses** — Mark any expense as recurring and set its frequency (weekly, biweekly, semi-monthly, monthly, quarterly, or annual). These feed the monthly total calculation and the Budget page. Every recurring expense has a **First Due Date**, which doubles as its due day — this is what makes it a tracked bill automatically, no separate step needed.
 
 **Billing portal link** — Any expense can store an optional URL for the biller's payment portal. The link icon on the expense row opens it directly so you can jump to the biller's site without leaving the app.
 
@@ -309,7 +309,7 @@ Both are visible at a glance on the account row. The Actual balance turns red wh
 
 ### Bill tracking
 
-A recurring expense becomes a **tracked bill** when you set a due day (1–31). Once a bill has a due day, the extension monitors its payment status each month:
+Every recurring expense is automatically a **tracked bill** — its First Due Date doubles as its due day (1–31), and the extension monitors its payment status each month:
 
 <p align="center">
   <img src="docs/screenshots/18-bills-status.png" alt="Bill status badges — Past Due and Due Soon" width="800" />
@@ -339,26 +339,18 @@ A recurring expense becomes a **tracked bill** when you set a due day (1–31). 
 
 ---
 
-### Bill cost thresholds
+### Fixed-rate vs. variable-rate bills
 
 Financial Finger treats recurring bills as either **fixed-rate** (the amount never varies — insurance, subscriptions) or **variable-rate** (the amount changes month to month — electricity, water, gas). The expense form has a **Fixed rate** checkbox:
 
-- **Fixed rate checked** — the amount field is the exact charge; the threshold field is hidden. The payment dialog pre-fills and locks the amount.
-- **Fixed rate unchecked** — the amount field becomes a **monthly threshold** (your spending target), and you enter the actual charge each month when marking the bill paid.
+- **Fixed rate checked** — the amount field is the exact charge. The payment dialog pre-fills and locks the amount.
+- **Fixed rate unchecked** — the amount field is what you expect the bill to cost, and you enter the actual charge each month when marking the bill paid.
 
-Any variable-rate recurring bill can have a **monthly threshold** set — the maximum you expect the bill to cost. Set one when you add or edit a recurring expense (the Threshold field is shown after checking "recurring" with Fixed rate unchecked).
+**When the actual payment runs over the expected amount:**
 
-**When thresholds kick in:**
-
-- **⚡ badge on the expense row** — shows your target amount at a glance alongside the frequency chip
-- **Inline overage warning in the Mark Paid dialog** — if you enter an amount above your threshold, the dialog immediately shows "⚠ Over target by $X.XX" so you know before you confirm
+- **Inline overage warning in the Mark Paid dialog** — if you enter an amount above the bill's expected amount, the dialog immediately shows "⚠ Over amount by $X.XX" so you know before you confirm
 - **Common Overage Offenders report** — historical view in the Reports page (see below)
-- **Daily briefing** — if a bill has exceeded its threshold 3 or more times in the last 6 months, it surfaces in the mascot's daily briefing as a persistent warning
-- **Mascot trend alert** — after you mark a bill paid with an over-threshold amount for the second consecutive time, Buck or Penny pops up with a pointed comment about adjusting your expectations
-
-<p align="center">
-  <img src="docs/screenshots/20-threshold-overage.png" alt="Inline overage warning in the Record Payment dialog" width="800" />
-</p>
+- **Mascot trend alert** — after you mark a bill paid over its expected amount for the second consecutive time, Buck or Penny pops up with a pointed comment about adjusting your expectations
 
 ---
 
@@ -398,7 +390,7 @@ The mascot fires automatically on the Budget page if you are running a deficit (
 - Introductory 0% APR end date — tracked separately so you know exactly when the promotional rate expires and the regular APR kicks in
 - Billing portal link — optional URL to the card's payment portal for one-click access when making payments
 
-**Amortization schedule** — Each card shows a full date-stamped schedule: period, payment, principal, interest split, and remaining balance. The footer summarizes total paid and total interest.
+**Amortization schedule** — Each card shows a full date-stamped schedule: period, payment, principal, interest split, and remaining balance. The footer summarizes total paid and total interest. An **extra payment** field lets you add a per-period amount on top of the minimum for that one account, to see how it changes the payoff date and interest — the schedule recalculates live, and a banner shows the interest and time saved if the extra payment pays the account off within the chosen horizon.
 
 **Payoff strategies** — Three modes:
 
@@ -473,9 +465,9 @@ All spending figures count **every outflow**: one-time expenses, bill payments (
 | **Spending by Week of Month** | Which week of the month costs the most |
 | **Recurring vs One-time** | What share of your spending is predictable each month |
 | **Payee Schedule** | Every recurring obligation grouped by frequency (annual → weekly) — payee name, per-period amount, annual total, and due day. Debt minimum payments included. Independent of the date range. |
-| **Common Overage Offenders** | Bills with a cost threshold set — month-by-month actual vs target, seasonal pattern detection |
+| **Common Overage Offenders** | Recurring bills — month-by-month actual vs expected amount, seasonal pattern detection |
 
-**Common Overage Offenders** is always all-time data (independent of the date range picker), because seasonal trends need multiple months to be meaningful. Each bill shows a grid of colored month cells: green with ✓ when under target, red with the overage amount when over. Bills with 3+ overages get a 🔥 marker. If a bill has 2+ overages clustering in the same season (summer, winter, spring, or fall), a seasonal pattern callout appears: "☀️ tends to spike in summer — plan ahead."
+**Common Overage Offenders** is always all-time data (independent of the date range picker), because seasonal trends need multiple months to be meaningful. Each bill shows a grid of colored month cells: green with ✓ when at or under the expected amount, red with the overage amount when over. Bills with 3+ overages get a 🔥 marker. If a bill has 2+ overages clustering in the same season (summer, winter, spring, or fall), a seasonal pattern callout appears: "☀️ tends to spike in summer — plan ahead."
 
 ---
 
@@ -492,7 +484,7 @@ Buck (male pig, cowboy aesthetic) and Penny (female pig, sunflower hat) are anim
 | **Daily briefing** | Dashboard on load when any debt payment or bill alert exists — shows an itemized, clickable list of everything that needs attention |
 | **Payment due** | Any debt account or bill is due within 7 days |
 | **Payment overdue** | Any debt payment or bill is past its due date |
-| **Expense trend** | You mark a recurring bill paid above its cost threshold for the second consecutive time — the mascot names the bill, the target, and how many times it has gone over |
+| **Expense trend** | You mark a recurring bill paid above its expected amount for the second consecutive time — the mascot names the bill, the amount, and how many times it has gone over |
 | **Minimum payment trap** | Opening the Debt page when any card triggers the trap detector |
 | **Negative cash flow** | Budget page when total spending exceeds income |
 | **Debt-free improvement** | Insights page when the what-if calculator shows meaningful savings from an extra payment |
@@ -718,13 +710,11 @@ Click any category pill in the management row to open the Edit Category modal. Y
 **Adding an expense**
 
 1. Click **+ Add Expense**.
-2. Fill in a description, amount, category, and date.
+2. Fill in a description, amount, category, and the **First Due Date** — always required, for one-time and recurring expenses alike. For a one-time expense this is simply when it's due; for a recurring bill it anchors the billing cycle (which day of the month it's due), and can be set in the future if billing hasn't started yet — nothing is recorded or charged until that date actually arrives.
 3. Optionally enter a **billing portal URL** — the link icon on the expense row will open it directly.
-4. Check **Recurring** to make it a recurring bill. This reveals:
+4. Check **Recurring** to make it a tracked bill, monitored each month. This reveals:
    - **Frequency** — weekly through annual (including quarterly).
-   - **Due day** (1–31) — turns the expense into a tracked bill monitored each month.
-   - **Fixed rate** — check this when the bill amount **never varies** (e.g. insurance, a streaming subscription). The payment dialog pre-fills the exact amount as read-only, and the separate threshold field is hidden — the amount is the budget. Leave it unchecked for variable bills (electricity, water) where you set a budget target and enter the actual charge each month.
-   - **Monthly threshold** — for variable-rate recurring bills, the maximum you expect the bill to cost each period. If an actual payment exceeds this, the app warns you in the payment dialog and tracks overages in Reports. Hidden when **Fixed rate** is checked.
+   - **Fixed rate** — check this when the bill amount **never varies** (e.g. insurance, a streaming subscription). The payment dialog pre-fills the exact amount as read-only — the amount is the budget. Leave it unchecked for variable bills (electricity, water) where you enter the actual charge each month.
    - **Auto-pay** — check this for bills paid automatically by your bank. When combined with **Fixed rate**, Financial Finger silently records the payment and debits the linked bank account on the next app open after the due date passes — no action required. Variable-rate auto-pay bills are not recorded automatically; the app shows a warning toast naming the bills and prompting you to log the actual charge via **Log Actual**. Auto-pay bills never show a Record Payment button and do not appear in payment reminders.
    - **Charge to card** — link the expense to a debt account so payments automatically create a charge entry on that card.
 5. Click **Save**.
@@ -737,7 +727,7 @@ A **Reminders** section appears at the bottom of the Add and Edit expense forms.
 
 1. Find a bill showing the ⏰ (due soon) or ⚠ (past due) badge and click **Mark Paid**.
 2. The dialog pre-fills the bill's usual amount. Change it to what you actually paid — important for variable bills like electricity or gas.
-3. If the amount exceeds your threshold, an inline warning shows the overage immediately before you confirm.
+3. If the amount exceeds the expected amount, an inline warning shows the overage immediately before you confirm.
 4. For tracked bills, a **billing cycle selector** shows two pill buttons — this month and last month. Select the cycle the payment covers. If you're catching up on a missed previous cycle, check the **"Covers additional billing cycle"** checkbox to record both months in one submission.
 5. Click **Mark as Paid**. The badge updates to ✓ Paid and the notifier refreshes automatically.
 
@@ -988,11 +978,11 @@ Use the preset buttons — **This Week, This Month, Last Month, Last 3 Mo., Last
 | Card Balance Trend | Check whether your card balances are rising or falling |
 | Spending by Week of Month | See if your paycheck timing is shaping your spending |
 | Recurring vs One-time | See how predictable your monthly spending is |
-| Common Overage Offenders | Audit bills that regularly exceed their monthly threshold |
+| Common Overage Offenders | Audit bills that regularly exceed their expected amount |
 
 **Common Overage Offenders**
 
-This card is always all-time data regardless of the date range, because seasonal patterns need multiple months of history to be meaningful. Each bill shows a grid of colored month cells: green ✓ when under threshold, red with the overage amount when over. Bills with 3 or more overages get a 🔥 marker. If 2 or more overages cluster in the same season (summer, winter, spring, or fall), a callout appears: "☀️ tends to spike in summer — plan ahead."
+This card is always all-time data regardless of the date range, because seasonal patterns need multiple months of history to be meaningful. Each bill shows a grid of colored month cells: green ✓ when at or under the expected amount, red with the overage amount when over. Bills with 3 or more overages get a 🔥 marker. If 2 or more overages cluster in the same season (summer, winter, spring, or fall), a callout appears: "☀️ tends to spike in summer — plan ahead."
 
 ---
 
@@ -1243,7 +1233,7 @@ The Help page is organized into **13 topic tabs**:
 | **Dashboard** | Reading summary cards, financial health chips, payment reminders, and the activity widget |
 | **Income** | Adding members and income sources, pay types, frequencies, and month navigation |
 | **Accounts** | Bank account types, balance display, ledger, and balance projection |
-| **Expenses & Bills** | Categories, recurring vs. one-time, bill tracking, thresholds, and the Mark Paid flow |
+| **Expenses & Bills** | Categories, recurring vs. one-time, bill tracking, and the Mark Paid flow |
 | **Calendar** | Grid layout, chip types, paint tool, memos, and marking payments |
 | **Budget** | Spending buckets, to-assign counter, donut chart, and zero-based budgeting |
 | **Debt** | Adding debt accounts, amortization, payoff strategies, what-if grid, and recording payments |
@@ -1387,7 +1377,7 @@ Go to **Accounts** and add your checking and savings accounts. Enter a starting 
 
 **Expenses**
 
-Go to **Expenses** and create your expense categories. Add every recurring bill with its due day. Set a monthly threshold on any bill that varies (electricity, water, gas) so the extension can warn you when an actual payment runs high.
+Go to **Expenses** and create your expense categories. Add every recurring bill with its first due date. For bills that vary (electricity, water, gas), leave **Fixed rate** unchecked so the extension can warn you when an actual payment runs above the expected amount.
 
 **Debt**
 
@@ -1414,7 +1404,7 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 1. Find the bill on the **Calendar** or **Expenses** page — ⏰ due soon or ⚠ past due.
 2. Click **Mark Paid**. Enter the actual amount paid.
 3. Select the billing cycle the payment covers using the pill buttons. If you're catching up on a missed previous month, check **Covers additional billing cycle** to record both in one go.
-4. If the amount is over your threshold, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern and suggest adjusting the threshold.
+4. If the amount is over the expected amount, the inline overage warning shows immediately. Note it — if this is the second overrun in a row, the mascot will name the pattern.
 5. The chip on the Calendar updates to ✓ Paid. The notifier refreshes. If that was the last open alert, the mascot dismisses itself automatically.
 
 ### When you make a debt payment
@@ -1435,7 +1425,7 @@ Go to **Settings** and set your preferred theme. Confirm the mascot name. Export
 1. Open **Reports** and set the range to **This Month**.
 2. Check the **KPI chips** — actual savings rate, total spending, net cash flow.
 3. Look at **By Category** — which category ran high? Did anything surprise you?
-4. Check **Common Overage Offenders** — any bills with a trend worth adjusting the threshold for?
+4. Check **Common Overage Offenders** — any bills with a trend worth adjusting the expected amount for?
 5. Open **Insights → Budgeting → 50/30/20** — the bar chart now reflects your actual spending split. How close are you to the guideline?
 6. Open **Debt → What-if grid** and add $25 to last month's extra payment target. See how much sooner the payoff date moves.
 7. Go to **Settings → Export** and download an encrypted backup of this month's vault. Store it somewhere safe.
@@ -1828,7 +1818,7 @@ Because Financial Finger uses PGP encryption for exports, the teacher controls e
 
 2. **Create the shared expense categories.** These will appear in every student's installation after import: Housing, Food, Transportation, Utilities, Healthcare, Personal, Entertainment, Savings — or whatever categories fit your curriculum.
 
-3. **Add template recurring expenses.** Model a realistic household: rent or mortgage, utilities (electric, water, gas), groceries, a car payment, insurance, streaming subscriptions. Set due days and monthly thresholds on the variable ones. This gives students a ready-made bill-tracking environment on day one.
+3. **Add template recurring expenses.** Model a realistic household: rent or mortgage, utilities (electric, water, gas), groceries, a car payment, insurance, streaming subscriptions. Set a first due date on each, and leave **Fixed rate** unchecked on the variable ones. This gives students a ready-made bill-tracking environment on day one.
 
 4. **Add income sources.** Create two or three members with income sources at different pay frequencies — one biweekly salary, one hourly part-time, one semi-monthly — so students can immediately see how the normalization to monthly works.
 
@@ -1864,7 +1854,7 @@ Because Financial Finger uses PGP encryption for exports, the teacher controls e
 
 **Emergency fund target** — Using the Emergency Fund calculator in the Learn tab, students calculate their 3-month and 6-month targets based on their actual recurring expenses. How many months would it take to reach the target saving $100, $200, or $300/month?
 
-**Overage threshold exercise** — Mark the electric bill's threshold at a modest $120. Over two or three class sessions, record payments that sometimes go over. Open Reports → Common Overage Offenders and discuss what a seasonal pattern means for annual budgeting.
+**Overage exercise** — Set the electric bill's expected amount at a modest $120 (Fixed rate unchecked). Over two or three class sessions, record payments that sometimes go over. Open Reports → Common Overage Offenders and discuss what a seasonal pattern means for annual budgeting.
 
 **Compound interest discussion** — Open the Learn tab → Saving & Investing → Compound Interest. Drag the slider to 20 years. What is the difference between $5,000 growing at 8% vs. festering at 22% APR? At what point does the investment line overtake the debt line on the chart?
 

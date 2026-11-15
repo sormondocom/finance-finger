@@ -45,6 +45,7 @@ export class DebtPage {
   private customOrder: string[] = [];
   private extraPayment = 0;
   private selectedAccountId: string | null = null;
+  private scheduleExtraPayment = 0;
   private _openChargesPanels = new Set<string>();
   private _chargesPageState = new Map<string, { page: number; pageSize: number; sortAsc: boolean }>();
   private container!: HTMLElement;
@@ -187,8 +188,9 @@ export class DebtPage {
 
     // ── Per-account schedule ──────────────────────────────────────────────
     this.container.appendChild(buildSchedulePanel(
-      this.accounts, this.selectedAccountId, this.horizonYears,
+      this.accounts, this.selectedAccountId, this.horizonYears, this.scheduleExtraPayment,
       (id) => { this.selectedAccountId = id; },
+      (extra) => { this.scheduleExtraPayment = extra; },
     ));
 
     // ── Payoff milestone timeline ──────────────────────────────────────────

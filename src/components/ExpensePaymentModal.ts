@@ -34,14 +34,14 @@ export function openExpensePaymentModal({
   onClose,
 }: ExpensePaymentModalOptions): void {
   const isBill = expense.recurring && !!expense.dueDay;
-  // Once a bill is paid, firstDueDate is no longer needed — billing has started.
-  const { firstDueDate: _fd, ...baseExpense } = expense;
+  // Once a bill is paid, notYetBilled is no longer needed — billing has started.
+  const { notYetBilled: _nyb, ...baseExpense } = expense;
   const isFixed = !!expense.isFixedAmount;
   const isUpdate = !!existingRecord;
   const today = defaultDate != null ? timestampToDateInput(defaultDate) : todayDateInput();
   const prefillDate = existingRecord ? timestampToDateInput(existingRecord.date) : today;
   const prefillAmount = existingRecord ? existingRecord.amount : expense.amount;
-  const overageLimit = expense.threshold ?? expense.amount;
+  const overageLimit = expense.amount;
 
   const body = document.createElement('div');
   body.className = 'expense-form';
@@ -58,9 +58,7 @@ export function openExpensePaymentModal({
         value="${prefillAmount.toFixed(2)}" ${isFixed ? 'readonly style="opacity:0.7"' : ''} />
       ${isFixed
         ? '<span class="form-hint">Fixed amount — same as estimated amount</span>'
-        : expense.threshold
-          ? `<span class="form-hint">Estimated: ${fmtCents.format(expense.amount)} · Target: ${fmtCents.format(expense.threshold)}</span>`
-          : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${fmtCents.format(expense.amount)}</span>`}
+        : `<span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Amount: ${fmtCents.format(expense.amount)}</span>`}
     </div>
     <div class="form-group">
       <label class="form-label" for="mp-date">Date paid</label>
@@ -97,7 +95,7 @@ export function openExpensePaymentModal({
       const val = parseFloat(amountInput.value);
       if (!isNaN(val) && val > overageLimit) {
         const over = val - overageLimit;
-        const label = expense.threshold ? 'Over target by' : `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by`;
+        const label = `Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} amount by`;
         overageMsg.textContent = `⚠ ${label} ${fmtCents.format(over)}`;
         overageMsg.style.cssText = 'display:block;color:var(--status-past-due);font-size:var(--text-xs);margin-top:var(--space-1)';
       } else {

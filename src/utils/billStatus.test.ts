@@ -215,4 +215,53 @@ describe('computeBillStatus', () => {
     expect(result.status).toBe('ok');
     expect(result.dueDayThisMonth?.getDate()).toBe(28);
   });
+
+  // ── notYetBilled — nothing has ever been paid against this bill ────────────
+
+  it('notYetBilled with a future due date is suppressed to ok (more than 7 days out)', () => {
+    const expense = makeExpense({
+      dueDay: 20,
+      date: new Date(2026, 2, 20).getTime(), // March 20 — more than a week out
+      notYetBilled: true,
+    });
+    const result = computeBillStatus(expense, new Date(2026, 0, 15)); // Jan 15
+    expect(result.status).toBe('ok');
+    expect(result.dueDayThisMonth).toBeNull();
+  });
+
+  it('notYetBilled with a future due date within 7 days shows due-soon, not paid', () => {
+    const expense = makeExpense({
+      dueDay: 18,
+      date: new Date(2026, 0, 18).getTime(), // Jan 18 — 3 days out
+      notYetBilled: true,
+    });
+    const result = computeBillStatus(expense, new Date(2026, 0, 15)); // Jan 15
+    expect(result.status).toBe('due-soon');
+    expect(result.dueDayThisMonth?.getDate()).toBe(18);
+  });
+
+  it('notYetBilled with a due date today or in the past is past-due, never "paid" — regression guard', () => {
+    // This is the exact bug this flag exists to prevent: a brand-new bill
+    // whose never-paid due date happens to fall inside the 14-day "paid
+    // early" lookback window must not be misread as already paid just
+    // because nothing has advanced expense.date yet.
+    const expense = makeExpense({
+      dueDay: 12,
+      date: new Date(2026, 0, 12).getTime(), // Jan 12 — 3 days ago, never paid
+      notYetBilled: true,
+    });
+    const result = computeBillStatus(expense, new Date(2026, 0, 15)); // Jan 15
+    expect(result.status).toBe('past-due');
+    expect(result.dueDayThisMonth?.getDate()).toBe(12);
+  });
+
+  it('notYetBilled with a due date exactly today is past-due (same "due today counts as past-due" convention)', () => {
+    const expense = makeExpense({
+      dueDay: 15,
+      date: new Date(2026, 0, 15).getTime(),
+      notYetBilled: true,
+    });
+    const result = computeBillStatus(expense, new Date(2026, 0, 15));
+    expect(result.status).toBe('past-due');
+  });
 });

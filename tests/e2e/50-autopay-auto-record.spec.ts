@@ -29,13 +29,13 @@ let privateKey: string;
 // Format numbers with US commas+decimals so assertions match Intl.NumberFormat display.
 const numFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// dueDay that is reliably past-due in the current month:
-// use (today - 3), clamped to a minimum of 1.  The expense's own date is set
-// to Dec 1 of the prior year so it falls well outside any billing cycle window.
+// First Due Date that is reliably past-due in the current month: (today - 3),
+// clamped to a minimum of 1 — this is the one date field now, filled directly
+// into #ef-date. Being in the past at creation sets expense.notYetBilled, and
+// autoRecordAutoPay treats that pending due date as the first candidate cycle
+// to record directly, exactly like an actually-overdue ongoing bill would.
 const today = new Date();
 const pastDueDay = Math.max(1, today.getDate() - 3);
-const priorYearDate = `${today.getFullYear() - 1}-12-01`;
-// Full date for the #ef-duedate field — same month/year as today but pastDueDay day.
 const dueDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(pastDueDay).padStart(2, '0')}`;
 const EXPENSE_AMOUNT = 29.99;
 
@@ -96,12 +96,10 @@ test('setup: add fixed-amount auto-pay expense linked to bank (past-due)', async
 
   await page.fill('#ef-desc', 'Streaming Service');
   await page.fill('#ef-amount', String(EXPENSE_AMOUNT));
-  // Set the expense date to well before the current billing cycle window
-  await page.fill('#ef-date', priorYearDate);
 
-  // Enable recurring + set due day to a past day this month
+  // Enable recurring + set the First Due Date to a past day this month
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', dueDateStr);
+  await page.fill('#ef-date', dueDateStr);
 
   // Mark fixed amount + auto-pay
   await page.check('#ef-fixed-amount');
@@ -235,10 +233,9 @@ test('setup: add variable-amount auto-pay expense (no isFixedAmount)', async () 
 
   await page.fill('#ef-desc', 'Electric Bill');
   await page.fill('#ef-amount', '120');
-  await page.fill('#ef-date', priorYearDate);
 
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', dueDateStr);
+  await page.fill('#ef-date', dueDateStr);
   // Do NOT check isFixedAmount — variable amount
   await page.check('#ef-autopay');
   await page.selectOption('#ef-bank-account', { label: 'Checking' });

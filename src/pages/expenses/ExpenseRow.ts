@@ -208,7 +208,7 @@ function openLogActualForm(
       <label class="form-label" for="la-amount">Actual amount charged <span class="req">*</span></label>
       <input id="la-amount" type="number" min="0" step="0.01"
         value="${prefillAmount.toFixed(2)}" />
-      <span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Threshold: ${fmtCents.format(expense.amount)}</span>
+      <span class="form-hint">${freqThresholdLabel(expense.recurringFrequency)} Amount: ${fmtCents.format(expense.amount)}</span>
     </div>
     <div class="form-group">
       <label class="form-label" for="la-date">Date charged</label>
@@ -235,7 +235,7 @@ function openLogActualForm(
     const val = parseFloat(amountInput.value);
     if (!isNaN(val) && val > expense.amount) {
       const over = val - expense.amount;
-      overageMsg.textContent = `⚠ Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} threshold by ${fmtCents.format(over)}`;
+      overageMsg.textContent = `⚠ Over ${freqThresholdLabel(expense.recurringFrequency).toLowerCase()} amount by ${fmtCents.format(over)}`;
       overageMsg.style.cssText = 'display:block;color:var(--status-past-due);font-size:var(--text-xs);margin-top:var(--space-1)';
     } else {
       overageMsg.style.display = 'none';
@@ -349,8 +349,8 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
     if (!expense.dueDay) return '';
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (expense.firstDueDate && todayStart < expense.firstDueDate) {
-      const firstDue = new Date(expense.firstDueDate);
+    if (expense.notYetBilled && todayStart < expense.date) {
+      const firstDue = new Date(expense.date);
       const opts: Intl.DateTimeFormatOptions = {
         month: 'short', day: 'numeric',
         ...(firstDue.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
@@ -404,17 +404,13 @@ export function buildExpenseRow(expense: Expense, ctx: ExpenseRowContext): HTMLE
 
   const logActualLabel = paidRecord ? '$ Update Actual' : '$ Log Actual';
 
-  const thresholdBadge = expense.threshold
-    ? `<span class="expense-threshold-badge" data-testid="expense-threshold-badge">⚡ ${fmtCents.format(expense.threshold)}</span>`
-    : '';
-
   const fixedBadge = !!expense.isFixedAmount && expense.recurring
     ? '<span class="expense-fixed-badge" data-testid="expense-fixed-badge">📌 Fixed rate</span>'
     : '';
 
   row.innerHTML = `
     <div class="expense-row-desc">
-      <div class="expense-row-desc-main">${statusBadge}${escapeHtml(expense.description)}${thresholdBadge}</div>
+      <div class="expense-row-desc-main">${statusBadge}${escapeHtml(expense.description)}</div>
       <div class="expense-row-desc-sub">
         <span class="expense-row-date">${dateLabel}</span>
         ${expense.recurring && freqLabel

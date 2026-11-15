@@ -29,10 +29,6 @@ const PAST_DUE_DAY = Math.max(1, dayOfMonth - 5);
 const pad = (n: number) => String(n).padStart(2, '0');
 const thisMonthDate = (day: number) => `${y}-${pad(mo + 1)}-${pad(Math.min(day, new Date(y, mo + 1, 0).getDate()))}`;
 
-// A date in the previous month — expense.date must be outside the 14-day
-// cycle window so computeBillStatus returns 'past-due' (not 'paid').
-const PREV_MONTH_DATE = `${new Date(y, mo - 1, 15).getFullYear()}-${pad(new Date(y, mo - 1, 15).getMonth() + 1)}-15`;
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.beforeAll(async () => {
@@ -67,8 +63,7 @@ test('setup: add Gas Bill (past-due recurring bill)', async () => {
   await page.fill('#ef-amount', '75');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
 
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();

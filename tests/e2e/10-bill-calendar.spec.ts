@@ -38,11 +38,6 @@ const OK_DAY: number | null = dayOfMonth + 8 <= daysInMonth ? dayOfMonth + 8 : n
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
 
-// A date in the previous month — expense.date must be outside the 14-day
-// cycle window so computeBillStatus returns 'past-due' (not 'paid').
-const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
-const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
-
 // ── Suite setup ───────────────────────────────────────────────────────────────
 
 test.beforeAll(async () => {
@@ -76,8 +71,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '120');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Electric Bill' })).toBeVisible();
 });
@@ -90,7 +84,7 @@ test('adds a due-soon recurring bill', async () => {
   await page.fill('#ef-amount', '75');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_DAY!));
+  await page.fill('#ef-date', thisMonthDate(DUE_SOON_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Internet' })).toBeVisible();
 });
@@ -103,7 +97,7 @@ test('adds an ok (not-yet-due) recurring bill', async () => {
   await page.fill('#ef-amount', '18');
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(OK_DAY!));
+  await page.fill('#ef-date', thisMonthDate(OK_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Streaming' })).toBeVisible();
 });

@@ -120,7 +120,6 @@ test('setup: add Internet Service ($80, recurring, past-due)', async () => {
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
   await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Internet Service' })).toBeVisible();
@@ -299,7 +298,6 @@ test('setup: add Phone Bill ($60, recurring) and pay it to Card Beta', async () 
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
   await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 

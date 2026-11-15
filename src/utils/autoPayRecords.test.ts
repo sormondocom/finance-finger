@@ -76,6 +76,71 @@ describe('autoRecordAutoPay — null window', () => {
   });
 });
 
+describe('autoRecordAutoPay — notYetBilled guard', () => {
+  it('does not record anything while billing has not started yet (due date in the future)', async () => {
+    // Reproduces a reported bug: a new auto-pay bill created today with a
+    // deliberately future first due date (e.g. 3 months out) was getting
+    // silently billed almost immediately — computeNextDue() was walking
+    // forward from expense.date (still just the start date) and finding the
+    // next occurrence of dueDay, which is nowhere near the actual chosen
+    // first due date.
+    (getExpenses as ReturnType<typeof vi.fn>).mockResolvedValue([
+      makeExpense({
+        date: new Date(2026, 5, 1).getTime(), // June 1 — months out
+        dueDay: 1,
+        notYetBilled: true,
+      }),
+    ]);
+    const result = await autoRecordAutoPay(windowStart(90));
+    expect(result).toEqual({ recorded: 0, recordedItems: [] });
+    expect(accounting.recordExpensePayment).not.toHaveBeenCalled();
+    expect(saveExpense).not.toHaveBeenCalled();
+  });
+
+  it('records the due date itself, and clears notYetBilled, once it has actually arrived', async () => {
+    (getExpenses as ReturnType<typeof vi.fn>).mockResolvedValue([
+      makeExpense({
+        date: new Date(2026, 2, 1).getTime(), // today, March 15, is past this
+        dueDay: 1,
+        notYetBilled: true,
+      }),
+    ]);
+    const result = await autoRecordAutoPay(windowStart(90));
+    expect(result.recorded).toBe(1);
+    expect(accounting.recordExpensePayment).toHaveBeenCalledWith(expect.objectContaining({ date: new Date(2026, 2, 1).getTime() }));
+    const savedExpense = (saveExpense as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(savedExpense.date).toBe(new Date(2026, 2, 1).getTime());
+    expect(savedExpense.notYetBilled).toBeUndefined();
+    expect('notYetBilled' in savedExpense).toBe(false);
+  });
+
+  it('a brand-new bill created already severely overdue still catches every lapsed cycle, not just the first', async () => {
+    // notYetBilled=true with date far in the past (e.g. a bill added for the
+    // first time, already 3 months overdue) must walk forward from the due
+    // date itself as the first candidate, then keep stepping via
+    // computeNextDue for every cycle after that — not stop after one.
+    (getExpenses as ReturnType<typeof vi.fn>).mockResolvedValue([
+      makeExpense({
+        date: new Date(2025, 11, 1).getTime(), // Dec 1, 2025 — 3+ months before NOW (March 15, 2026)
+        dueDay: 1,
+        notYetBilled: true,
+      }),
+    ]);
+    const result = await autoRecordAutoPay(windowStart(90));
+    // Dec 1, Jan 1, Feb 1, Mar 1 are all due before March 15 — only the most
+    // recent (Mar 1) is always recorded regardless of window; windowStart(90)
+    // reaches back to mid-December, so Jan 1 and Feb 1 are also in-window.
+    // Dec 1 itself is just outside the 90-day window and is skipped.
+    expect(result.recorded).toBe(3);
+    expect(accounting.recordExpensePayment).toHaveBeenNthCalledWith(1, expect.objectContaining({ date: new Date(2026, 0, 1).getTime() }));
+    expect(accounting.recordExpensePayment).toHaveBeenNthCalledWith(2, expect.objectContaining({ date: new Date(2026, 1, 1).getTime() }));
+    expect(accounting.recordExpensePayment).toHaveBeenNthCalledWith(3, expect.objectContaining({ date: new Date(2026, 2, 1).getTime() }));
+    const savedExpense = (saveExpense as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(savedExpense.date).toBe(new Date(2026, 2, 1).getTime());
+    expect('notYetBilled' in savedExpense).toBe(false);
+  });
+});
+
 describe('autoRecordAutoPay — scope filtering', () => {
   it('ignores variable-amount bills entirely (handled by the catch-up checklist instead)', async () => {
     (getExpenses as ReturnType<typeof vi.fn>).mockResolvedValue([makeExpense({ isFixedAmount: false })]);

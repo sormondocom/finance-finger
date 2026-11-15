@@ -30,7 +30,15 @@ let context: BrowserContext;
 let page: Page;
 let cleanup: () => Promise<void>;
 
-const today = new Date().toISOString().split('T')[0]!;
+// Local date construction — toISOString() converts to UTC, which rolls over
+// to the next calendar day during evening hours west of UTC. That mismatch
+// used to be harmless here (expense.date just needed to be "close enough" to
+// today), but now that a one-time expense's date determines notYetBilled
+// (whether its linked-card charge posts immediately), a stray "tomorrow"
+// value would wrongly defer that charge — see syncLinkedCharge in
+// src/pages/expenses/ExpenseForm.ts.
+const _now = new Date();
+const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

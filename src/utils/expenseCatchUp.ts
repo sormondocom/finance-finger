@@ -30,12 +30,19 @@ export function enumerateLapsedExpenseCycles(
   windowStart: Date,
 ): LapsedExpenseCycle[] {
   if (!expense.recurring || !expense.dueDay) return [];
-  if (expense.firstDueDate && now.getTime() < expense.firstDueDate) return [];
+  if (expense.notYetBilled && now.getTime() < expense.date) return [];
 
   const interval = billInterval(expense.recurringFrequency);
   const results: LapsedExpenseCycle[] = [];
 
-  let candidate = computeNextDue(new Date(expense.date), expense.dueDay, interval);
+  // If billing hasn't started yet but the due date has now arrived/passed
+  // (notYetBilled, guard above already confirmed expense.date <= now),
+  // expense.date IS the first unpaid cycle itself, not "already paid, find
+  // next after it" — so it's the first candidate directly, same reasoning as
+  // autoRecordAutoPay.ts's walk-forward.
+  let candidate = expense.notYetBilled
+    ? new Date(expense.date)
+    : computeNextDue(new Date(expense.date), expense.dueDay, interval);
   while (candidate < now) {
     if (candidate >= windowStart) {
       results.push({

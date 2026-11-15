@@ -24,7 +24,7 @@ const thisMonthPadded = String(today.getMonth() + 1).padStart(2, '0');
 const PAST_DUE_BILL_DAY = Math.max(1, dayOfMonth - 6);
 // Due-soon bill: 3 days from now. computeBillStatus (src/utils/billStatus.ts)
 // always re-derives "day of month" against the *current* real month/year —
-// it ignores which month the #ef-duedate value itself was entered in — so a
+// it ignores which month the #ef-date value itself was entered in — so a
 // day number has to fit within the current month's actual length or the
 // offset can't be represented at all this month (a hardcoded cap, e.g. 27,
 // broke silently once dayOfMonth passed it: Math.min(27, dayOfMonth + 3)
@@ -39,11 +39,6 @@ const PAST_DUE_CARD_DAY = Math.max(1, dayOfMonth - 4);
 
 const thisMonthDate = (day: number): string =>
   `${thisYear}-${thisMonthPadded}-${String(day).padStart(2, '0')}`;
-
-// A date in the previous month — expense.date must be outside the 14-day
-// cycle window so computeBillStatus returns 'past-due' (not 'paid').
-const _prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15);
-const PREV_MONTH_DATE = `${_prevMonth.getFullYear()}-${String(_prevMonth.getMonth() + 1).padStart(2, '0')}-15`;
 
 test.beforeAll(async () => {
   const ext = await launchExtensionContext();
@@ -88,8 +83,7 @@ test('adds a past-due recurring bill', async () => {
   await page.fill('#ef-amount', '55');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-date', PREV_MONTH_DATE);
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_BILL_DAY));
+  await page.fill('#ef-date', thisMonthDate(PAST_DUE_BILL_DAY));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Water Bill' })).toBeVisible();
 });
@@ -102,7 +96,7 @@ test('adds a due-soon recurring bill', async () => {
   await page.fill('#ef-amount', '80');
   await page.selectOption('#ef-cat', { label: 'Utilities' });
   await page.check('#ef-recurring');
-  await page.fill('#ef-duedate', thisMonthDate(DUE_SOON_BILL_DAY!));
+  await page.fill('#ef-date', thisMonthDate(DUE_SOON_BILL_DAY!));
   await page.click('[data-testid="modal-submit"]');
   await expect(page.locator('[data-testid="expense-row"]').filter({ hasText: 'Phone Bill' })).toBeVisible();
 });

@@ -50,7 +50,6 @@ const SCREENSHOTS = [
   ['bills-05a-mark-paid-modal.png',     '19-bills-mark-paid.png'],
 
   // Bill cost thresholds
-  ['threshold-04-overage-warning.png',  '20-threshold-overage.png'],
 
   // Debt — payment flow
   ['dp-04-pay-modal.png',               '21-debt-pay-modal.png'],

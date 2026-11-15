@@ -63,12 +63,27 @@ describe('enumerateLapsedExpenseCycles', () => {
     ]);
   });
 
-  it('suppresses everything while billing has not started (firstDueDate in the future)', () => {
-    const expense = makeExpense({ firstDueDate: new Date(2026, 5, 1).getTime() });
+  it('suppresses everything while billing has not started (due date in the future)', () => {
+    const expense = makeExpense({ date: new Date(2026, 5, 1).getTime(), notYetBilled: true });
     const now = new Date(2026, 2, 15);
     const windowStart = new Date(2026, 0, 1);
 
     expect(enumerateLapsedExpenseCycles(expense, now, windowStart)).toEqual([]);
+  });
+
+  it('treats the due date itself as the first lapsed cycle for a brand-new bill created already overdue', () => {
+    // notYetBilled=true with date in the past (e.g. tracking a bill for the
+    // first time when it's already overdue) must include that due date
+    // itself as a lapsed cycle, not skip straight to the cycle after it.
+    const expense = makeExpense({ date: new Date(2026, 1, 1).getTime(), notYetBilled: true }); // Feb 1
+    const now = new Date(2026, 2, 15); // March 15 — Feb 1 and Mar 1 both lapsed
+    const windowStart = new Date(2026, 0, 1);
+
+    const result = enumerateLapsedExpenseCycles(expense, now, windowStart);
+    expect(result.map((c) => c.dueDate)).toEqual([
+      new Date(2026, 1, 1).getTime(),
+      new Date(2026, 2, 1).getTime(),
+    ]);
   });
 
   it('carries isAutoPay through for variable-amount auto-pay bills', () => {

@@ -96,7 +96,6 @@ test('setup: add Power Bill ($100, variable, non-auto-pay)', async () => {
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
   await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   // Leave fixed-amount and auto-pay unchecked
 
   await page.click('[data-testid="modal-submit"]');
@@ -113,7 +112,6 @@ test('setup: add Broadband ($60, auto-pay)', async () => {
   await page.selectOption('#ef-cat', { label: 'Bills' });
   await page.check('#ef-recurring');
   await page.fill('#ef-date', thisMonthDate(PAST_DUE_DAY));
-  await page.fill('#ef-duedate', thisMonthDate(PAST_DUE_DAY));
   await page.check('#ef-autopay');
 
   await page.click('[data-testid="modal-submit"]');
@@ -208,7 +206,7 @@ test('overage warning fires in Edit Payment dialog when amount exceeds $100 thre
   await openEditPaymentDialog();
   await page.fill('[data-testid="expense-pay-amount"]', '120');
   await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toBeVisible();
-  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly threshold');
+  await expect(page.locator('[data-testid="expense-pay-overage-msg"]')).toContainText('Over monthly amount');
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="modal-dialog"]')).not.toBeVisible();
 });

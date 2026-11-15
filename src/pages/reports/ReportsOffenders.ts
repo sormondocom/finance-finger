@@ -9,7 +9,7 @@ export function buildOverageOffenders(
 ): HTMLElement {
   const card = makeReportCard(
     'Common Overage Offenders',
-    'Recurring expenses — showing actual paid amounts vs the monthly threshold across months',
+    'Recurring expenses — showing actual paid amounts vs the expected amount across months',
   );
 
   const tracked = expenses.filter((e) => e.recurring && e.amount > 0);

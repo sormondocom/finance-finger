@@ -198,8 +198,14 @@ function launchApp(): void {
   // (bounded by how long it's actually been, capped by catchUpWindowDays), while
   // debt payments and other recurring bills are surfaced as a single mascot-hosted
   // checklist the user confirms or declines one at a time. See src/utils/catchUp.ts.
+  //
+  // One-time per-record migration first (startDate/firstDueDate/threshold →
+  // date/notYetBilled) — runCatchUp's own expense logic assumes the new shape.
   void getAndStampLastOpenedAt().then((prevOpenedAt) => {
-    void import('@/utils/catchUp')
+    void import('@/utils/expenseDateMigration')
+      .then(({ migrateLegacyExpenseDates }) => migrateLegacyExpenseDates())
+      .catch((err) => console.error('migrateLegacyExpenseDates failed:', err))
+      .then(() => import('@/utils/catchUp'))
       .then(({ runCatchUp }) => runCatchUp(prevOpenedAt))
       .catch((err) => console.error('runCatchUp failed:', err));
   });

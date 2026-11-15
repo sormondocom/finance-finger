@@ -595,22 +595,6 @@
   box-shadow: inset 4px 0 0 var(--status-paid);
 }
 
-/* ── Threshold badge ─────────────────────────────────────────────────────── */
-
-.expense-threshold-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: var(--weight-semibold);
-  padding: 1px 5px;
-  border-radius: var(--radius-full);
-  background: rgba(201, 168, 76, 0.1);
-  color: var(--ff-gold-dark);
-  border: 1px solid rgba(201, 168, 76, 0.3);
-  white-space: nowrap;
-  margin-left: var(--space-1);
-  vertical-align: middle;
-}
 
 /* ── Auto-pay badge ──────────────────────────────────────────────────────── */
 
